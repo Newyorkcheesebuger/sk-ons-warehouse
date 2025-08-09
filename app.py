@@ -9,6 +9,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 import uuid
+import pytz
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
@@ -29,6 +30,31 @@ def get_local_ip():
         return ip
     except:
         return "127.0.0.1"
+
+
+def get_korea_time():
+    """한국시간(KST)을 반환합니다."""
+    korea_tz = pytz.timezone('Asia/Seoul')
+    return datetime.now(korea_tz)
+
+
+def format_korea_time(utc_time_str):
+    """UTC 시간 문자열을 한국시간으로 변환하여 포맷팅합니다."""
+    if not utc_time_str:
+        return '미설정'
+    
+    try:
+        # UTC 시간을 파싱
+        utc_time = datetime.strptime(utc_time_str, '%Y-%m-%d %H:%M:%S')
+        utc_time = pytz.utc.localize(utc_time)
+        
+        # 한국시간으로 변환
+        korea_tz = pytz.timezone('Asia/Seoul')
+        korea_time = utc_time.astimezone(korea_tz)
+        
+        return korea_time.strftime('%Y-%m-%d %H:%M:%S')
+    except:
+        return utc_time_str
 
 
 def open_browser():
@@ -64,7 +90,7 @@ def init_db():
         conn = sqlite3.connect('warehouse.db')
         c = conn.cursor()
 
-        # 사용자 테이블
+        # 사용자 테이블 (한국시간 기본값 설정)
         c.execute('''CREATE TABLE IF NOT EXISTS users
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       name TEXT NOT NULL,
@@ -72,14 +98,14 @@ def init_db():
                       team TEXT NOT NULL,
                       password TEXT NOT NULL,
                       is_approved INTEGER DEFAULT 0,
-                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                      created_at TEXT DEFAULT (datetime('now', '+9 hours')))''')
 
         # 관리자 계정 생성
         admin_password = generate_password_hash('Onsn1103813!')
         c.execute('INSERT OR IGNORE INTO users (name, employee_id, team, password, is_approved) VALUES (?, ?, ?, ?, ?)',
                   ('관리자', 'admin', '관리', admin_password, 1))
 
-        # 창고 재고 테이블
+        # 창고 재고 테이블 (한국시간 기본값 설정)
         c.execute('''CREATE TABLE IF NOT EXISTS inventory
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       warehouse TEXT NOT NULL,
@@ -87,19 +113,19 @@ def init_db():
                       part_name TEXT NOT NULL,
                       quantity INTEGER DEFAULT 0,
                       last_modifier TEXT,
-                      last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                      last_modified TEXT DEFAULT (datetime('now', '+9 hours')))''')
 
-        # 재고 변경 이력 테이블 (2주 데이터 보관용)
+        # 재고 변경 이력 테이블 (한국시간 기본값 설정)
         c.execute('''CREATE TABLE IF NOT EXISTS inventory_history
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       inventory_id INTEGER,
                       change_type TEXT,
                       quantity_change INTEGER,
                       modifier_name TEXT,
-                      modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      modified_at TEXT DEFAULT (datetime('now', '+9 hours')),
                       FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
 
-        # 사진 테이블
+        # 사진 테이블 (한국시간 기본값 설정)
         c.execute('''CREATE TABLE IF NOT EXISTS photos
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       inventory_id INTEGER,
@@ -107,7 +133,7 @@ def init_db():
                       original_name TEXT NOT NULL,
                       file_size INTEGER,
                       uploaded_by TEXT,
-                      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      uploaded_at TEXT DEFAULT (datetime('now', '+9 hours')),
                       FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
 
         conn.commit()
@@ -140,9 +166,12 @@ def register():
             flash('비밀번호는 8자리 이상이어야 합니다.')
             return render_template('register.html')
 
-        # 사번 검증 (N + 7자리 숫자)
-        if not employee_number.startswith('N') or len(employee_number) != 8:
-            flash('사번은 N으로 시작하고 7자리 숫자여야 합니다.')
+        # 사번 검증 - N이 없으면 자동으로 추가
+        if not employee_number.startswith('N'):
+            employee_number = 'N' + employee_number
+            
+        if len(employee_number) != 8:
+            flash('사번은 7자리 숫자여야 합니다.')
             return render_template('register.html')
 
         try:
@@ -372,10 +401,13 @@ def add_inventory_item():
     part_name = request.form['part_name']
     quantity = int(request.form['quantity'])
 
+    # 한국시간으로 현재 시간 얻기
+    korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+
     conn = sqlite3.connect('warehouse.db')
     c = conn.cursor()
-    c.execute('INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier) VALUES (?, ?, ?, ?, ?)',
-              (warehouse_name, category, part_name, quantity, session['user_name']))
+    c.execute('INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier, last_modified) VALUES (?, ?, ?, ?, ?, ?)',
+              (warehouse_name, category, part_name, quantity, session['user_name'], korea_time))
     conn.commit()
     conn.close()
 
@@ -465,13 +497,16 @@ def edit_inventory_item(item_id):
         quantity = int(request.form['quantity'])
         
         try:
-            # 아이템 정보 업데이트
-            c.execute('UPDATE inventory SET part_name = ?, quantity = ?, last_modifier = ?, last_modified = ? WHERE id = ?',
-                      (part_name, quantity, session['user_name'], datetime.now(), item_id))
+            # 한국시간으로 현재 시간 얻기
+            korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
             
-            # 수정 이력 저장
-            c.execute('INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name) VALUES (?, ?, ?, ?)',
-                      (item_id, 'edit', 0, session['user_name']))
+            # 아이템 정보 업데이트 (한국시간 사용)
+            c.execute('UPDATE inventory SET part_name = ?, quantity = ?, last_modifier = ?, last_modified = ? WHERE id = ?',
+                      (part_name, quantity, session['user_name'], korea_time, item_id))
+            
+            # 수정 이력 저장 (한국시간 사용)
+            c.execute('INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name, modified_at) VALUES (?, ?, ?, ?, ?)',
+                      (item_id, 'edit', 0, session['user_name'], korea_time))
             
             conn.commit()
             flash(f'물품 "{part_name}"이(가) 수정되었습니다.')
@@ -535,14 +570,17 @@ def update_quantity():
 
     new_quantity = current_quantity + quantity_change
 
-    # 재고 업데이트
-    c.execute('UPDATE inventory SET quantity = ?, last_modifier = ?, last_modified = ? WHERE id = ?',
-              (new_quantity, session['user_name'], datetime.now(), item_id))
+    # 한국시간으로 현재 시간 얻기
+    korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
 
-    # 이력 저장
+    # 재고 업데이트 (한국시간 사용)
+    c.execute('UPDATE inventory SET quantity = ?, last_modifier = ?, last_modified = ? WHERE id = ?',
+              (new_quantity, session['user_name'], korea_time, item_id))
+
+    # 이력 저장 (한국시간 사용)
     c.execute(
-        'INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name) VALUES (?, ?, ?, ?)',
-        (item_id, change_type, quantity_change, session['user_name']))
+        'INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name, modified_at) VALUES (?, ?, ?, ?, ?)',
+        (item_id, change_type, quantity_change, session['user_name'], korea_time))
 
     conn.commit()
     conn.close()
