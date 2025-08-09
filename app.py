@@ -539,19 +539,24 @@ def cleanup_old_history():
 
 # app.py 마지막 부분만 수정 (나머지는 동일)
 
+# app.py 맨 마지막 부분을 다음과 같이 완전히 교체하세요
+
 if __name__ == '__main__':
     init_db()
 
-    # 배포 환경 확인
-    is_production = os.environ.get('RENDER') or os.environ.get('PORT')
+    # Render.com 환경 변수 확인
     port = int(os.environ.get('PORT', 5000))
-
-    if is_production:
-        # 배포 환경 (Render, Railway 등)
-        print("🚀 SK오앤에스 창고관리 시스템 (배포 모드)")
-        print("🌐 외부 접속 가능한 서비스로 시작됩니다...")
+    is_render = os.environ.get('RENDER') is not None
+    
+    if is_render:
+        # Render.com 배포 환경
+        print("🚀 SK오앤에스 창고관리 시스템 (Render.com 배포)")
+        print(f"🌐 포트 {port}에서 서비스 시작...")
+        print("✅ 외부 접속 가능한 URL로 서비스됩니다.")
+        
+        # Render 요구사항: 0.0.0.0 호스트, PORT 환경변수 사용, debug=False
         app.run(host='0.0.0.0', port=port, debug=False)
-
+        
     else:
         # 로컬 개발 환경 (기존 코드)
         local_ip = get_local_ip()
