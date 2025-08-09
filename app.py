@@ -59,57 +59,67 @@ def allowed_file(filename):
 
 
 def init_db():
-    conn = sqlite3.connect('warehouse.db')
-    c = conn.cursor()
+    try:
+        print("데이터베이스 초기화 시작...")
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
 
-    # 사용자 테이블
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  name TEXT NOT NULL,
-                  employee_id TEXT UNIQUE NOT NULL,
-                  team TEXT NOT NULL,
-                  password TEXT NOT NULL,
-                  is_approved INTEGER DEFAULT 0,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        # 사용자 테이블
+        c.execute('''CREATE TABLE IF NOT EXISTS users
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      name TEXT NOT NULL,
+                      employee_id TEXT UNIQUE NOT NULL,
+                      team TEXT NOT NULL,
+                      password TEXT NOT NULL,
+                      is_approved INTEGER DEFAULT 0,
+                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
-    # 관리자 계정 생성
-    admin_password = generate_password_hash('Onsn1103813!')
-    c.execute('INSERT OR IGNORE INTO users (name, employee_id, team, password, is_approved) VALUES (?, ?, ?, ?, ?)',
-              ('관리자', 'admin', '관리', admin_password, 1))
+        # 관리자 계정 생성
+        admin_password = generate_password_hash('Onsn1103813!')
+        c.execute('INSERT OR IGNORE INTO users (name, employee_id, team, password, is_approved) VALUES (?, ?, ?, ?, ?)',
+                  ('관리자', 'admin', '관리', admin_password, 1))
 
-    # 창고 재고 테이블
-    c.execute('''CREATE TABLE IF NOT EXISTS inventory
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  warehouse TEXT NOT NULL,
-                  category TEXT NOT NULL,
-                  part_name TEXT NOT NULL,
-                  quantity INTEGER DEFAULT 0,
-                  last_modifier TEXT,
-                  last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        # 창고 재고 테이블
+        c.execute('''CREATE TABLE IF NOT EXISTS inventory
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      warehouse TEXT NOT NULL,
+                      category TEXT NOT NULL,
+                      part_name TEXT NOT NULL,
+                      quantity INTEGER DEFAULT 0,
+                      last_modifier TEXT,
+                      last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
-    # 재고 변경 이력 테이블 (2주 데이터 보관용)
-    c.execute('''CREATE TABLE IF NOT EXISTS inventory_history
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  inventory_id INTEGER,
-                  change_type TEXT,
-                  quantity_change INTEGER,
-                  modifier_name TEXT,
-                  modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
+        # 재고 변경 이력 테이블 (2주 데이터 보관용)
+        c.execute('''CREATE TABLE IF NOT EXISTS inventory_history
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      inventory_id INTEGER,
+                      change_type TEXT,
+                      quantity_change INTEGER,
+                      modifier_name TEXT,
+                      modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
 
-    # 사진 테이블
-    c.execute('''CREATE TABLE IF NOT EXISTS photos
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  inventory_id INTEGER,
-                  filename TEXT NOT NULL,
-                  original_name TEXT NOT NULL,
-                  file_size INTEGER,
-                  uploaded_by TEXT,
-                  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
+        # 사진 테이블
+        c.execute('''CREATE TABLE IF NOT EXISTS photos
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      inventory_id INTEGER,
+                      filename TEXT NOT NULL,
+                      original_name TEXT NOT NULL,
+                      file_size INTEGER,
+                      uploaded_by TEXT,
+                      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (inventory_id) REFERENCES inventory (id))''')
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
+        print("데이터베이스 초기화 완료!")
+        
+    except Exception as e:
+        print(f"데이터베이스 초기화 오류: {e}")
+
+
+# 🔥 핵심: 앱 시작 시 즉시 데이터베이스 초기화
+init_db()
 
 
 @app.route('/')
@@ -165,47 +175,58 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    employee_id = request.form['employee_id']
-    password = request.form['password']
+    try:
+        employee_id = request.form.get('employee_id', '')
+        password = request.form.get('password', '')
 
-    print(f"DEBUG: 로그인 시도 - ID: {employee_id}")
+        print(f"DEBUG: 로그인 시도 - ID: {employee_id}")
 
-    conn = sqlite3.connect('warehouse.db')
-    c = conn.cursor()
-    c.execute('SELECT id, name, employee_id, password, is_approved FROM users WHERE employee_id = ?', (employee_id,))
-    user = c.fetchone()
-    conn.close()
-
-    if user and check_password_hash(user[3], password):
-        if user[4] == 0:  # 승인되지 않은 사용자
-            flash('관리자 승인 대기 중입니다.')
+        # 입력값 검증
+        if not employee_id or not password:
+            flash('아이디와 비밀번호를 입력해주세요.')
             return redirect(url_for('index'))
 
-        # 세션 완전 초기화
-        session.clear()
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('SELECT id, name, employee_id, password, is_approved FROM users WHERE employee_id = ?', (employee_id,))
+        user = c.fetchone()
+        conn.close()
 
-        # 새 세션 설정
-        session['user_id'] = user[0]
-        session['user_name'] = user[1]
-        session['employee_id'] = user[2]
-        session['is_admin'] = (employee_id == 'admin')
-        session.permanent = True
+        if user and check_password_hash(user[3], password):
+            if user[4] == 0:  # 승인되지 않은 사용자
+                flash('관리자 승인 대기 중입니다.')
+                return redirect(url_for('index'))
 
-        print(f"DEBUG: 세션 설정 완료")
-        print(f"DEBUG: - user_id: {session['user_id']}")
-        print(f"DEBUG: - user_name: {session['user_name']}")
-        print(f"DEBUG: - employee_id: {session['employee_id']}")
-        print(f"DEBUG: - is_admin: {session['is_admin']}")
+            # 세션 완전 초기화
+            session.clear()
 
-        # 관리자와 일반 사용자 명확히 구분
-        if session['is_admin']:
-            print("DEBUG: 관리자 → admin_dashboard로 리다이렉트")
-            return redirect(url_for('admin_dashboard'))
+            # 새 세션 설정
+            session['user_id'] = user[0]
+            session['user_name'] = user[1]
+            session['employee_id'] = user[2]
+            session['is_admin'] = (employee_id == 'admin')
+            session.permanent = True
+
+            print(f"DEBUG: 세션 설정 완료")
+            print(f"DEBUG: - user_id: {session['user_id']}")
+            print(f"DEBUG: - user_name: {session['user_name']}")
+            print(f"DEBUG: - employee_id: {session['employee_id']}")
+            print(f"DEBUG: - is_admin: {session['is_admin']}")
+
+            # 관리자와 일반 사용자 명확히 구분
+            if session['is_admin']:
+                print("DEBUG: 관리자 → admin_dashboard로 리다이렉트")
+                return redirect(url_for('admin_dashboard'))
+            else:
+                print("DEBUG: 일반 사용자 → dashboard로 리다이렉트")
+                return redirect(url_for('dashboard'))
         else:
-            print("DEBUG: 일반 사용자 → dashboard로 리다이렉트")
-            return redirect(url_for('dashboard'))
-    else:
-        flash('아이디 또는 비밀번호가 잘못되었습니다.')
+            flash('아이디 또는 비밀번호가 잘못되었습니다.')
+            return redirect(url_for('index'))
+            
+    except Exception as e:
+        print(f"DEBUG: 로그인 중 오류 발생: {str(e)}")
+        flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
         return redirect(url_for('index'))
 
 
@@ -500,6 +521,35 @@ def logout():
     return redirect(url_for('index'))
 
 
+# 에러 핸들러 추가
+@app.errorhandler(500)
+def internal_error(error):
+    print(f"500 에러 발생: {error}")
+    return '''
+    <html>
+    <head><title>서버 오류</title></head>
+    <body>
+        <h1>서버 내부 오류</h1>
+        <p>죄송합니다. 서버에서 오류가 발생했습니다.</p>
+        <p><a href="/">홈으로 돌아가기</a></p>
+    </body>
+    </html>
+    ''', 500
+
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return '''
+    <html>
+    <head><title>페이지를 찾을 수 없음</title></head>
+    <body>
+        <h1>404 - 페이지를 찾을 수 없습니다</h1>
+        <p><a href="/">홈으로 돌아가기</a></p>
+    </body>
+    </html>
+    ''', 404
+
+
 # 디버깅을 위한 임시 라우트 (문제 해결 후 제거)
 @app.route('/debug_create_test_user')
 def debug_create_test_user():
@@ -537,14 +587,8 @@ def cleanup_old_history():
     conn.close()
 
 
-# app.py 마지막 부분만 수정 (나머지는 동일)
-
-# app.py 맨 마지막 부분을 다음과 같이 완전히 교체하세요
-
 if __name__ == '__main__':
-    init_db()
-
-    # Render.com 환경 변수 확인
+    # 배포 환경 확인
     port = int(os.environ.get('PORT', 5000))
     is_render = os.environ.get('RENDER') is not None
     
