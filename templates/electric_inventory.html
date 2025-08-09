@@ -1,317 +1,201 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div style="max-width: 1000px; margin: 0 auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <h3 style="color: #333; margin: 0;">🚗 전기차 부품 재고 현황</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            {% if is_admin %}
-            <button onclick="showAddItemModal()" class="btn btn-success btn-small">
-                + 부품 추가
-            </button>
-            {% endif %}
-            <a href="{{ url_for('warehouse', warehouse_name=warehouse_name) }}"
-               class="btn btn-secondary btn-small">
-                ← 뒤로가기
-            </a>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ warehouse_name }} - 전기차 부품 재고</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .inventory-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .inventory-table th, .inventory-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .inventory-table th { background-color: #f8f9fa; font-weight: bold; }
+        .inventory-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .quantity-controls { display: flex; gap: 5px; align-items: center; }
+        .quantity-input { width: 60px; padding: 5px; border: 1px solid #ddd; border-radius: 3px; }
+        .admin-controls { display: flex; gap: 5px; flex-wrap: wrap; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .add-item-form { background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ warehouse_name }} - 전기차 부품 재고</h1>
+            <div>
+                <a href="{{ url_for('warehouse', warehouse_name=warehouse_name) }}" class="btn btn-secondary">← 창고 메뉴</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-danger">로그아웃</a>
+            </div>
         </div>
-    </div>
 
-    {% if inventory %}
-    <div style="overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <table class="table" style="margin: 0;">
+        <!-- 플래시 메시지 -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash-success">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- 관리자용 새 물품 추가 폼 -->
+        {% if is_admin %}
+        <div class="add-item-form">
+            <h3>새 물품 추가</h3>
+            <form method="POST" action="{{ url_for('add_inventory_item') }}">
+                <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
+                <input type="hidden" name="category" value="전기차">
+                
+                <div class="form-group">
+                    <label for="part_name">부품명:</label>
+                    <input type="text" id="part_name" name="part_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quantity">초기 수량:</label>
+                    <input type="number" id="quantity" name="quantity" min="0" value="0" required>
+                </div>
+                
+                <button type="submit" class="btn btn-success">물품 추가</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- 재고 목록 -->
+        <table class="inventory-table">
             <thead>
                 <tr>
-                    <th>구분</th>
                     <th>부품명</th>
-                    <th>수량</th>
-                    <th>입고/출고</th>
-                    <th>최종수정자</th>
-                    <th>최종수정일</th>
+                    <th>현재 수량</th>
+                    <th>최종 수정자</th>
+                    <th>최종 수정일</th>
                     <th>사진</th>
+                    <th>작업</th>
+                    {% if is_admin %}
+                    <th>관리자 기능</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for item in inventory %}
                 <tr>
-                    <td style="font-weight: 500;">{{ item[1] }}</td>
-                    <td style="font-weight: 500;">{{ item[2] }}</td>
+                    <td><strong>{{ item[2] }}</strong></td>
                     <td>
-                        <span style="font-size: 18px; font-weight: bold; color: #333;">
+                        <span id="quantity-{{ item[0] }}" style="font-size: 18px; font-weight: bold; color: {% if item[3] > 0 %}#28a745{% else %}#dc3545{% endif %};">
                             {{ item[3] }}
                         </span>
-                        <span style="color: #666; font-size: 12px;">개</span>
+                    </td>
+                    <td>{{ item[4] or '미설정' }}</td>
+                    <td>{{ item[5][:16] if item[5] else '미설정' }}</td>
+                    <td>
+                        <a href="{{ url_for('view_photos', item_id=item[0]) }}" class="btn btn-info">
+                            사진 보기 ({{ item[6] }}장)
+                        </a>
                     </td>
                     <td>
-                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <button onclick="showQuantityModal({{ item[0] }}, 'in')"
-                                    class="btn btn-success btn-small" style="font-size: 12px;">
-                                +입고
-                            </button>
-                            <button onclick="showQuantityModal({{ item[0] }}, 'out')"
-                                    class="btn btn-danger btn-small" style="font-size: 12px;">
-                                -출고
-                            </button>
+                        <div class="quantity-controls">
+                            <input type="number" class="quantity-input" id="in-{{ item[0] }}" min="1" value="1" placeholder="수량">
+                            <button class="btn btn-success" onclick="updateQuantity({{ item[0] }}, 'in')">입고</button>
+                            
+                            <input type="number" class="quantity-input" id="out-{{ item[0] }}" min="1" value="1" placeholder="수량">
+                            <button class="btn btn-warning" onclick="updateQuantity({{ item[0] }}, 'out')">출고</button>
                         </div>
                     </td>
-                    <td style="font-size: 13px;">
-                        {{ item[4] if item[4] else '-' }}
-                    </td>
-                    <td style="font-size: 12px; color: #666;">
-                        {{ item[5][:16] if item[5] else '-' }}
-                    </td>
+                    {% if is_admin %}
                     <td>
-                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <button onclick="showPhotoUploadModal({{ item[0] }})"
-                                    class="btn btn-primary btn-small" style="font-size: 12px;">
-                                + ({{ item[6] }})
-                            </button>
-                            {% if item[6] > 0 %}
-                            <a href="{{ url_for('view_photos', item_id=item[0]) }}"
-                               class="btn btn-secondary btn-small" style="font-size: 12px;">
-                                보기
-                            </a>
-                            {% endif %}
+                        <div class="admin-controls">
+                            <a href="{{ url_for('edit_inventory_item', item_id=item[0]) }}" class="btn btn-primary">수정</a>
+                            <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
                         </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if is_admin %}7{% else %}6{% endif %}" style="text-align: center; padding: 30px; color: #666;">
+                        등록된 전기차 부품이 없습니다.
+                        {% if is_admin %}
+                        <br><br>
+                        위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    {% else %}
-    <div style="text-align: center; padding: 60px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <p style="font-size: 18px; color: #666; margin-bottom: 20px;">📦</p>
-        <p style="color: #666; margin-bottom: 20px;">등록된 부품이 없습니다.</p>
-        {% if is_admin %}
-        <button onclick="showAddItemModal()" class="btn btn-primary">
-            첫 번째 부품 추가하기
-        </button>
-        {% endif %}
-    </div>
-    {% endif %}
-</div>
 
-<!-- 부품 추가 모달 (관리자용) -->
-{% if is_admin %}
-<div id="addItemModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h3>새 부품 추가</h3>
-        <form method="POST" action="{{ url_for('add_inventory_item') }}">
-            <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
-            <input type="hidden" name="category" value="전기차">
+    <script>
+        function updateQuantity(itemId, changeType) {
+            const inputId = changeType + '-' + itemId;
+            const quantity = document.getElementById(inputId).value;
+            
+            if (!quantity || quantity < 1) {
+                alert('올바른 수량을 입력해주세요.');
+                return;
+            }
 
-            <div class="form-group">
-                <label>구분</label>
-                <input type="text" name="category" value="전기차" readonly style="background: #f8f9fa;">
-            </div>
-
-            <div class="form-group">
-                <label>부품명</label>
-                <input type="text" name="part_name" required placeholder="부품명을 입력하세요">
-            </div>
-
-            <div class="form-group">
-                <label>초기 수량</label>
-                <input type="number" name="quantity" value="0" min="0" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary">추가</button>
-        </form>
-    </div>
-</div>
-{% endif %}
-
-<!-- 수량 변경 모달 -->
-<div id="quantityModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h3 id="quantityModalTitle">수량 변경</h3>
-        <form id="quantityForm">
-            <div class="form-group">
-                <label id="quantityLabel">수량</label>
-                <input type="number" id="quantityInput" min="1" required placeholder="수량을 입력하세요">
-            </div>
-            <button type="submit" class="btn btn-primary">확인</button>
-        </form>
-    </div>
-</div>
-
-<!-- 사진 업로드 모달 -->
-<div id="photoUploadModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h3>사진 업로드</h3>
-        <form id="photoUploadForm" enctype="multipart/form-data">
-            <div class="form-group">
-                <label>사진 파일</label>
-                <input type="file" id="photoInput" name="photo" accept="image/*" required>
-                <small style="color: #666; font-size: 12px;">
-                    JPG, PNG, GIF 파일만 업로드 가능합니다.
-                </small>
-            </div>
-            <button type="submit" class="btn btn-primary">업로드</button>
-        </form>
-    </div>
-</div>
-
-<script>
-let currentItemId = null;
-let currentChangeType = null;
-
-// 모달 관리
-const modals = document.querySelectorAll('.modal');
-const closeButtons = document.querySelectorAll('.close');
-
-closeButtons.forEach(btn => {
-    btn.onclick = function() {
-        this.closest('.modal').style.display = 'none';
-    }
-});
-
-window.onclick = function(event) {
-    modals.forEach(modal => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
+            fetch('/update_quantity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item_id: itemId,
+                    change_type: changeType,
+                    quantity: parseInt(quantity)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 수량 업데이트
+                    const quantitySpan = document.getElementById('quantity-' + itemId);
+                    quantitySpan.textContent = data.new_quantity;
+                    
+                    // 색상 업데이트
+                    if (data.new_quantity > 0) {
+                        quantitySpan.style.color = '#28a745';
+                    } else {
+                        quantitySpan.style.color = '#dc3545';
+                    }
+                    
+                    // 입력 필드 초기화
+                    document.getElementById(inputId).value = '1';
+                    
+                    // 성공 메시지
+                    const action = changeType === 'in' ? '입고' : '출고';
+                    alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
+                } else {
+                    alert('오류: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('처리 중 오류가 발생했습니다.');
+            });
         }
-    });
-}
 
-// 부품 추가 모달
-{% if is_admin %}
-function showAddItemModal() {
-    document.getElementById('addItemModal').style.display = 'block';
-}
-{% endif %}
-
-// 수량 변경 모달
-function showQuantityModal(itemId, changeType) {
-    currentItemId = itemId;
-    currentChangeType = changeType;
-
-    const modal = document.getElementById('quantityModal');
-    const title = document.getElementById('quantityModalTitle');
-    const label = document.getElementById('quantityLabel');
-
-    if (changeType === 'in') {
-        title.textContent = '입고 처리';
-        label.textContent = '입고 수량';
-    } else {
-        title.textContent = '출고 처리';
-        label.textContent = '출고 수량';
-    }
-
-    document.getElementById('quantityInput').value = '';
-    modal.style.display = 'block';
-    document.getElementById('quantityInput').focus();
-}
-
-// 수량 변경 처리
-document.getElementById('quantityForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const quantity = parseInt(document.getElementById('quantityInput').value);
-
-    if (!quantity || quantity <= 0) {
-        alert('올바른 수량을 입력하세요.');
-        return;
-    }
-
-    fetch('/update_quantity', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            item_id: currentItemId,
-            change_type: currentChangeType,
-            quantity: quantity
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message || '처리 중 오류가 발생했습니다.');
+        function confirmDelete(itemId, itemName) {
+            if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
+                // 삭제 확인
+                window.location.href = `/delete_inventory_item/${itemId}`;
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('처리 중 오류가 발생했습니다.');
-    });
-
-    document.getElementById('quantityModal').style.display = 'none';
-});
-
-// 사진 업로드 모달
-function showPhotoUploadModal(itemId) {
-    currentItemId = itemId;
-    document.getElementById('photoUploadModal').style.display = 'block';
-}
-
-// 사진 업로드 처리
-document.getElementById('photoUploadForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const formData = new FormData();
-    const photoFile = document.getElementById('photoInput').files[0];
-
-    if (!photoFile) {
-        alert('사진을 선택하세요.');
-        return;
-    }
-
-    formData.append('photo', photoFile);
-
-    fetch(`/upload_photo/${currentItemId}`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message || '업로드 중 오류가 발생했습니다.');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('업로드 중 오류가 발생했습니다.');
-    });
-
-    document.getElementById('photoUploadModal').style.display = 'none';
-});
-</script>
-
-<style>
-@media (max-width: 768px) {
-    .table {
-        font-size: 11px;
-    }
-
-    .table th, .table td {
-        padding: 8px 4px;
-        vertical-align: middle;
-    }
-
-    .btn-small {
-        padding: 4px 8px;
-        font-size: 10px;
-    }
-}
-
-.table th {
-    background: #f8f9fa;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.table tbody tr:hover {
-    background: #f8f9fa;
-}
-</style>
-{% endblock %}
+    </script>
+</body>
+</html>
