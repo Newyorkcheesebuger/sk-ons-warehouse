@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    <div style="display: flex; align-items: center; margin-bottom: 30px;">
+        <h2 style="color: #333; margin-right: 20px; font-size: 28px;">로그인</h2>
+    </div>
+
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="employee_id">ID</label>
+            <input type="text" id="employee_id" name="employee_id" required
+                   placeholder="사번을 입력하세요 (예: N1103813)">
+        </div>
+
+        <div class="form-group">
+            <label for="password">PW</label>
+            <input type="password" id="password" name="password" required
+                   placeholder="비밀번호를 입력하세요">
+        </div>
+
+        <button type="submit" class="btn btn-primary">로그인</button>
+    </form>
+
+    <div class="text-center" style="margin-top: 20px;">
+        <a href="{{ url_for('register') }}" style="color: #667eea; text-decoration: none; font-size: 14px;">
+            회원가입
+        </a>
+    </div>
+</div>
+
+<!-- 관리자 로그인 버튼 -->
+<div class="admin-login" id="adminLoginBtn" style="cursor: pointer;">
+    관리자 로그인
+</div>
+
+<!-- 관리자 로그인 모달 -->
+<div id="adminModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3 style="margin-bottom: 20px;">관리자 로그인</h3>
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="admin_id">관리자 ID</label>
+                <input type="text" id="admin_id" name="employee_id" value="admin" readonly
+                       style="background: #f8f9fa;">
+            </div>
+
+            <div class="form-group">
+                <label for="admin_password">관리자 비밀번호</label>
+                <input type="password" id="admin_password" name="password"
+                       placeholder="관리자 비밀번호를 입력하세요" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">관리자 로그인</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// 관리자 로그인 모달
+const modal = document.getElementById('adminModal');
+const btn = document.getElementById('adminLoginBtn');
+const span = document.querySelector('.close');
+
+btn.onclick = function() {
+    modal.style.display = 'block';
+    document.getElementById('admin_password').focus();
+}
+
+span.onclick = function() {
+    modal.style.display = 'none';
+}
+
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 엔터키로 로그인
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const inputs = form.querySelectorAll('input');
+
+    inputs.forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                form.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

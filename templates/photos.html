@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
+        <h3 style="color: #333; margin: 0;">📷 부품 사진 관리</h3>
+        <a href="javascript:history.back()" class="btn btn-secondary btn-small">
+            ← 뒤로가기
+        </a>
+    </div>
+
+    {% if photos %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+        {% for photo in photos %}
+        <div class="photo-card">
+            <div class="photo-container">
+                <img src="{{ url_for('static', filename='uploads/' + photo[1]) }}"
+                     alt="{{ photo[2] }}"
+                     onclick="showImageModal('{{ url_for('static', filename='uploads/' + photo[1]) }}', '{{ photo[2] }}')"
+                     style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px;">
+            </div>
+
+            <div class="photo-info">
+                <h5 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; word-break: break-all;">
+                    {{ photo[2] }}
+                </h5>
+
+                <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                    <div>크기: {{ photo[3] }}KB</div>
+                    <div>업로드: {{ photo[4] }}</div>
+                    <div>일시: {{ photo[5][:16] }}</div>
+                </div>
+
+                {% if is_admin %}
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="{{ url_for('download_photo', photo_id=photo[0]) }}"
+                       class="btn btn-success btn-small" style="font-size: 11px;">
+                        📥 다운로드
+                    </a>
+                    <a href="{{ url_for('delete_photo', photo_id=photo[0]) }}"
+                       class="btn btn-danger btn-small" style="font-size: 11px;"
+                       onclick="return confirm('이 사진을 삭제하시겠습니까?')">
+                        🗑️ 삭제
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 사진 업로드 버튼 -->
+    <div style="text-align: center; margin-top: 30px;">
+        <button onclick="showUploadModal()" class="btn btn-primary">
+            + 새 사진 업로드
+        </button>
+    </div>
+
+    {% else %}
+    <div style="text-align: center; padding: 60px; background: white; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <p style="font-size: 48px; margin-bottom: 20px;">📷</p>
+        <h4 style="color: #666; margin-bottom: 15px;">등록된 사진이 없습니다</h4>
+        <p style="color: #888; margin-bottom: 25px; font-size: 14px;">
+            이 부품의 사진을 업로드하여 관리해보세요
+        </p>
+        <button onclick="showUploadModal()" class="btn btn-primary">
+            첫 번째 사진 업로드
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 사진 업로드 모달 -->
+<div id="uploadModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>새 사진 업로드</h3>
+        <form id="photoUploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>사진 파일 선택</label>
+                <input type="file" id="photoInput" name="photo" accept="image/*" required>
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    JPG, PNG, GIF 파일만 업로드 가능 (최대 16MB)
+                </small>
+            </div>
+
+            <div id="previewContainer" style="margin: 15px 0; display: none;">
+                <img id="previewImage" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+            </div>
+
+            <button type="submit" class="btn btn-primary">업로드</button>
+        </form>
+    </div>
+</div>
+
+<!-- 이미지 확대 모달 -->
+<div id="imageModal" class="modal">
+    <div class="modal-content" style="max-width: 90%; max-height: 90%; padding: 0; border-radius: 10px; overflow: hidden;">
+        <div style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <h4 id="imageTitle" style="margin: 0; font-size: 16px;"></h4>
+            <span class="close" style="color: white; font-size: 24px;">&times;</span>
+        </div>
+        <div style="text-align: center; background: #f8f9fa; padding: 20px;">
+            <img id="fullImage" style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 5px;">
+        </div>
+    </div>
+</div>
+
+<script>
+// 모달 관리
+const modals = document.querySelectorAll('.modal');
+const closeButtons = document.querySelectorAll('.close');
+
+closeButtons.forEach(btn => {
+    btn.onclick = function() {
+        this.closest('.modal').style.display = 'none';
+    }
+});
+
+window.onclick = function(event) {
+    modals.forEach(modal => {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    });
+}
+
+// 업로드 모달
+function showUploadModal() {
+    document.getElementById('uploadModal').style.display = 'block';
+    document.getElementById('photoInput').value = '';
+    document.getElementById('previewContainer').style.display = 'none';
+}
+
+// 이미지 미리보기
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImage').src = e.target.result;
+            document.getElementById('previewContainer').style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    } else {
+        document.getElementById('previewContainer').style.display = 'none';
+    }
+});
+
+// 사진 업로드 처리
+document.getElementById('photoUploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData();
+    const photoFile = document.getElementById('photoInput').files[0];
+
+    if (!photoFile) {
+        alert('사진을 선택하세요.');
+        return;
+    }
+
+    formData.append('photo', photoFile);
+
+    fetch(`/upload_photo/{{ item_id }}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || '업로드 중 오류가 발생했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('업로드 중 오류가 발생했습니다.');
+    });
+
+    document.getElementById('uploadModal').style.display = 'none';
+});
+
+// 이미지 확대 보기
+function showImageModal(imageSrc, imageTitle) {
+    document.getElementById('fullImage').src = imageSrc;
+    document.getElementById('imageTitle').textContent = imageTitle;
+    document.getElementById('imageModal').style.display = 'block';
+}
+</script>
+
+<style>
+.photo-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.photo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.photo-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.photo-container img {
+    transition: transform 0.3s ease;
+}
+
+.photo-container:hover img {
+    transform: scale(1.05);
+}
+
+.photo-info {
+    padding: 15px;
+}
+
+#imageModal .modal-content {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 480px) {
+    .photo-card {
+        margin-bottom: 15px;
+    }
+
+    .photo-info {
+        padding: 12px;
+    }
+
+    .photo-info h5 {
+        font-size: 13px;
+    }
+
+    .btn-small {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+
+    #imageModal .modal-content {
+        max-width: 95%;
+        margin: 5% auto;
+    }
+}
+</style>
+{% endblock %}

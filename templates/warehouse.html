@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 0 auto;">
+    <div style="margin-bottom: 30px;">
+        <h3 style="color: #333; margin-bottom: 10px;">
+            📦 {{ warehouse_name }}
+        </h3>
+        <p style="color: #666; font-size: 14px;">
+            관리할 카테고리를 선택하세요
+        </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+        <!-- 전기차 카테고리 -->
+        <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_name) }}"
+           class="category-item" style="text-decoration: none; color: inherit;">
+            <div class="category-icon">🚗</div>
+            <div class="category-content">
+                <h4>전기차</h4>
+                <p>전기차 부품 재고 관리</p>
+                <div class="status-badge active">✅ 운영중</div>
+            </div>
+            <div class="arrow">→</div>
+        </a>
+
+        <!-- Access 카테고리 -->
+        <div class="category-item disabled">
+            <div class="category-icon">🔑</div>
+            <div class="category-content">
+                <h4>Access</h4>
+                <p>접근 권한 관리</p>
+                <div class="status-badge preparing">🚧 준비중</div>
+            </div>
+            <div class="arrow">→</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; text-align: center;">
+        <a href="{{ url_for('dashboard') }}"
+           style="color: #667eea; text-decoration: none; font-size: 14px;">
+            ← 창고 목록으로 돌아가기
+        </a>
+    </div>
+</div>
+
+<style>
+.category-item {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 25px;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.category-item:hover:not(.disabled) {
+    border-color: #667eea;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.category-item.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+.category-icon {
+    font-size: 48px;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.category-content {
+    flex: 1;
+}
+
+.category-content h4 {
+    font-size: 20px;
+    color: #333;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.category-content p {
+    color: #666;
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.preparing {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.arrow {
+    font-size: 24px;
+    color: #667eea;
+    margin-left: 15px;
+    transition: transform 0.3s ease;
+}
+
+.category-item:hover:not(.disabled) .arrow {
+    transform: translateX(5px);
+}
+
+.category-item.disabled .arrow {
+    color: #ccc;
+}
+
+@media (max-width: 480px) {
+    .category-item {
+        padding: 20px 15px;
+    }
+
+    .category-icon {
+        font-size: 36px;
+        margin-right: 15px;
+    }
+
+    .category-content h4 {
+        font-size: 18px;
+    }
+
+    .arrow {
+        font-size: 20px;
+        margin-left: 10px;
+    }
+}
+</style>
+{% endblock %}

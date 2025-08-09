@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    <h2 style="color: #333; margin-bottom: 30px; text-align: center;">회원가입</h2>
+
+    <form method="POST" id="registerForm">
+        <div class="form-group">
+            <label for="name">이름</label>
+            <input type="text" id="name" name="name" required
+                   placeholder="이름을 입력하세요">
+        </div>
+
+        <div class="form-group">
+            <label for="team">소속팀</label>
+            <select id="team" name="team" required>
+                <option value="">소속팀을 선택하세요</option>
+                <option value="설비">설비</option>
+                <option value="강남">강남</option>
+                <option value="강동">강동</option>
+                <option value="관악">관악</option>
+                <option value="양천">양천</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="employee_number">사번</label>
+            <div style="position: relative;">
+                <input type="text" id="employee_number" name="employee_number" required
+                       placeholder="1103813" maxlength="7" style="padding-left: 25px;">
+                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+                           color: #666; font-weight: bold; pointer-events: none;">N</span>
+            </div>
+            <small style="color: #666; font-size: 12px;">
+                N으로 시작하는 8자리 (N + 숫자 7자리)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="password">비밀번호</label>
+            <input type="password" id="password" name="password" required
+                   placeholder="비밀번호를 입력하세요 (8자리 이상)" minlength="8">
+            <small style="color: #666; font-size: 12px;">
+                비밀번호는 8자리 이상이어야 합니다.
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password">비밀번호 확인</label>
+            <input type="password" id="confirm_password" name="confirm_password" required
+                   placeholder="비밀번호를 다시 입력하세요 (8자리 이상)" minlength="8">
+        </div>
+
+        <button type="submit" class="btn btn-primary">회원가입</button>
+
+        <div class="text-center" style="margin-top: 20px;">
+            <a href="{{ url_for('index') }}" style="color: #667eea; text-decoration: none;">
+                로그인 페이지로 돌아가기
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const employeeNumberInput = document.getElementById('employee_number');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+
+    // 사번 입력 처리 - 숫자만 입력받고 자동으로 N 붙임
+    employeeNumberInput.addEventListener('input', function(e) {
+        let value = e.target.value;
+
+        // 숫자만 입력받고 N을 자동으로 앞에 붙임
+        value = value.replace(/[^0-9]/g, '');
+
+        // 최대 7자리 숫자만 허용
+        if (value.length > 7) {
+            value = value.slice(0, 7);
+        }
+
+        e.target.value = value;
+    });
+
+    // 폼 제출 시 유효성 검사
+    form.addEventListener('submit', function(e) {
+        const employeeNumberValue = employeeNumberInput.value;
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        // 사번에 N 자동 추가
+        const employeeNumber = 'N' + employeeNumberValue;
+        employeeNumberInput.value = employeeNumber;
+
+        // 사번 형식 검사 (숫자 7자리인지 확인)
+        if (!/^\d{7}$/.test(employeeNumberValue)) {
+            e.preventDefault();
+            alert('사번은 7자리 숫자여야 합니다. (예: 1103813)');
+            employeeNumberInput.focus();
+            return;
+        }
+
+        // 비밀번호 확인
+        if (password !== confirmPassword) {
+            e.preventDefault();
+            alert('비밀번호가 일치하지 않습니다.');
+            confirmPasswordInput.focus();
+            return;
+        }
+
+        // 비밀번호 길이 검사
+        if (password.length < 8) {
+            e.preventDefault();
+            alert('비밀번호는 최소 8자리 이상이어야 합니다.');
+            passwordInput.focus();
+            return;
+        }
+    });
+
+    // 비밀번호 확인 실시간 검사
+    confirmPasswordInput.addEventListener('input', function() {
+        const password = passwordInput.value;
+        const confirmPassword = this.value;
+
+        if (confirmPassword && password !== confirmPassword) {
+            this.style.borderColor = '#dc3545';
+        } else {
+            this.style.borderColor = '#ddd';
+        }
+    });
+});
+</script>
+{% endblock %}

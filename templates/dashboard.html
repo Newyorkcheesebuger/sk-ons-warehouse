@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <!-- 환영 메시지 -->
+    <div style="text-align: center; margin-bottom: 30px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 15px; color: white;">
+        <h2 style="margin: 0 0 10px 0; font-size: 24px;">환영합니다! 👋</h2>
+        <p style="margin: 0; opacity: 0.9; font-size: 16px;">{{ session.user_name }}님</p>
+    </div>
+
+    <!-- 사용자 선택 -->
+    <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 30px;">
+        <h3 style="color: #333; margin-bottom: 20px; display: flex; align-items: center;">
+            <span style="margin-right: 10px;">🎯</span>
+            사용자 선택
+        </h3>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+            <!-- 창고 관리 -->
+            <a href="{{ url_for('warehouse', warehouse_name='보라매창고') }}"
+               class="user-function-card" style="text-decoration: none; color: inherit;">
+                <div class="function-icon">📦</div>
+                <div class="function-content">
+                    <h4>창고 관리</h4>
+                    <p>재고 및 부품 관리</p>
+                    <div class="status-badge active">✅ 이용 가능</div>
+                </div>
+                <div class="arrow">→</div>
+            </a>
+
+            <!-- 통계 분석 -->
+            <div class="user-function-card disabled">
+                <div class="function-icon">📈</div>
+                <div class="function-content">
+                    <h4>통계 분석</h4>
+                    <p>데이터 분석 및 리포트</p>
+                    <div class="status-badge preparing">🚧 준비중</div>
+                </div>
+                <div class="arrow">→</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 사용자 정보 -->
+    <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+        <h4 style="color: #333; margin-bottom: 20px; display: flex; align-items: center;">
+            <span style="margin-right: 10px;">👤</span>
+            내 정보
+        </h4>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="info-item">
+                <div class="info-label">이름</div>
+                <div class="info-value">{{ session.user_name }}</div>
+            </div>
+
+            <div class="info-item">
+                <div class="info-label">사번</div>
+                <div class="info-value">{{ session.employee_id }}</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #28a745;">
+            <div style="display: flex; align-items: center; color: #28a745;">
+                <span style="font-size: 18px; margin-right: 8px;">✅</span>
+                <strong>승인된 사용자</strong>
+            </div>
+            <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">
+                모든 기능을 이용하실 수 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 사용자 기능 카드 스타일 */
+.user-function-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 25px;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.user-function-card:hover:not(.disabled) {
+    border-color: #667eea;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.user-function-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+.function-icon {
+    font-size: 40px;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.function-content {
+    flex: 1;
+}
+
+.function-content h4 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    color: #333;
+    font-weight: 600;
+}
+
+.function-content p {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.preparing {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.arrow {
+    font-size: 24px;
+    color: #667eea;
+    margin-left: 15px;
+    transition: transform 0.3s ease;
+}
+
+.user-function-card:hover:not(.disabled) .arrow {
+    transform: translateX(5px);
+}
+
+.user-function-card.disabled .arrow {
+    color: #ccc;
+}
+
+/* 정보 항목 스타일 */
+.info-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.info-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.info-value {
+    font-size: 16px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 480px) {
+    .user-function-card {
+        padding: 20px 15px;
+    }
+
+    .function-icon {
+        font-size: 32px;
+        margin-right: 15px;
+    }
+
+    .function-content h4 {
+        font-size: 16px;
+    }
+
+    .arrow {
+        font-size: 20px;
+        margin-left: 10px;
+    }
+
+    .info-item {
+        grid-column: 1 / -1;
+    }
+}
+
+/* 애니메이션 */
+.user-function-card {
+    animation: slideUp 0.5s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.user-function-card:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.user-function-card:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+@keyframes slideUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+
+<script>
+// 페이지 로드 시 디버깅 정보
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('일반 사용자 대시보드 로드됨');
+    console.log('사용자:', '{{ session.user_name }}');
+    console.log('관리자 여부:', {{ session.is_admin|tojson }});
+
+    // 만약 관리자라면 경고
+    {% if session.is_admin %}
+    console.warn('경고: 관리자가 일반 사용자 대시보드에 접근함');
+    {% endif %}
+});
+</script>
+{% endblock %}
