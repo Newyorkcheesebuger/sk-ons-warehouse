@@ -5,30 +5,261 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ warehouse_name }} - 전기차 부품 재고</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: #f5f5f5; 
+            font-size: 14px;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 { 
+            font-size: 1.5em; 
+            margin: 0; 
+            color: #333;
+        }
+        .btn { 
+            padding: 8px 12px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block; 
+            margin: 2px; 
+            font-size: 12px;
+            white-space: nowrap;
+        }
         .btn-primary { background: #007bff; color: white; }
         .btn-success { background: #28a745; color: white; }
         .btn-warning { background: #ffc107; color: black; }
         .btn-danger { background: #dc3545; color: white; }
         .btn-info { background: #17a2b8; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
-        .inventory-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .inventory-table th, .inventory-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        .inventory-table th { background-color: #f8f9fa; font-weight: bold; }
-        .inventory-table tr:nth-child(even) { background-color: #f9f9f9; }
-        .quantity-controls { display: flex; gap: 5px; align-items: center; }
-        .quantity-input { width: 60px; padding: 5px; border: 1px solid #ddd; border-radius: 3px; }
-        .admin-controls { display: flex; gap: 5px; flex-wrap: wrap; }
+        
+        /* 모바일용 카드 레이아웃 */
+        .mobile-inventory {
+            display: none;
+        }
+        
+        .inventory-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .part-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .quantity-display {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .quantity-positive { background: #d4edda; color: #155724; }
+        .quantity-zero { background: #f8d7da; color: #721c24; }
+        
+        .card-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        
+        .admin-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* 데스크톱용 테이블 */
+        .desktop-table {
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+        }
+        .desktop-table th, .desktop-table td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        .desktop-table th { 
+            background-color: #f8f9fa; 
+            font-weight: bold; 
+            font-size: 13px;
+        }
+        .desktop-table tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .quantity-controls { 
+            display: flex; 
+            gap: 5px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        .quantity-input { 
+            width: 60px; 
+            padding: 5px; 
+            border: 1px solid #ddd; 
+            border-radius: 3px; 
+        }
+        .admin-controls { 
+            display: flex; 
+            gap: 5px; 
+            flex-wrap: wrap; 
+        }
+        
         .flash-messages { margin-bottom: 20px; }
-        .flash-success { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .add-item-form { background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .flash-success { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+        }
+        .flash-error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+        }
+        
+        .add-item-form { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-bottom: 20px; 
+        }
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: bold; 
+        }
+        .form-group input { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+        }
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .modal h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .modal input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.2em; }
+            .btn { padding: 6px 10px; font-size: 11px; }
+            .container { padding: 10px; }
+            
+            .desktop-table { display: none; }
+            .mobile-inventory { display: block; }
+            
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .header > div {
+                display: flex;
+                gap: 5px;
+                justify-content: center;
+            }
+            
+            .add-item-form {
+                padding: 10px;
+            }
+            
+            .action-buttons .btn {
+                flex: 1;
+                text-align: center;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .mobile-inventory { display: none; }
+            .desktop-table { display: table; }
+        }
     </style>
 </head>
 <body>
@@ -75,8 +306,47 @@
         </div>
         {% endif %}
 
-        <!-- 재고 목록 -->
-        <table class="inventory-table">
+        <!-- 모바일용 카드 레이아웃 -->
+        <div class="mobile-inventory">
+            {% for item in inventory %}
+            <div class="inventory-card">
+                <div class="card-header">
+                    <div class="part-name">{{ item[2] }}</div>
+                    <div class="quantity-display {% if item[3] > 0 %}quantity-positive{% else %}quantity-zero{% endif %}">
+                        {{ item[3] }}개
+                    </div>
+                </div>
+                
+                <div class="card-info">
+                    <div><strong>수정자:</strong> {{ item[4] or '미설정' }}</div>
+                    <div><strong>수정일:</strong> {{ item[5][:10] if item[5] else '미설정' }}</div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')">입고</button>
+                    <button class="btn btn-warning" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')">출고</button>
+                    <a href="{{ url_for('view_photos', item_id=item[0]) }}" class="btn btn-info">사진({{ item[6] }})</a>
+                </div>
+                
+                {% if is_admin %}
+                <div class="admin-buttons">
+                    <a href="{{ url_for('edit_inventory_item', item_id=item[0]) }}" class="btn btn-primary">수정</a>
+                    <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="inventory-card" style="text-align: center; padding: 30px; color: #666;">
+                등록된 전기차 부품이 없습니다.
+                {% if is_admin %}
+                <br><br>위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 데스크톱용 테이블 -->
+        <table class="desktop-table">
             <thead>
                 <tr>
                     <th>부품명</th>
@@ -108,11 +378,8 @@
                     </td>
                     <td>
                         <div class="quantity-controls">
-                            <input type="number" class="quantity-input" id="in-{{ item[0] }}" min="1" value="1" placeholder="수량">
-                            <button class="btn btn-success" onclick="updateQuantity({{ item[0] }}, 'in')">입고</button>
-                            
-                            <input type="number" class="quantity-input" id="out-{{ item[0] }}" min="1" value="1" placeholder="수량">
-                            <button class="btn btn-warning" onclick="updateQuantity({{ item[0] }}, 'out')">출고</button>
+                            <button class="btn btn-success" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')">입고</button>
+                            <button class="btn btn-warning" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')">출고</button>
                         </div>
                     </td>
                     {% if is_admin %}
@@ -129,8 +396,7 @@
                     <td colspan="{% if is_admin %}7{% else %}6{% endif %}" style="text-align: center; padding: 30px; color: #666;">
                         등록된 전기차 부품이 없습니다.
                         {% if is_admin %}
-                        <br><br>
-                        위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
+                        <br><br>위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
                         {% endif %}
                     </td>
                 </tr>
@@ -139,16 +405,62 @@
         </table>
     </div>
 
+    <!-- 수량 입력 모달 -->
+    <div id="quantityModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">수량 입력</h3>
+            <p id="modalMessage">수량을 입력하세요:</p>
+            <input type="number" id="modalQuantity" min="1" value="1" placeholder="수량">
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="confirmQuantityUpdate()">확인</button>
+                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function updateQuantity(itemId, changeType) {
-            const inputId = changeType + '-' + itemId;
-            const quantity = document.getElementById(inputId).value;
+        let currentItemId = null;
+        let currentChangeType = null;
+        let currentItemName = null;
+
+        function showQuantityModal(itemId, changeType, itemName) {
+            currentItemId = itemId;
+            currentChangeType = changeType;
+            currentItemName = itemName;
+            
+            const modal = document.getElementById('quantityModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const quantityInput = document.getElementById('modalQuantity');
+            
+            title.textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
+            message.textContent = `"${itemName}" ${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
+            quantityInput.value = '1';
+            quantityInput.focus();
+            
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('quantityModal').style.display = 'none';
+            currentItemId = null;
+            currentChangeType = null;
+            currentItemName = null;
+        }
+
+        function confirmQuantityUpdate() {
+            const quantity = document.getElementById('modalQuantity').value;
             
             if (!quantity || quantity < 1) {
                 alert('올바른 수량을 입력해주세요.');
                 return;
             }
 
+            updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
+            closeModal();
+        }
+
+        function updateQuantity(itemId, changeType, quantity) {
             fetch('/update_quantity', {
                 method: 'POST',
                 headers: {
@@ -157,29 +469,31 @@
                 body: JSON.stringify({
                     item_id: itemId,
                     change_type: changeType,
-                    quantity: parseInt(quantity)
+                    quantity: quantity
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 수량 업데이트
+                    // 수량 업데이트 (데스크톱 테이블)
                     const quantitySpan = document.getElementById('quantity-' + itemId);
-                    quantitySpan.textContent = data.new_quantity;
-                    
-                    // 색상 업데이트
-                    if (data.new_quantity > 0) {
-                        quantitySpan.style.color = '#28a745';
-                    } else {
-                        quantitySpan.style.color = '#dc3545';
+                    if (quantitySpan) {
+                        quantitySpan.textContent = data.new_quantity;
+                        
+                        // 색상 업데이트
+                        if (data.new_quantity > 0) {
+                            quantitySpan.style.color = '#28a745';
+                        } else {
+                            quantitySpan.style.color = '#dc3545';
+                        }
                     }
-                    
-                    // 입력 필드 초기화
-                    document.getElementById(inputId).value = '1';
                     
                     // 성공 메시지
                     const action = changeType === 'in' ? '입고' : '출고';
                     alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
+                    
+                    // 페이지 새로고침으로 모바일 카드도 업데이트
+                    location.reload();
                 } else {
                     alert('오류: ' + data.message);
                 }
@@ -192,10 +506,24 @@
 
         function confirmDelete(itemId, itemName) {
             if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
-                // 삭제 확인
                 window.location.href = `/delete_inventory_item/${itemId}`;
             }
         }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('quantityModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Enter 키로 확인
+        document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmQuantityUpdate();
+            }
+        });
     </script>
 </body>
 </html>
