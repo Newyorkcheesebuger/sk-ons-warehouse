@@ -382,6 +382,134 @@ def add_inventory_item():
     return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
 
 
+@app.route('/delete_inventory_item/<int:item_id>')
+def delete_inventory_item(item_id):
+    """재고 아이템 삭제 (관리자 전용)"""
+    print(f"DEBUG: 재고 아이템 삭제 요청 - item_id: {item_id}")
+    print(f"DEBUG: 현재 세션 - is_admin: {session.get('is_admin')}, user_id: {session.get('user_id')}")
+
+    if 'user_id' not in session or not session.get('is_admin'):
+        print("DEBUG: 권한 없음 - 관리자 권한 필요")
+        flash('관리자 권한이 필요합니다.')
+        return redirect(url_for('index'))
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+
+        # 삭제할 아이템 정보 가져오기
+        c.execute('SELECT warehouse, category, part_name FROM inventory WHERE id = ?', (item_id,))
+        item = c.fetchone()
+
+        if item:
+            warehouse_name, category, part_name = item
+            
+            # 먼저 관련 사진들 삭제
+            c.execute('SELECT filename FROM photos WHERE inventory_id = ?', (item_id,))
+            photos = c.fetchall()
+            
+            # 실제 사진 파일들 삭제
+            for photo in photos:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], photo[0])
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                        print(f"DEBUG: 사진 파일 삭제 완료 - {photo[0]}")
+                    except Exception as e:
+                        print(f"DEBUG: 사진 파일 삭제 실패 - {photo[0]}: {e}")
+            
+            # DB에서 사진 레코드 삭제
+            c.execute('DELETE FROM photos WHERE inventory_id = ?', (item_id,))
+            
+            # 재고 이력 삭제
+            c.execute('DELETE FROM inventory_history WHERE inventory_id = ?', (item_id,))
+            
+            # 재고 아이템 삭제
+            c.execute('DELETE FROM inventory WHERE id = ?', (item_id,))
+            
+            conn.commit()
+            print(f"DEBUG: 재고 아이템 삭제 완료 - {part_name} ({category})")
+            flash(f'물품 "{part_name}"이(가) 삭제되었습니다.')
+            
+            # 삭제 후 해당 창고의 전기차 재고 페이지로 리다이렉트
+            return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+            
+        else:
+            print("DEBUG: 삭제할 아이템을 찾을 수 없음")
+            flash('삭제할 물품을 찾을 수 없습니다.')
+            return redirect(url_for('dashboard'))
+
+    except Exception as e:
+        print(f"DEBUG: 재고 아이템 삭제 중 오류: {e}")
+        flash('물품 삭제 중 오류가 발생했습니다.')
+        return redirect(url_for('dashboard'))
+    
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@app.route('/edit_inventory_item/<int:item_id>', methods=['GET', 'POST'])
+def edit_inventory_item(item_id):
+    """재고 아이템 수정 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect(url_for('index'))
+
+    conn = sqlite3.connect('warehouse.db')
+    c = conn.cursor()
+
+    if request.method == 'POST':
+        # 수정 처리
+        part_name = request.form['part_name']
+        quantity = int(request.form['quantity'])
+        
+        try:
+            # 아이템 정보 업데이트
+            c.execute('UPDATE inventory SET part_name = ?, quantity = ?, last_modifier = ?, last_modified = ? WHERE id = ?',
+                      (part_name, quantity, session['user_name'], datetime.now(), item_id))
+            
+            # 수정 이력 저장
+            c.execute('INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name) VALUES (?, ?, ?, ?)',
+                      (item_id, 'edit', 0, session['user_name']))
+            
+            conn.commit()
+            flash(f'물품 "{part_name}"이(가) 수정되었습니다.')
+            
+            # 수정 후 원래 페이지로 돌아가기
+            c.execute('SELECT warehouse FROM inventory WHERE id = ?', (item_id,))
+            warehouse = c.fetchone()
+            conn.close()
+            
+            if warehouse:
+                return redirect(url_for('electric_inventory', warehouse_name=warehouse[0]))
+            else:
+                return redirect(url_for('dashboard'))
+                
+        except Exception as e:
+            print(f"DEBUG: 재고 아이템 수정 중 오류: {e}")
+            flash('물품 수정 중 오류가 발생했습니다.')
+            conn.close()
+            return redirect(url_for('dashboard'))
+    
+    else:
+        # 수정 폼 표시
+        c.execute('SELECT warehouse, category, part_name, quantity FROM inventory WHERE id = ?', (item_id,))
+        item = c.fetchone()
+        conn.close()
+        
+        if item:
+            return render_template('edit_inventory.html', 
+                                 item_id=item_id,
+                                 warehouse=item[0], 
+                                 category=item[1], 
+                                 part_name=item[2], 
+                                 quantity=item[3])
+        else:
+            flash('수정할 물품을 찾을 수 없습니다.')
+            return redirect(url_for('dashboard'))
+
+
 @app.route('/update_quantity', methods=['POST'])
 def update_quantity():
     if 'user_id' not in session:
