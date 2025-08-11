@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}재고 이력 - {{ item_info[0] if item_info else '부품' }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-history me-2"></i>
+                재고 이력
+            </h2>
+            <div>
+                <a href="javascript:history.back()" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>뒤로가기
+                </a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-home me-1"></i>대시보드
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 부품 정보 -->
+{% if item_info %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-primary" style="border-radius: 15px;">
+            <div class="card-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>부품 정보
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <h6 class="text-muted mb-1">부품명</h6>
+                        <p class="mb-0 fw-bold text-primary">{{ item_info[0] }}</p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <h6 class="text-muted mb-1">창고</h6>
+                        <p class="mb-0">
+                            <span class="badge bg-secondary">{{ item_info[1] }}</span>
+                        </p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <h6 class="text-muted mb-1">카테고리</h6>
+                        <p class="mb-0">
+                            <span class="badge {% if item_info[2] == '전기차' %}bg-info{% else %}bg-warning{% endif %}">
+                                {{ item_info[2] }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <h6 class="text-muted mb-1">현재 수량</h6>
+                        <p class="mb-0">
+                            <span class="quantity-badge {% if item_info[3] > 0 %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                                {{ item_info[3] }}개
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2 mt-3">
+                    <a href="{{ url_for('view_photos', item_id=item_id) }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-camera me-1"></i>사진 보기
+                    </a>
+                    {% if item_info[2] == '전기차' %}
+                    <a href="{{ url_for('electric_inventory', warehouse_name=item_info[1]) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-list me-1"></i>재고 목록
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('hydrogen_inventory', warehouse_name=item_info[1]) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-list me-1"></i>재고 목록
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 이력 목록 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card" style="border-radius: 20px;">
+            <div class="card-header card-header-custom">
+                <h4 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    재고 변동 이력
+                    {% if history %}
+                        <span class="badge bg-light text-dark ms-2">{{ history|length }}건</span>
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if history %}
+                    <!-- 데스크톱 테이블 뷰 -->
+                    <div class="d-none d-md-block">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="15%">날짜/시간</th>
+                                        <th width="15%">작업 유형</th>
+                                        <th width="15%">수량 변화</th>
+                                        <th width="20%">작업자</th>
+                                        <th width="35%">상세 정보</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for record in history %}
+                                    <tr>
+                                        <td>
+                                            <div class="text-muted" style="font-size: 0.9em;">
+                                                {{ record[3][:16] if record[3] else '미설정' }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if record[0] == 'in' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-plus me-1"></i>입고
+                                                </span>
+                                            {% elif record[0] == 'out' %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-minus me-1"></i>출고
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-edit me-1"></i>수정
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold {% if record[1] > 0 %}text-success{% else %}text-danger{% endif %}">
+                                                {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-user me-2 text-muted"></i>
+                                                <span>{{ record[2] or '시스템' }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="text-muted" style="font-size: 0.9em;">
+                                                {% if record[0] == 'in' %}
+                                                    {{ record[1] }}개가 입고되었습니다.
+                                                {% elif record[0] == 'out' %}
+                                                    {{ record[1]|abs }}개가 출고되었습니다.
+                                                {% else %}
+                                                    재고가 수정되었습니다.
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 모바일 카드 뷰 -->
+                    <div class="d-block d-md-none">
+                        {% for record in history %}
+                        <div class="card mb-3 border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        {% if record[0] == 'in' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-plus me-1"></i>입고
+                                            </span>
+                                        {% elif record[0] == 'out' %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-minus me-1"></i>출고
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-edit me-1"></i>수정
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold {% if record[1] > 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">작업자</small>
+                                        <div>{{ record[2] or '시스템' }}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">일시</small>
+                                        <div style="font-size: 0.9em;">{{ record[3][:16] if record[3] else '미설정' }}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        {% if record[0] == 'in' %}
+                                            {{ record[1] }}개가 입고되었습니다.
+                                        {% elif record[0] == 'out' %}
+                                            {{ record[1]|abs }}개가 출고되었습니다.
+                                        {% else %}
+                                            재고가 수정되었습니다.
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-history fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">재고 변동 이력이 없습니다</h5>
+                        <p class="text-muted mb-4">이 부품에 대한 입고/출고 기록이 아직 없습니다.</p>
+                        <div class="text-muted">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                입고나 출고 작업을 수행하면 이력이 자동으로 기록됩니다.
+                            </small>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 통계 정보 -->
+{% if history %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-info" style="border-radius: 15px;">
+            <div class="card-header bg-info text-white" style="border-radius: 15px 15px 0 0;">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>통계 정보
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 col-md-3">
+                        <div class="border-end">
+                            <h5 class="text-success mb-1">
+                                {% set total_in = history|selectattr(0, 'equalto', 'in')|map(attribute=1)|sum %}
+                                {{ total_in or 0 }}
+                            </h5>
+                            <small class="text-muted">총 입고</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border-end">
+                            <h5 class="text-warning mb-1">
+                                {% set total_out = history|selectattr(0, 'equalto', 'out')|map(attribute=1)|map('abs')|sum %}
+                                {{ total_out or 0 }}
+                            </h5>
+                            <small class="text-muted">총 출고</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border-end">
+                            <h5 class="text-primary mb-1">{{ history|length }}</h5>
+                            <small class="text-muted">총 작업 횟수</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <h5 class="{% if item_info and item_info[3] > 0 %}text-success{% else %}text-danger{% endif %} mb-1">
+                            {{ item_info[3] if item_info else 0 }}
+                        </h5>
+                        <small class="text-muted">현재 재고</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 페이지 로드 애니메이션
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+        
+        // 테이블 행 호버 효과
+        const tableRows = document.querySelectorAll('tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+    });
+</script>
+{% endblock %}
