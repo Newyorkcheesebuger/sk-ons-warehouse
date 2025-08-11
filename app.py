@@ -6,13 +6,15 @@ import time
 from datetime import datetime
 import pytz
 
-# PostgreSQL 지원 추가
+# PostgreSQL 지원 추가 (pg8000 사용)
+PG_AVAILABLE = False
 try:
-    import psycopg2
-    import psycopg2.extras
-    PSYCOPG2_AVAILABLE = True
-except ImportError:
-    PSYCOPG2_AVAILABLE = False
+    import pg8000.native
+    PG_AVAILABLE = True
+    print("✅ pg8000 라이브러리 로드 성공")
+except ImportError as e:
+    print(f"⚠️ pg8000 라이브러리 로드 실패: {e}")
+    print("🔄 SQLite 모드로 실행됩니다")
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
@@ -22,10 +24,10 @@ DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
 
 def get_db_connection():
     """데이터베이스 연결 - Supabase 우선, 없으면 SQLite"""
-    if DATABASE_URL and PSYCOPG2_AVAILABLE:
+    if DATABASE_URL and PG_AVAILABLE:
         try:
             print(f"🔄 Supabase 연결 시도: {DATABASE_URL[:30]}...")
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = pg8000.native.Connection(DATABASE_URL)
             print("✅ Supabase PostgreSQL 연결 성공!")
             return conn, 'postgresql'
         except Exception as e:
@@ -35,8 +37,8 @@ def get_db_connection():
     else:
         if not DATABASE_URL:
             print("⚠️ SUPABASE_DB_URL 환경변수가 설정되지 않음")
-        if not PSYCOPG2_AVAILABLE:
-            print("⚠️ psycopg2 라이브러리가 설치되지 않음")
+        if not PG_AVAILABLE:
+            print("⚠️ pg8000 라이브러리가 설치되지 않음")
         print("🔄 SQLite 사용")
         return sqlite3.connect('warehouse.db'), 'sqlite'
 
