@@ -193,3 +193,209 @@
 
                     <!-- 모바일 카드 뷰 -->
                     <div class="d-block d-lg-none">
+                        {% for item in inventory %}
+                        <div class="inventory-item mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1 text-primary">{{ item[3] }}</h6>
+                                    <div class="d-flex gap-2 mb-1">
+                                        <span class="badge bg-secondary">{{ item[1] }}</span>
+                                        <span class="badge {% if item[2] == '전기차' %}bg-info{% else %}bg-warning{% endif %}">
+                                            {{ item[2] }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <span class="quantity-badge {% if item[4] > 0 %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                                    {{ item[4] }}개
+                                </span>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">수정자: {{ item[5] or '미설정' }}</small>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">수정일: {{ item[6][:10] if item[6] else '미설정' }}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex flex-wrap gap-1">
+                                <button class="btn btn-success btn-sm-custom" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[3] }}')">
+                                    <i class="fas fa-plus me-1"></i>입고
+                                </button>
+                                <button class="btn btn-warning btn-sm-custom" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[3] }}')">
+                                    <i class="fas fa-minus me-1"></i>출고
+                                </button>
+                                <a href="{{ url_for('view_photos', item_id=item[0]) }}" class="btn btn-outline-info btn-sm-custom">
+                                    <i class="fas fa-camera me-1"></i>사진({{ item[7] }})
+                                </a>
+                                {% if is_admin %}
+                                <a href="{{ url_for('inventory_history', item_id=item[0]) }}" class="btn btn-outline-primary btn-sm-custom">
+                                    <i class="fas fa-history me-1"></i>이력
+                                </a>
+                                <button class="btn btn-outline-danger btn-sm-custom" onclick="confirmDelete({{ item[0] }}, '{{ item[3] }}')">
+                                    <i class="fas fa-trash me-1"></i>삭제
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">검색 결과가 없습니다</h5>
+                        <p class="text-muted mb-4">다른 검색어나 조건으로 다시 검색해보세요.</p>
+                        <div class="row justify-content-center">
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 bg-light">
+                                    <h6 class="mb-2">검색 팁:</h6>
+                                    <ul class="text-start text-muted mb-0" style="font-size: 0.9em;">
+                                        <li>부품명의 일부만 입력해도 검색됩니다</li>
+                                        <li>창고나 카테고리를 선택하여 범위를 좁혀보세요</li>
+                                        <li>검색어가 너무 구체적이지 않은지 확인해보세요</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 수량 입력 모달 -->
+<div class="modal fade" id="quantityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: 15px;">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title" id="modalTitle">수량 입력</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p id="modalMessage" class="mb-3">수량을 입력하세요:</p>
+                <div class="mb-3">
+                    <input type="number" id="modalQuantity" class="form-control form-control-lg text-center" 
+                           min="1" value="1" placeholder="수량" style="border-radius: 10px; font-size: 1.2em;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 10px;">
+                    <i class="fas fa-times me-1"></i>취소
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmQuantityUpdate()" style="border-radius: 10px;">
+                    <i class="fas fa-check me-1"></i>확인
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentItemId = null;
+    let currentChangeType = null;
+    let currentItemName = null;
+
+    function showQuantityModal(itemId, changeType, itemName) {
+        currentItemId = itemId;
+        currentChangeType = changeType;
+        currentItemName = itemName;
+        
+        const title = document.getElementById('modalTitle');
+        const message = document.getElementById('modalMessage');
+        const quantityInput = document.getElementById('modalQuantity');
+        
+        title.textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
+        message.innerHTML = `<strong>"${itemName}"</strong><br>${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
+        quantityInput.value = '1';
+        
+        const modal = new bootstrap.Modal(document.getElementById('quantityModal'));
+        modal.show();
+        
+        // 모달이 열린 후 입력 필드에 포커스
+        setTimeout(() => {
+            quantityInput.focus();
+            quantityInput.select();
+        }, 300);
+    }
+
+    function confirmQuantityUpdate() {
+        const quantity = document.getElementById('modalQuantity').value;
+        
+        if (!quantity || quantity < 1) {
+            showAlert('올바른 수량을 입력해주세요.', 'warning');
+            return;
+        }
+
+        updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
+        
+        // 모달 닫기
+        const modal = bootstrap.Modal.getInstance(document.getElementById('quantityModal'));
+        modal.hide();
+    }
+
+    function updateQuantity(itemId, changeType, quantity) {
+        fetch('/update_quantity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                item_id: itemId,
+                change_type: changeType,
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 메시지
+                const action = changeType === 'in' ? '입고' : '출고';
+                showAlert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}개`, 'success');
+                
+                // 페이지 새로고침하여 업데이트된 데이터 표시
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert('오류: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('처리 중 오류가 발생했습니다.', 'danger');
+        });
+    }
+
+    function confirmDelete(itemId, itemName) {
+        confirmAction(
+            `정말로 "${itemName}" 부품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`,
+            () => {
+                window.location.href = `/delete_inventory/${itemId}`;
+            }
+        );
+    }
+
+    // Enter 키로 확인
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmQuantityUpdate();
+            }
+        });
+        
+        // 검색 폼 엔터키 처리
+        document.querySelector('form').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.submit();
+            }
+        });
+    });
+</script>
+{% endblock %}
