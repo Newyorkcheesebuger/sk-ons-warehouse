@@ -3,6 +3,6 @@ Werkzeug==2.3.7
 gunicorn==21.2.0
 pytz==2023.3
 pg8000==1.30.2
-psycopg2-cffi==2.9.0
+
 
 
