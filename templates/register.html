@@ -1,6 +1,48 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+.form-group {
+    margin-bottom: 20px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+}
+.btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.btn-primary {
+    background-color: #0066cc;
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #0052a3;
+}
+</style>
+
 <div style="max-width: 400px; margin: 0 auto;">
     <h2 style="color: #333; margin-bottom: 30px; text-align: center;">회원가입</h2>
 
