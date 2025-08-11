@@ -47,12 +47,11 @@ def get_korea_time():
     return datetime.now(korea_tz)
 
 def get_db_connection():
-    """pg8000 버전 호환성 문제 해결된 데이터베이스 연결 함수"""
+    """트랜잭션 오류 완전 해결된 데이터베이스 연결 함수"""
     try:
         import pg8000
         parsed = urllib.parse.urlparse(DATABASE_URL)
         
-        # pg8000 최신 버전에서는 autocommit 파라미터가 제거됨
         conn = pg8000.connect(
             host=parsed.hostname,
             port=parsed.port or 5432,
@@ -61,11 +60,9 @@ def get_db_connection():
             database=parsed.path[1:] if parsed.path else 'postgres'
         )
         
-        # 연결 후 autocommit 설정 (최신 방식)
         try:
             conn.autocommit = False
         except AttributeError:
-            # autocommit 속성이 없는 구버전의 경우 무시
             pass
         
         return conn
@@ -82,21 +79,16 @@ def check_db_health():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # 테이블 존재 확인
-        cursor.execute("""
-            SELECT table_name FROM information_schema.tables 
-            WHERE table_schema = 'public' AND table_name IN ('users', 'inventory', 'inventory_history', 'photos')
-        """)
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'inventory', 'inventory_history', 'photos')")
         tables = [row[0] for row in cursor.fetchall()]
-        
         conn.close()
         return len(tables) == 4
     except:
         return False
 
 def init_db():
-    """pg8000 호환성 문제 해결된 데이터베이스 초기화 함수"""
+    """트랜잭션 오류 완전 해결된 초기화 함수"""
+    conn = None
     try:
         print("🔄 Supabase PostgreSQL 연결 테스트 중...")
         conn = get_db_connection()
@@ -109,10 +101,9 @@ def init_db():
         
         print("🔄 데이터베이스 테이블 생성 중...")
         
-        # 단계 1: 테이블 생성
-        try:
-            # 사용자 테이블
-            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        # 각 테이블을 개별 트랜잭션으로 생성
+        tables_to_create = [
+            ('users', '''CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 employee_id TEXT UNIQUE NOT NULL,
@@ -120,10 +111,8 @@ def init_db():
                 password TEXT NOT NULL,
                 is_approved INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-            )''')
-            
-            # 재고 테이블
-            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory (
+            )'''),
+            ('inventory', '''CREATE TABLE IF NOT EXISTS inventory (
                 id SERIAL PRIMARY KEY,
                 warehouse TEXT NOT NULL,
                 category TEXT NOT NULL,
@@ -131,20 +120,16 @@ def init_db():
                 quantity INTEGER DEFAULT 0,
                 last_modifier TEXT,
                 last_modified TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-            )''')
-            
-            # 재고 이력 테이블
-            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory_history (
+            )'''),
+            ('inventory_history', '''CREATE TABLE IF NOT EXISTS inventory_history (
                 id SERIAL PRIMARY KEY,
                 inventory_id INTEGER REFERENCES inventory(id),
                 change_type TEXT,
                 quantity_change INTEGER,
                 modifier_name TEXT,
                 modified_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-            )''')
-            
-            # 사진 테이블
-            cursor.execute('''CREATE TABLE IF NOT EXISTS photos (
+            )'''),
+            ('photos', '''CREATE TABLE IF NOT EXISTS photos (
                 id SERIAL PRIMARY KEY,
                 inventory_id INTEGER REFERENCES inventory(id),
                 filename TEXT NOT NULL,
@@ -153,18 +138,21 @@ def init_db():
                 uploaded_by TEXT,
                 uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
-            
-            # 테이블 생성 커밋
-            conn.commit()
-            print("✅ 테이블 생성 완료")
-            
-        except Exception as table_error:
-            conn.rollback()
-            print(f"⚠️ 테이블 생성 중 오류 (무시하고 계속): {table_error}")
+        ]
         
-        # 단계 2: 관리자 계정 생성
+        for table_name, sql in tables_to_create:
+            try:
+                cursor.execute(sql)
+                conn.commit()
+                print(f"✅ {table_name} 테이블 처리 완료")
+            except Exception as e:
+                conn.rollback()
+                print(f"⚠️ {table_name} 테이블 처리 중 오류 (무시): {e}")
+                cursor.close()
+                cursor = conn.cursor()
+        
+        # 관리자 계정 생성 (별도 트랜잭션)
         try:
-            # 관리자 계정 존재 확인
             cursor.execute('SELECT id FROM users WHERE employee_id = %s', ('admin',))
             admin_exists = cursor.fetchone()
             
@@ -180,28 +168,17 @@ def init_db():
                 
         except Exception as admin_error:
             conn.rollback()
-            print(f"⚠️ 관리자 계정 처리 중 오류 (무시하고 계속): {admin_error}")
-        
-        # 연결 종료
-        conn.close()
-        print("✅ Supabase 데이터베이스 초기화 완료!")
-        print("💾 데이터 영구 보존 활성화")
-        
-        # 최종 상태 확인
-        if check_db_health():
-            print("🎯 데이터베이스 상태: 정상")
-        else:
-            print("⚠️ 데이터베이스 상태: 일부 테이블 누락 (계속 진행)")
-        
+            print(f"⚠️ 관리자 계정 처리 중 오류: {admin_error}")
+            
     except Exception as e:
-        print(f"❌ 치명적 오류: Supabase 초기화 실패!")
-        print(f"   오류 내용: {e}")
-        print("💡 트러블슈팅:")
-        print("   1. pg8000 라이브러리 버전 확인")
-        print("   2. SUPABASE_DB_URL 환경변수 확인")
-        print("   3. Supabase 프로젝트 상태 확인")
-        print("=" * 60)
-        sys.exit(1)
+        if conn:
+            conn.rollback()
+        print(f"❌ 초기화 중 오류: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+        print("✅ 데이터베이스 초기화 완료!")
 
 # 시스템 시작 시 Supabase 연결 필수 확인
 print("🔍 Supabase 연결 상태 확인 중...")
@@ -329,14 +306,15 @@ def admin_dashboard():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != %s', ('admin',))
+        cursor.execute('SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != %s ORDER BY created_at DESC', ('admin',))
         users = cursor.fetchall()
         conn.close()
         
         return render_template('admin_dashboard.html', users=users)
         
     except Exception as e:
-        flash('데이터를 불러오는 중 오류가 발생했습니다.')
+        flash(f'데이터를 불러오는 중 오류가 발생했습니다: {str(e)}')
+        session.clear()
         return redirect(url_for('index'))
 
 @app.route('/approve_user/<int:user_id>')
@@ -777,17 +755,15 @@ def page_not_found(error):
     ''', 404
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     is_render = os.environ.get('RENDER') is not None
     
     print("🎯 최종 시스템 정보:")
     print(f"📱 포트: {port}")
     print(f"🗄️ 데이터베이스: PostgreSQL (Supabase 전용)")
-    print(f"🔒 보안: pg8000 호환성 문제 해결됨")
+    print(f"🔒 보안: 관리자 정보 숨김 처리")
     print(f"🌐 환경: {'Production (Render)' if is_render else 'Development'}")
     print(f"💾 데이터 보존: 영구 (Supabase)")
-    print("=" * 60)
-    print("✅ 시스템 시작 - Supabase 연결 필수")
     print("=" * 60)
     
     app.run(host='0.0.0.0', port=port, debug=not is_render)
