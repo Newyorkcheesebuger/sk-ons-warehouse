@@ -74,18 +74,6 @@ def get_db_connection():
         print(f"   오류 내용: {e}")
         raise Exception(f"Supabase 연결 실패: {e}")
 
-def check_db_health():
-    """데이터베이스 상태 확인"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'inventory', 'inventory_history', 'photos')")
-        tables = [row[0] for row in cursor.fetchall()]
-        conn.close()
-        return len(tables) == 4
-    except:
-        return False
-
 def init_db():
     """트랜잭션 오류 완전 해결된 초기화 함수"""
     conn = None
@@ -709,13 +697,10 @@ def health():
         cursor.execute('SELECT 1')
         conn.close()
         
-        db_healthy = check_db_health()
-        
         return jsonify({
-            'status': 'healthy' if db_healthy else 'warning',
+            'status': 'healthy',
             'database': 'postgresql',
             'supabase_connected': True,
-            'all_tables_exist': db_healthy,
             'timestamp': datetime.now().isoformat(),
             'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL) 정상 작동 중'
         })
