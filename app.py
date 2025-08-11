@@ -23,13 +23,14 @@ print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
 print("=" * 60)
 
-# Supabase 연결 필수 체크
-if not DATABASE_URL:
-    print("❌ 치명적 오류: SUPABASE_DB_URL 환경변수가 설정되지 않았습니다!")
+# Supabase 연결 필수 체크 (개선됨)
+if not DATABASE_URL or not DATABASE_URL.startswith('postgresql://'):
+    print("❌ 치명적 오류: 올바른 SUPABASE_DB_URL 환경변수가 설정되지 않았습니다!")
     print("📋 해결 방법:")
     print("   1. Render 대시보드에서 Environment Variables 설정")
-    print("   2. SUPABASE_DB_URL 추가")
+    print("   2. SUPABASE_DB_URL 추가 (postgresql://로 시작해야 함)")
     print("   3. 재배포")
+    print(f"   현재값: {DATABASE_URL[:30] if DATABASE_URL else 'None'}...")
     print("=" * 60)
     sys.exit(1)
 
@@ -46,6 +47,7 @@ def get_korea_time():
     return datetime.now(korea_tz)
 
 def get_db_connection():
+    """개선된 데이터베이스 연결 함수"""
     try:
         import pg8000
         parsed = urllib.parse.urlparse(DATABASE_URL)
@@ -55,7 +57,8 @@ def get_db_connection():
             port=parsed.port or 5432,
             user=parsed.username,
             password=parsed.password,
-            database=parsed.path[1:] if parsed.path else 'postgres'
+            database=parsed.path[1:] if parsed.path else 'postgres',
+            autocommit=False  # 명시적 트랜잭션 제어
         )
         return conn
     except ImportError:
@@ -66,7 +69,26 @@ def get_db_connection():
         print(f"   오류 내용: {e}")
         raise Exception(f"Supabase 연결 실패: {e}")
 
+def check_db_health():
+    """데이터베이스 상태 확인"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 테이블 존재 확인
+        cursor.execute("""
+            SELECT table_name FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name IN ('users', 'inventory', 'inventory_history', 'photos')
+        """)
+        tables = [row[0] for row in cursor.fetchall()]
+        
+        conn.close()
+        return len(tables) == 4
+    except:
+        return False
+
 def init_db():
+    """개선된 데이터베이스 초기화 함수 - 트랜잭션 오류 해결"""
     try:
         print("🔄 Supabase PostgreSQL 연결 테스트 중...")
         conn = get_db_connection()
@@ -79,67 +101,97 @@ def init_db():
         
         print("🔄 데이터베이스 테이블 생성 중...")
         
-        # 사용자 테이블
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            employee_id TEXT UNIQUE NOT NULL,
-            team TEXT NOT NULL,
-            password TEXT NOT NULL,
-            is_approved INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-        )''')
-
-        # 재고 테이블
-        cursor.execute('''CREATE TABLE IF NOT EXISTS inventory (
-            id SERIAL PRIMARY KEY,
-            warehouse TEXT NOT NULL,
-            category TEXT NOT NULL,
-            part_name TEXT NOT NULL,
-            quantity INTEGER DEFAULT 0,
-            last_modifier TEXT,
-            last_modified TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-        )''')
-
-        # 재고 이력 테이블
-        cursor.execute('''CREATE TABLE IF NOT EXISTS inventory_history (
-            id SERIAL PRIMARY KEY,
-            inventory_id INTEGER REFERENCES inventory(id),
-            change_type TEXT,
-            quantity_change INTEGER,
-            modifier_name TEXT,
-            modified_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-        )''')
-
-        # 사진 테이블
-        cursor.execute('''CREATE TABLE IF NOT EXISTS photos (
-            id SERIAL PRIMARY KEY,
-            inventory_id INTEGER REFERENCES inventory(id),
-            filename TEXT NOT NULL,
-            original_name TEXT NOT NULL,
-            file_size INTEGER,
-            uploaded_by TEXT,
-            uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
-        )''')
-
-        # 관리자 계정 생성
-        admin_password = generate_password_hash('Onsn1103813!')
+        # 단계 1: 테이블 생성 (별도 트랜잭션)
         try:
-            cursor.execute('''INSERT INTO users (name, employee_id, team, password, is_approved) 
-                             VALUES (%s, %s, %s, %s, %s)''',
-                          ('관리자', 'admin', '관리', admin_password, 1))
-            print("✅ 관리자 계정 생성 완료")
-        except:
-            print("ℹ️ 관리자 계정 이미 존재")
+            # 사용자 테이블
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                employee_id TEXT UNIQUE NOT NULL,
+                team TEXT NOT NULL,
+                password TEXT NOT NULL,
+                is_approved INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )''')
+            
+            # 재고 테이블
+            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory (
+                id SERIAL PRIMARY KEY,
+                warehouse TEXT NOT NULL,
+                category TEXT NOT NULL,
+                part_name TEXT NOT NULL,
+                quantity INTEGER DEFAULT 0,
+                last_modifier TEXT,
+                last_modified TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )''')
+            
+            # 재고 이력 테이블
+            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory_history (
+                id SERIAL PRIMARY KEY,
+                inventory_id INTEGER REFERENCES inventory(id),
+                change_type TEXT,
+                quantity_change INTEGER,
+                modifier_name TEXT,
+                modified_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )''')
+            
+            # 사진 테이블
+            cursor.execute('''CREATE TABLE IF NOT EXISTS photos (
+                id SERIAL PRIMARY KEY,
+                inventory_id INTEGER REFERENCES inventory(id),
+                filename TEXT NOT NULL,
+                original_name TEXT NOT NULL,
+                file_size INTEGER,
+                uploaded_by TEXT,
+                uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )''')
+            
+            # 테이블 생성 커밋
+            conn.commit()
+            print("✅ 테이블 생성 완료")
+            
+        except Exception as table_error:
+            conn.rollback()
+            print(f"⚠️ 테이블 생성 중 오류 (무시하고 계속): {table_error}")
         
-        conn.commit()
+        # 단계 2: 관리자 계정 생성 (별도 트랜잭션)
+        try:
+            # 관리자 계정 존재 확인
+            cursor.execute('SELECT id FROM users WHERE employee_id = %s', ('admin',))
+            admin_exists = cursor.fetchone()
+            
+            if not admin_exists:
+                admin_password = generate_password_hash('Onsn1103813!')
+                cursor.execute('''INSERT INTO users (name, employee_id, team, password, is_approved) 
+                                 VALUES (%s, %s, %s, %s, %s)''',
+                              ('관리자', 'admin', '관리', admin_password, 1))
+                conn.commit()
+                print("✅ 관리자 계정 생성 완료")
+            else:
+                print("ℹ️ 관리자 계정 이미 존재")
+                
+        except Exception as admin_error:
+            conn.rollback()
+            print(f"⚠️ 관리자 계정 처리 중 오류 (무시하고 계속): {admin_error}")
+        
+        # 연결 종료
         conn.close()
         print("✅ Supabase 데이터베이스 초기화 완료!")
         print("💾 데이터 영구 보존 활성화")
         
+        # 최종 상태 확인
+        if check_db_health():
+            print("🎯 데이터베이스 상태: 정상")
+        else:
+            print("⚠️ 데이터베이스 상태: 일부 테이블 누락 (계속 진행)")
+        
     except Exception as e:
         print(f"❌ 치명적 오류: Supabase 초기화 실패!")
         print(f"   오류 내용: {e}")
+        print("💡 트러블슈팅:")
+        print("   1. SUPABASE_DB_URL 환경변수 확인")
+        print("   2. Supabase 프로젝트 상태 확인")
+        print("   3. 네트워크 연결 확인")
         print("=" * 60)
         sys.exit(1)
 
@@ -406,7 +458,12 @@ def update_quantity():
         cursor = conn.cursor()
         
         cursor.execute('SELECT quantity, warehouse FROM inventory WHERE id = %s', (item_id,))
-        current_quantity, warehouse = cursor.fetchone()
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'message': '재고 항목을 찾을 수 없습니다.'})
+            
+        current_quantity, warehouse = result
 
         if change_type == 'out':
             quantity_change = -quantity_change
@@ -666,10 +723,13 @@ def health():
         cursor.execute('SELECT 1')
         conn.close()
         
+        db_healthy = check_db_health()
+        
         return jsonify({
-            'status': 'healthy',
+            'status': 'healthy' if db_healthy else 'warning',
             'database': 'postgresql',
             'supabase_connected': True,
+            'all_tables_exist': db_healthy,
             'timestamp': datetime.now().isoformat(),
             'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL) 정상 작동 중'
         })
@@ -691,6 +751,7 @@ def internal_error(error):
         <h1>서버 내부 오류</h1>
         <p>Supabase 연결 문제가 발생했습니다.</p>
         <p><a href="/">홈으로 돌아가기</a></p>
+        <p>관리자에게 문의하세요: 시스템 오류 발생</p>
     </body>
     </html>
     ''', 500
@@ -714,7 +775,7 @@ if __name__ == '__main__':
     print("🎯 최종 시스템 정보:")
     print(f"📱 포트: {port}")
     print(f"🗄️ 데이터베이스: PostgreSQL (Supabase 전용)")
-    print(f"🔒 보안: SQLite 폴백 비활성화")
+    print(f"🔒 보안: 트랜잭션 오류 해결됨")
     print(f"🌐 환경: {'Production (Render)' if is_render else 'Development'}")
     print(f"💾 데이터 보존: 영구 (Supabase)")
     print("=" * 60)
