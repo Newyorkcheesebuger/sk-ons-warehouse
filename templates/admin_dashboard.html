@@ -9,6 +9,37 @@
         </a>
     </div>
 
+    <!-- 🆕 Supabase 연결 상태 및 마이그레이션 -->
+    <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 30px;">
+        <h4 style="color: #333; margin-bottom: 20px; display: flex; align-items: center;">
+            <span style="margin-right: 10px;">🗄️</span>
+            데이터베이스 관리
+        </h4>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <button onclick="checkConnection()" class="admin-function-card" style="border: none; background: #e3f2fd; cursor: pointer;">
+                <div class="function-icon">🔍</div>
+                <div class="function-content">
+                    <h5>연결 상태 확인</h5>
+                    <p>데이터베이스 연결 상태 확인</p>
+                </div>
+            </button>
+
+            <button onclick="migrateToSupabase()" class="admin-function-card" style="border: none; background: #e8f5e8; cursor: pointer;">
+                <div class="function-icon">📤</div>
+                <div class="function-content">
+                    <h5>SQLite → Supabase 마이그레이션</h5>
+                    <p>로컬 데이터를 Supabase로 이전</p>
+                </div>
+            </button>
+        </div>
+
+        <!-- 연결 상태 표시 영역 -->
+        <div id="connectionStatus" style="display: none; padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <div id="statusContent"></div>
+        </div>
+    </div>
+
     <!-- 사용자 승인 및 관리 -->
     <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 30px;">
         <h4 style="color: #333; margin-bottom: 20px; display: flex; align-items: center;">
@@ -295,9 +326,128 @@
 .btn-small:active {
     transform: scale(0.95);
 }
+
+/* 🆕 연결 상태 스타일 */
+#connectionStatus.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+#connectionStatus.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+#connectionStatus.warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+}
+
+.loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
 
 <script>
+// 🆕 데이터베이스 연결 상태 확인
+async function checkConnection() {
+    const statusDiv = document.getElementById('connectionStatus');
+    const statusContent = document.getElementById('statusContent');
+    
+    // 로딩 표시
+    statusDiv.style.display = 'block';
+    statusDiv.className = '';
+    statusContent.innerHTML = '<span class="loading"></span>연결 상태를 확인하는 중...';
+    
+    try {
+        const response = await fetch('/admin/check_connection');
+        const result = await response.json();
+        
+        if (result.success) {
+            statusDiv.className = result.database.includes('PostgreSQL') ? 'success' : 'warning';
+            statusContent.innerHTML = `
+                <h5 style="margin: 0 0 10px 0;">${result.status} ${result.database}</h5>
+                <p style="margin: 0 0 5px 0;"><strong>버전:</strong> ${result.version}</p>
+                <p style="margin: 0; font-size: 14px;">${result.message}</p>
+            `;
+        } else {
+            statusDiv.className = 'error';
+            statusContent.innerHTML = `
+                <h5 style="margin: 0 0 10px 0;">${result.status}</h5>
+                <p style="margin: 0; font-size: 14px;">${result.message}</p>
+            `;
+        }
+    } catch (error) {
+        statusDiv.className = 'error';
+        statusContent.innerHTML = `
+            <h5 style="margin: 0 0 10px 0;">❌ 연결 확인 실패</h5>
+            <p style="margin: 0; font-size: 14px;">서버 통신 오류: ${error.message}</p>
+        `;
+    }
+}
+
+// 🆕 SQLite → Supabase 마이그레이션
+async function migrateToSupabase() {
+    if (!confirm('🚨 중요: SQLite 데이터를 Supabase로 마이그레이션하시겠습니까?\n\n이 작업은:\n✅ 기존 SQLite 데이터를 Supabase로 복사합니다\n⚠️ 중복 데이터는 자동으로 건너뜁니다\n🔄 시간이 다소 걸릴 수 있습니다\n\n계속하시겠습니까?')) {
+        return;
+    }
+    
+    const statusDiv = document.getElementById('connectionStatus');
+    const statusContent = document.getElementById('statusContent');
+    
+    // 로딩 표시
+    statusDiv.style.display = 'block';
+    statusDiv.className = '';
+    statusContent.innerHTML = '<span class="loading"></span>마이그레이션을 진행하는 중... 잠시만 기다려주세요.';
+    
+    try {
+        const response = await fetch('/admin/migrate_to_supabase');
+        const result = await response.json();
+        
+        if (result.success) {
+            statusDiv.className = 'success';
+            statusContent.innerHTML = `
+                <h5 style="margin: 0 0 10px 0;">✅ 마이그레이션 성공!</h5>
+                <p style="margin: 0; font-size: 14px; white-space: pre-line;">${result.message}</p>
+                <p style="margin: 10px 0 0 0; font-size: 12px; font-weight: bold;">이제 영구 Supabase 데이터베이스를 사용합니다! 🎉</p>
+            `;
+            
+            // 3초 후 페이지 새로고침
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            statusDiv.className = 'error';
+            statusContent.innerHTML = `
+                <h5 style="margin: 0 0 10px 0;">❌ 마이그레이션 실패</h5>
+                <p style="margin: 0; font-size: 14px;">${result.message}</p>
+                <p style="margin: 10px 0 0 0; font-size: 12px;">환경변수 SUPABASE_DB_URL이 올바르게 설정되었는지 확인해주세요.</p>
+            `;
+        }
+    } catch (error) {
+        statusDiv.className = 'error';
+        statusContent.innerHTML = `
+            <h5 style="margin: 0 0 10px 0;">❌ 마이그레이션 오류</h5>
+            <p style="margin: 0; font-size: 14px;">서버 통신 오류: ${error.message}</p>
+        `;
+    }
+}
+
 // 페이지 로드 시 통계 카드 애니메이션
 document.addEventListener('DOMContentLoaded', function() {
     const statCards = document.querySelectorAll('.stat-card');
@@ -313,6 +463,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 50);
         }, index * 100);
     });
+    
+    // 🆕 페이지 로드 시 자동으로 연결 상태 확인
+    setTimeout(() => {
+        checkConnection();
+    }, 1000);
 });
 
 // 삭제 버튼 확인
