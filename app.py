@@ -9,7 +9,11 @@ import pytz
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
 
-# 간단한 데이터베이스 초기화
+def get_korea_time():
+    """한국시간(KST)을 반환합니다."""
+    korea_tz = pytz.timezone('Asia/Seoul')
+    return datetime.now(korea_tz)
+
 def init_db():
     try:
         print("데이터베이스 초기화 시작...")
@@ -25,6 +29,16 @@ def init_db():
                       password TEXT NOT NULL,
                       is_approved INTEGER DEFAULT 0,
                       created_at TEXT DEFAULT (datetime('now', '+9 hours')))''')
+
+        # 창고 재고 테이블
+        c.execute('''CREATE TABLE IF NOT EXISTS inventory
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      warehouse TEXT NOT NULL,
+                      category TEXT NOT NULL,
+                      part_name TEXT NOT NULL,
+                      quantity INTEGER DEFAULT 0,
+                      last_modifier TEXT,
+                      last_modified TEXT DEFAULT (datetime('now', '+9 hours')))''')
 
         # 관리자 계정 생성
         admin_password = generate_password_hash('Onsn1103813!')
@@ -43,57 +57,57 @@ init_db()
 
 @app.route('/')
 def index():
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>SK오앤에스 창고관리 시스템</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-            .container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-            h1 { text-align: center; color: #333; margin-bottom: 30px; }
-            .form-group { margin-bottom: 20px; }
-            label { display: block; margin-bottom: 5px; font-weight: bold; }
-            input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-            button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
-            button:hover { background: #0056b3; }
-            .success { color: #28a745; text-align: center; margin-bottom: 20px; }
-            .error { color: #dc3545; text-align: center; margin-bottom: 20px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🏭 SK오앤에스 창고관리</h1>
+    return render_template('index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        team = request.form['team']
+        employee_number = request.form['employee_number']
+        password = request.form['password']
+
+        # 비밀번호 길이 검증
+        if len(password) < 8:
+            flash('비밀번호는 8자리 이상이어야 합니다.')
+            return render_template('register.html')
+
+        # 사번 검증
+        if not employee_number.startswith('N'):
+            employee_number = 'N' + employee_number
             
-            <div class="success">
-                ✅ 시스템이 정상적으로 배포되었습니다!<br>
-                🗄️ SQLite 데이터베이스 연결됨<br>
-                📱 모든 기능 준비 완료
-            </div>
+        if len(employee_number) != 8:
+            flash('사번은 7자리 숫자여야 합니다.')
+            return render_template('register.html')
+
+        try:
+            int(employee_number[1:])
+        except ValueError:
+            flash('사번 형식이 올바르지 않습니다.')
+            return render_template('register.html')
+
+        try:
+            conn = sqlite3.connect('warehouse.db')
+            c = conn.cursor()
+            c.execute('SELECT id FROM users WHERE employee_id = ?', (employee_number,))
+            if c.fetchone():
+                flash('이미 등록된 사번입니다.')
+                conn.close()
+                return render_template('register.html')
+
+            hashed_password = generate_password_hash(password)
+            c.execute('INSERT INTO users (name, employee_id, team, password) VALUES (?, ?, ?, ?)',
+                      (name, employee_number, team, hashed_password))
+            conn.commit()
+            conn.close()
+            flash('회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.')
+            return redirect(url_for('index'))
             
-            <form method="POST" action="/login">
-                <div class="form-group">
-                    <label for="employee_id">사번</label>
-                    <input type="text" id="employee_id" name="employee_id" placeholder="admin" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">비밀번호</label>
-                    <input type="password" id="password" name="password" placeholder="Onsn1103813!" required>
-                </div>
-                
-                <button type="submit">로그인</button>
-            </form>
-            
-            <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
-                테스트: admin / Onsn1103813!
-            </p>
-        </div>
-    </body>
-    </html>
-    '''
+        except Exception as e:
+            flash('회원가입 중 오류가 발생했습니다.')
+            return render_template('register.html')
+
+    return render_template('register.html')
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -102,6 +116,7 @@ def login():
         password = request.form.get('password', '')
 
         if not employee_id or not password:
+            flash('아이디와 비밀번호를 입력해주세요.')
             return redirect(url_for('index'))
 
         conn = sqlite3.connect('warehouse.db')
@@ -112,6 +127,7 @@ def login():
 
         if user and check_password_hash(user[3], password):
             if user[4] == 0:
+                flash('관리자 승인 대기 중입니다.')
                 return redirect(url_for('index'))
 
             session.clear()
@@ -121,60 +137,156 @@ def login():
             session['is_admin'] = (employee_id == 'admin')
             session.permanent = True
 
-            return redirect(url_for('dashboard'))
+            if session['is_admin']:
+                return redirect(url_for('admin_dashboard'))
+            else:
+                return redirect(url_for('dashboard'))
         else:
+            flash('아이디 또는 비밀번호가 잘못되었습니다.')
             return redirect(url_for('index'))
             
     except Exception as e:
-        print(f"로그인 오류: {e}")
+        flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
         return redirect(url_for('index'))
 
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('index'))
+
+    if session.get('is_admin') == True:
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('dashboard.html')
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if 'user_id' not in session:
+        flash('로그인이 필요합니다.')
+        return redirect(url_for('index'))
+
+    if not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect(url_for('dashboard'))
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != ?', ('admin',))
+        users = c.fetchall()
+        conn.close()
+        
+        return render_template('admin_dashboard.html', users=users)
+        
+    except Exception as e:
+        flash('데이터를 불러오는 중 오류가 발생했습니다.')
+        return redirect(url_for('index'))
+
+@app.route('/approve_user/<int:user_id>')
+def approve_user(user_id):
+    if 'user_id' not in session or not session.get('is_admin'):
+        return redirect(url_for('index'))
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('UPDATE users SET is_approved = 1 WHERE id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        flash('사용자가 승인되었습니다.')
+        
+    except Exception as e:
+        flash('사용자 승인 중 오류가 발생했습니다.')
     
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>대시보드</title>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
-            .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }}
-            h1 {{ color: #333; text-align: center; margin-bottom: 30px; }}
-            .welcome {{ background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }}
-            .status {{ background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }}
-            a {{ display: inline-block; padding: 10px 20px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; }}
-            a:hover {{ background: #c82333; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🎉 배포 성공!</h1>
-            
-            <div class="welcome">
-                <h3>환영합니다, {session['user_name']}님!</h3>
-                <p>사번: {session['employee_id']}</p>
-                <p>관리자 권한: {'✅ 있음' if session.get('is_admin') else '❌ 없음'}</p>
-            </div>
-            
-            <div class="status">
-                <h4>📊 시스템 상태</h4>
-                <p>✅ 데이터베이스: SQLite 연결됨</p>
-                <p>✅ 세션 관리: 정상 작동</p>
-                <p>✅ 사용자 인증: 정상 작동</p>
-                <p>🚀 Render.com 배포: 성공!</p>
-            </div>
-            
-            <p style="text-align: center;">
-                <a href="/logout">로그아웃</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    '''
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/delete_user/<int:user_id>')
+def delete_user(user_id):
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect(url_for('index'))
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('SELECT name, employee_id FROM users WHERE id = ? AND employee_id != "admin"', (user_id,))
+        user = c.fetchone()
+        
+        if user:
+            c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            flash(f'사용자 {user[0]}({user[1]})가 삭제되었습니다.')
+        else:
+            flash('삭제할 수 없는 사용자입니다.')
+        
+        conn.close()
+        
+    except Exception as e:
+        flash('사용자 삭제 중 오류가 발생했습니다.')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/warehouse/<warehouse_name>')
+def warehouse(warehouse_name):
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    if warehouse_name != '보라매창고':
+        return render_template('preparing.html', warehouse_name=warehouse_name)
+
+    return render_template('warehouse.html', warehouse_name=warehouse_name)
+
+@app.route('/warehouse/<warehouse_name>/electric')
+def electric_inventory(warehouse_name):
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    if warehouse_name != '보라매창고':
+        return render_template('preparing.html', warehouse_name=warehouse_name)
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('''SELECT id, category, part_name, quantity, last_modifier, last_modified
+                     FROM inventory 
+                     WHERE warehouse = ? AND category = "전기차"
+                     ORDER BY id''', (warehouse_name,))
+        inventory = c.fetchall()
+        conn.close()
+        
+        return render_template('electric_inventory.html',
+                               warehouse_name=warehouse_name,
+                               inventory=inventory,
+                               is_admin=session.get('is_admin', False))
+                               
+    except Exception as e:
+        flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
+        return redirect(url_for('dashboard'))
+
+@app.route('/add_inventory_item', methods=['POST'])
+def add_inventory_item():
+    if 'user_id' not in session or not session.get('is_admin'):
+        return redirect(url_for('index'))
+
+    warehouse_name = request.form['warehouse_name']
+    category = request.form['category']
+    part_name = request.form['part_name']
+    quantity = int(request.form['quantity'])
+
+    korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+
+    try:
+        conn = sqlite3.connect('warehouse.db')
+        c = conn.cursor()
+        c.execute('INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier, last_modified) VALUES (?, ?, ?, ?, ?, ?)',
+                  (warehouse_name, category, part_name, quantity, session['user_name'], korea_time))
+        conn.commit()
+        conn.close()
+        
+    except Exception as e:
+        flash('재고 추가 중 오류가 발생했습니다.')
+    
+    return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
 
 @app.route('/logout')
 def logout():
@@ -188,14 +300,45 @@ def health():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'database': 'sqlite',
+        'version': '2.0 - 기본기능',
         'message': 'SK오앤에스 창고관리 시스템 정상 작동 중'
     })
 
+# 에러 핸들러
+@app.errorhandler(500)
+def internal_error(error):
+    return '''
+    <html>
+    <head><title>서버 오류</title></head>
+    <body>
+        <h1>서버 내부 오류</h1>
+        <p>죄송합니다. 서버에서 오류가 발생했습니다.</p>
+        <p><a href="/">홈으로 돌아가기</a></p>
+    </body>
+    </html>
+    ''', 500
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return '''
+    <html>
+    <head><title>페이지를 찾을 수 없음</title></head>
+    <body>
+        <h1>404 - 페이지를 찾을 수 없습니다</h1>
+        <p><a href="/">홈으로 돌아가기</a></p>
+    </body>
+    </html>
+    ''', 404
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    is_render = os.environ.get('RENDER') is not None
     
-    print("🚀 SK오앤에스 창고관리 시스템 시작")
-    print(f"📱 포트: {port}")
-    print("✅ 최소 기능 버전으로 배포 테스트")
-    
-    app.run(host='0.0.0.0', port=port, debug=False)
+    if is_render:
+        print("🚀 SK오앤에스 창고관리 시스템 (Render.com 배포)")
+        print(f"🌐 포트 {port}에서 서비스 시작...")
+        print("✅ 2단계: 기본 기능 버전")
+        app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        print("🚀 SK오앤에스 창고관리 시스템 (로컬 개발)")
+        app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
