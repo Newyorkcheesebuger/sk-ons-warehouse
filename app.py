@@ -6,58 +6,97 @@ import time
 from datetime import datetime
 import pytz
 
-# PostgreSQL 지원 추가 (pg8000 사용)
+# PostgreSQL 지원 추가 (psycopg2-cffi 사용)
 PG_AVAILABLE = False
 try:
-    import pg8000.native
+    import psycopg2cffi
+    from psycopg2cffi import compat
+    compat.register()
+    import psycopg2
+    import psycopg2.extras
     PG_AVAILABLE = True
-    print("✅ pg8000 라이브러리 로드 성공")
+    print("✅ psycopg2-cffi 라이브러리 로드 성공")
 except ImportError as e:
-    print(f"⚠️ pg8000 라이브러리 로드 실패: {e}")
+    print(f"⚠️ psycopg2-cffi 라이브러리 로드 실패: {e}")
     print("🔄 SQLite 모드로 실행됩니다")
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
 
-# 데이터베이스 연결 정보
-DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
+# 데이터베이스 연결 정보 (여러 이름으로 시도)
+DATABASE_URL = (
+    os.environ.get('SUPABASE_DB_URL') or 
+    os.environ.get('DATABASE_URL') or 
+    os.environ.get('POSTGRES_URL') or 
+    os.environ.get('DB_URL')
+)
 
-# 디버그: 환경변수 확인
-print(f"🔍 DATABASE_URL 확인:")
-if DATABASE_URL:
-    print(f"   설정됨: {DATABASE_URL[:50]}...")
+# 🔍 강화된 디버깅
+print("=" * 50)
+print("🔍 환경변수 전체 디버깅")
+print("=" * 50)
+
+print(f"🎯 SUPABASE_DB_URL 확인:")
+supabase_url = os.environ.get('SUPABASE_DB_URL')
+if supabase_url:
+    print(f"   ✅ 설정됨: {supabase_url}")
+    print(f"   📏 길이: {len(supabase_url)} 문자")
+    print(f"   📝 처음 50자: {supabase_url[:50]}...")
+    print(f"   🔗 프로토콜: {'postgresql://' if supabase_url.startswith('postgresql://') else '❌ 잘못된 프로토콜'}")
 else:
-    print("   ❌ 설정되지 않음")
+    print("   ❌ SUPABASE_DB_URL 설정되지 않음!")
 
-print(f"🔍 사용 가능한 환경변수:")
+print(f"\n🎯 최종 사용할 DATABASE_URL:")
+if DATABASE_URL:
+    print(f"   ✅ 설정됨: {DATABASE_URL}")
+    print(f"   📏 길이: {len(DATABASE_URL)} 문자")
+    print(f"   📝 처음 50자: {DATABASE_URL[:50]}...")
+else:
+    print("   ❌ 모든 데이터베이스 URL이 설정되지 않음!")
+
+print(f"\n🔍 모든 환경변수 (DATABASE, SUPABASE, DB 포함):")
+found_vars = []
 for key in os.environ.keys():
-    if 'SUPABASE' in key or 'DATABASE' in key or 'DB' in key:
-        print(f"   {key}: {os.environ[key][:30]}...")
+    if any(keyword in key.upper() for keyword in ['SUPABASE', 'DATABASE', 'DB', 'POSTGRES']):
+        value = os.environ[key]
+        found_vars.append(f"   {key}: {value[:50]}...")
+        
+if found_vars:
+    for var in found_vars:
+        print(var)
+else:
+    print("   ❌ 관련 환경변수가 하나도 없음!")
+
+print(f"\n🌍 전체 환경변수 개수: {len(os.environ)}")
+print("=" * 50)
+
+def get_korea_time():
+    """한국시간(KST)을 반환합니다."""
+    korea_tz = pytz.timezone('Asia/Seoul')
+    return datetime.now(korea_tz)
 
 def get_db_connection():
     """데이터베이스 연결 - Supabase 우선, 없으면 SQLite"""
     if DATABASE_URL and PG_AVAILABLE:
         try:
             print(f"🔄 Supabase 연결 시도: {DATABASE_URL[:30]}...")
-            conn = pg8000.native.Connection(DATABASE_URL)
+            
+            # psycopg2-cffi는 psycopg2와 동일한 API 사용
+            conn = psycopg2.connect(DATABASE_URL)
             print("✅ Supabase PostgreSQL 연결 성공!")
             return conn, 'postgresql'
+                
         except Exception as e:
             print(f"❌ Supabase 연결 실패: {e}")
             print("🔄 SQLite로 폴백...")
             return sqlite3.connect('warehouse.db'), 'sqlite'
     else:
         if not DATABASE_URL:
-            print("⚠️ SUPABASE_DB_URL 환경변수가 설정되지 않음")
+            print("⚠️ DATABASE_URL 환경변수가 설정되지 않음")
         if not PG_AVAILABLE:
-            print("⚠️ pg8000 라이브러리가 설치되지 않음")
+            print("⚠️ psycopg2-cffi 라이브러리가 설치되지 않음")
         print("🔄 SQLite 사용")
         return sqlite3.connect('warehouse.db'), 'sqlite'
-
-def get_korea_time():
-    """한국시간(KST)을 반환합니다."""
-    korea_tz = pytz.timezone('Asia/Seoul')
-    return datetime.now(korea_tz)
 
 def init_db():
     try:
@@ -65,10 +104,11 @@ def init_db():
         conn, db_type = get_db_connection()
         
         if db_type == 'postgresql':
+            cursor = conn.cursor()
             print("✅ PostgreSQL (Supabase) 테이블 생성")
             
-            # pg8000용 쿼리 실행
-            conn.run('''CREATE TABLE IF NOT EXISTS users (
+            # PostgreSQL용 테이블 생성
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 employee_id TEXT UNIQUE NOT NULL,
@@ -78,7 +118,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
 
-            conn.run('''CREATE TABLE IF NOT EXISTS inventory (
+            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory (
                 id SERIAL PRIMARY KEY,
                 warehouse TEXT NOT NULL,
                 category TEXT NOT NULL,
@@ -88,15 +128,11 @@ def init_db():
                 last_modified TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
 
-            # 관리자 계정 생성 (pg8000)
+            # 관리자 계정 생성 (PostgreSQL)
             admin_password = generate_password_hash('Onsn1103813!')
-            try:
-                conn.run('''INSERT INTO users (name, employee_id, team, password, is_approved) 
-                            VALUES (%s, %s, %s, %s, %s)''',
-                        ('관리자', 'admin', '관리', admin_password, 1))
-            except Exception as e:
-                # 이미 존재하는 경우 무시
-                print(f"관리자 계정 이미 존재: {e}")
+            cursor.execute('''INSERT INTO users (name, employee_id, team, password, is_approved) 
+                             VALUES (%s, %s, %s, %s, %s) ON CONFLICT (employee_id) DO NOTHING''',
+                          ('관리자', 'admin', '관리', admin_password, 1))
             
         else:
             cursor = conn.cursor()
@@ -126,8 +162,7 @@ def init_db():
             cursor.execute('INSERT OR IGNORE INTO users (name, employee_id, team, password, is_approved) VALUES (?, ?, ?, ?, ?)',
                           ('관리자', 'admin', '관리', admin_password, 1))
 
-            conn.commit()
-
+        conn.commit()
         conn.close()
         print("✅ 데이터베이스 초기화 완료!")
         
@@ -182,123 +217,10 @@ def check_connection():
             'message': f'데이터베이스 연결 오류: {str(e)}'
         })
 
-@app.route('/admin/migrate_to_supabase')
-def migrate_to_supabase():
-    """SQLite → Supabase 마이그레이션"""
-    if 'user_id' not in session or not session.get('is_admin'):
-        return jsonify({'success': False, 'message': '관리자 권한이 필요합니다.'})
-    
-    if not DATABASE_URL or not PSYCOPG2_AVAILABLE:
-        return jsonify({
-            'success': False, 
-            'message': 'SUPABASE_DB_URL 환경변수가 설정되지 않았거나 psycopg2가 설치되지 않았습니다.'
-        })
-    
-    try:
-        # SQLite에서 데이터 읽기
-        sqlite_conn = sqlite3.connect('warehouse.db')
-        sqlite_cursor = sqlite_conn.cursor()
-        
-        # PostgreSQL 연결
-        pg_conn = psycopg2.connect(DATABASE_URL)
-        pg_cursor = pg_conn.cursor()
-        
-        # 사용자 데이터 마이그레이션
-        sqlite_cursor.execute('SELECT name, employee_id, team, password, is_approved, created_at FROM users')
-        users = sqlite_cursor.fetchall()
-        
-        for user in users:
-            pg_cursor.execute('''INSERT INTO users (name, employee_id, team, password, is_approved, created_at) 
-                                VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (employee_id) DO NOTHING''', user)
-        
-        # 재고 데이터 마이그레이션
-        sqlite_cursor.execute('SELECT warehouse, category, part_name, quantity, last_modifier, last_modified FROM inventory')
-        inventory = sqlite_cursor.fetchall()
-        
-        for item in inventory:
-            pg_cursor.execute('''INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier, last_modified) 
-                                VALUES (%s, %s, %s, %s, %s, %s)''', item)
-        
-        pg_conn.commit()
-        sqlite_conn.close()
-        pg_conn.close()
-        
-        return jsonify({
-            'success': True,
-            'message': f'✅ 마이그레이션 완료!\n👥 사용자: {len(users)}명\n📦 재고: {len(inventory)}개'
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'마이그레이션 오류: {str(e)}'})
-
 # === 기존 라우트들 ===
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        name = request.form['name']
-        team = request.form['team']
-        employee_number = request.form['employee_number']
-        password = request.form['password']
-
-        # 비밀번호 길이 검증
-        if len(password) < 8:
-            flash('비밀번호는 8자리 이상이어야 합니다.')
-            return render_template('register.html')
-
-        # 사번 검증
-        if not employee_number.startswith('N'):
-            employee_number = 'N' + employee_number
-            
-        if len(employee_number) != 8:
-            flash('사번은 7자리 숫자여야 합니다.')
-            return render_template('register.html')
-
-        try:
-            int(employee_number[1:])
-        except ValueError:
-            flash('사번 형식이 올바르지 않습니다.')
-            return render_template('register.html')
-
-        try:
-            conn, db_type = get_db_connection()
-            
-            if db_type == 'postgresql':
-                cursor = conn.cursor()
-                cursor.execute('SELECT id FROM users WHERE employee_id = %s', (employee_number,))
-                if cursor.fetchone():
-                    flash('이미 등록된 사번입니다.')
-                    conn.close()
-                    return render_template('register.html')
-
-                hashed_password = generate_password_hash(password)
-                cursor.execute('INSERT INTO users (name, employee_id, team, password) VALUES (%s, %s, %s, %s)',
-                              (name, employee_number, team, hashed_password))
-            else:
-                cursor = conn.cursor()
-                cursor.execute('SELECT id FROM users WHERE employee_id = ?', (employee_number,))
-                if cursor.fetchone():
-                    flash('이미 등록된 사번입니다.')
-                    conn.close()
-                    return render_template('register.html')
-
-                hashed_password = generate_password_hash(password)
-                cursor.execute('INSERT INTO users (name, employee_id, team, password) VALUES (?, ?, ?, ?)',
-                              (name, employee_number, team, hashed_password))
-            
-            conn.commit()
-            conn.close()
-            flash('회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.')
-            return redirect(url_for('index'))
-            
-        except Exception as e:
-            flash('회원가입 중 오류가 발생했습니다.')
-            return render_template('register.html')
-
-    return render_template('register.html')
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -385,30 +307,6 @@ def admin_dashboard():
         flash('데이터를 불러오는 중 오류가 발생했습니다.')
         return redirect(url_for('index'))
 
-@app.route('/approve_user/<int:user_id>')
-def approve_user(user_id):
-    if 'user_id' not in session or not session.get('is_admin'):
-        return redirect(url_for('index'))
-
-    try:
-        conn, db_type = get_db_connection()
-        
-        if db_type == 'postgresql':
-            cursor = conn.cursor()
-            cursor.execute('UPDATE users SET is_approved = %s WHERE id = %s', (1, user_id))
-        else:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE users SET is_approved = 1 WHERE id = ?', (user_id,))
-        
-        conn.commit()
-        conn.close()
-        flash('사용자가 승인되었습니다.')
-        
-    except Exception as e:
-        flash('사용자 승인 중 오류가 발생했습니다.')
-    
-    return redirect(url_for('admin_dashboard'))
-
 @app.route('/logout')
 def logout():
     session.clear()
@@ -425,9 +323,32 @@ def health():
         'timestamp': datetime.now().isoformat(),
         'database': db_type,
         'supabase_url_set': bool(DATABASE_URL),
-        'psycopg2_available': PSYCOPG2_AVAILABLE,
+        'psycopg2_available': PG_AVAILABLE,
         'message': f'SK오앤에스 창고관리 시스템 ({db_type}) 정상 작동 중'
     })
+
+# 🔍 디버깅 전용 라우트
+@app.route('/debug')
+def debug_info():
+    """디버깅 정보 웹페이지"""
+    return f'''
+    <h1>🔍 디버깅 정보</h1>
+    <h2>환경변수 상태:</h2>
+    <p><strong>SUPABASE_DB_URL:</strong> {'✅ 설정됨' if os.environ.get('SUPABASE_DB_URL') else '❌ 없음'}</p>
+    <p><strong>DATABASE_URL:</strong> {'✅ 설정됨' if os.environ.get('DATABASE_URL') else '❌ 없음'}</p>
+    <p><strong>최종 사용 URL:</strong> {'✅ 설정됨' if DATABASE_URL else '❌ 없음'}</p>
+    
+    <h2>라이브러리 상태:</h2>
+    <p><strong>psycopg2-cffi:</strong> {'✅ 로드됨' if PG_AVAILABLE else '❌ 로드 실패'}</p>
+    
+    <h2>연결 테스트:</h2>
+    <p><a href="/health">헬스체크</a></p>
+    
+    <h2>관련 환경변수:</h2>
+    <ul>
+    {''.join([f'<li>{key}: {value[:50]}...</li>' for key, value in os.environ.items() if any(keyword in key.upper() for keyword in ['SUPABASE', 'DATABASE', 'DB', 'POSTGRES'])])}
+    </ul>
+    '''
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
@@ -435,10 +356,12 @@ if __name__ == '__main__':
     
     print("🚀 SK오앤에스 창고관리 시스템 시작")
     print(f"📱 포트: {port}")
-    print(f"🗄️ 데이터베이스: {'Supabase 설정됨' if DATABASE_URL else 'SQLite 모드'}")
-    print(f"📦 psycopg2: {'설치됨' if PSYCOPG2_AVAILABLE else '미설치'}")
+    print(f"🗄️ 데이터베이스: {'PostgreSQL' if DATABASE_URL and PG_AVAILABLE else 'SQLite'}")
+    print(f"📦 psycopg2-cffi: {'설치됨' if PG_AVAILABLE else '미설치'}")
     
     if is_render:
+        print("✅ Render.com 배포 환경")
         app.run(host='0.0.0.0', port=port, debug=False)
     else:
+        print("🔧 로컬 개발 환경")
         app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
