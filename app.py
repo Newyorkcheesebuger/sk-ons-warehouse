@@ -22,6 +22,18 @@ app.secret_key = 'sk_ons_warehouse_secret_key_2025'
 # 데이터베이스 연결 정보
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
 
+# 디버그: 환경변수 확인
+print(f"🔍 DATABASE_URL 확인:")
+if DATABASE_URL:
+    print(f"   설정됨: {DATABASE_URL[:50]}...")
+else:
+    print("   ❌ 설정되지 않음")
+
+print(f"🔍 사용 가능한 환경변수:")
+for key in os.environ.keys():
+    if 'SUPABASE' in key or 'DATABASE' in key or 'DB' in key:
+        print(f"   {key}: {os.environ[key][:30]}..."))
+
 def get_db_connection():
     """데이터베이스 연결 - Supabase 우선, 없으면 SQLite"""
     if DATABASE_URL and PG_AVAILABLE:
