@@ -32,7 +32,7 @@ else:
 print(f"🔍 사용 가능한 환경변수:")
 for key in os.environ.keys():
     if 'SUPABASE' in key or 'DATABASE' in key or 'DB' in key:
-        print(f"   {key}: {os.environ[key][:30]}..."))
+        print(f"   {key}: {os.environ[key][:30]}...")
 
 def get_db_connection():
     """데이터베이스 연결 - Supabase 우선, 없으면 SQLite"""
@@ -442,3 +442,4 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=port, debug=False)
     else:
         app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
+
