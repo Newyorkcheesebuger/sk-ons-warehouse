@@ -4,164 +4,98 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-        <div class="card shadow-lg border-0" style="border-radius: 20px;">
-            <div class="card-header text-center card-header-custom">
+    <div class="col-md-6">
+        <div class="card shadow-lg border-0">
+            <div class="card-header card-header-custom text-center">
                 <h3 class="mb-0">
                     <i class="fas fa-warehouse me-2"></i>
-                    창고관리 시스템
+                    SK오앤에스 창고관리 시스템
                 </h3>
-                <p class="mb-0 mt-2 opacity-75">SK오앤에스 통합 재고 관리</p>
             </div>
-            
-            <div class="card-body p-5">
-                <form method="POST" action="{{ url_for('login') }}">
-                    <div class="mb-4">
+            <div class="card-body p-4">
+                {% if not session.user_id %}
+                <form method="POST" action="{{ url_for('login') }}" class="needs-validation" novalidate>
+                    <div class="mb-3">
                         <label for="employee_id" class="form-label">
                             <i class="fas fa-id-card me-2"></i>사번
                         </label>
-                        <input type="text" class="form-control form-control-lg" id="employee_id" 
-                               name="employee_id" placeholder="사번을 입력하세요" required
-                               style="border-radius: 10px;">
+                        <input type="text" class="form-control" id="employee_id" name="employee_id" 
+                               placeholder="사번을 입력하세요" required>
+                        <div class="invalid-feedback">
+                            사번을 입력해주세요.
+                        </div>
                     </div>
                     
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label for="password" class="form-label">
                             <i class="fas fa-lock me-2"></i>비밀번호
                         </label>
-                        <input type="password" class="form-control form-control-lg" id="password" 
-                               name="password" placeholder="비밀번호를 입력하세요" required
-                               style="border-radius: 10px;">
+                        <input type="password" class="form-control" id="password" name="password" 
+                               placeholder="비밀번호를 입력하세요" required>
+                        <div class="invalid-feedback">
+                            비밀번호를 입력해주세요.
+                        </div>
                     </div>
                     
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 10px;">
-                            <i class="fas fa-sign-in-alt me-2"></i>로그인
-                        </button>
-                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mb-3">
+                        <i class="fas fa-sign-in-alt me-2"></i>로그인
+                    </button>
                 </form>
                 
-                <hr class="my-4">
-                
                 <div class="text-center">
-                    <p class="text-muted mb-3">계정이 없으신가요?</p>
-                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary" style="border-radius: 10px;">
+                    <p class="mb-2">계정이 없으신가요?</p>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary">
                         <i class="fas fa-user-plus me-2"></i>회원가입
                     </a>
                 </div>
-            </div>
-        </div>
-        
-        <!-- 관리자 로그인 안내 -->
-        <div class="card mt-4 border-info" style="border-radius: 15px;">
-            <div class="card-body text-center">
-                <h6 class="text-info mb-2">
-                    <i class="fas fa-info-circle me-2"></i>
-                    관리자 계정
-                </h6>
-                <p class="mb-1"><strong>사번:</strong> admin</p>
-                <p class="mb-0"><strong>비밀번호:</strong> Onsn1103813!</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 시스템 상태 카드 -->
-<div class="row mt-5">
-    <div class="col-md-4">
-        <div class="card border-success" style="border-radius: 15px;">
-            <div class="card-body text-center">
-                <i class="fas fa-database fa-2x text-success mb-2"></i>
-                <h6 class="text-success">데이터베이스</h6>
-                <p class="mb-0" id="db-status-main">확인 중...</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-primary" style="border-radius: 15px;">
-            <div class="card-body text-center">
-                <i class="fas fa-warehouse fa-2x text-primary mb-2"></i>
-                <h6 class="text-primary">창고 현황</h6>
-                <p class="mb-0">4개 창고 운영 중</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-warning" style="border-radius: 15px;">
-            <div class="card-body text-center">
-                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
-                <h6 class="text-warning">운영 시간</h6>
-                <p class="mb-0">24시간 접근 가능</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 시스템 특징 -->
-<div class="row mt-5">
-    <div class="col-12">
-        <div class="card" style="border-radius: 20px;">
-            <div class="card-header card-header-custom text-center">
-                <h4 class="mb-0">시스템 특징</h4>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 text-center mb-3">
-                        <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
-                        <h5>보안</h5>
-                        <p class="text-muted">사용자 인증 및 권한 관리</p>
-                    </div>
-                    <div class="col-md-3 text-center mb-3">
-                        <i class="fas fa-cloud fa-3x text-success mb-3"></i>
-                        <h5>클라우드</h5>
-                        <p class="text-muted">Supabase 기반 안정적 데이터 보관</p>
-                    </div>
-                    <div class="col-md-3 text-center mb-3">
-                        <i class="fas fa-mobile-alt fa-3x text-info mb-3"></i>
-                        <h5>모바일</h5>
-                        <p class="text-muted">반응형 디자인으로 모든 기기 지원</p>
-                    </div>
-                    <div class="col-md-3 text-center mb-3">
-                        <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
-                        <h5>분석</h5>
-                        <p class="text-muted">실시간 재고 현황 및 이력 추적</p>
+                {% else %}
+                <div class="text-center">
+                    <h4>환영합니다, {{ session.user_name }}님!</h4>
+                    <div class="mt-3">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary me-2">
+                            <i class="fas fa-home me-1"></i>대시보드로 이동
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-sign-out-alt me-1"></i>로그아웃
+                        </a>
                     </div>
                 </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-4 border-0 bg-light">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">
+                    <i class="fas fa-info-circle me-2"></i>시스템 정보
+                </h6>
+                <p class="text-muted mb-0">
+                    전기차 부품 재고 관리 및 창고 운영 시스템
+                </p>
+                <small class="text-muted">
+                    문의사항이 있으시면 관리자에게 연락해주세요.
+                </small>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
-    // 메인 페이지 데이터베이스 상태 확인
-    function checkMainDbStatus() {
-        fetch('/health')
-            .then(response => response.json())
-            .then(data => {
-                const statusElement = document.getElementById('db-status-main');
-                if (data.database === 'postgresql') {
-                    statusElement.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>PostgreSQL 연결됨</span>';
-                } else {
-                    statusElement.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>SQLite 사용 중</span>';
+// 폼 유효성 검사
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
                 }
-            })
-            .catch(() => {
-                document.getElementById('db-status-main').innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>연결 실패</span>';
-            });
-    }
-    
-    // 페이지 로드 시 실행
-    document.addEventListener('DOMContentLoaded', function() {
-        checkMainDbStatus();
-        
-        // 로그인 폼 엔터키 처리
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.querySelector('form').submit();
-            }
+                form.classList.add('was-validated');
+            }, false);
         });
-    });
+    }, false);
+})();
 </script>
 {% endblock %}
