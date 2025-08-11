@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -42,13 +42,10 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_korea_time():
-    """한국시간(KST)을 반환합니다."""
     korea_tz = pytz.timezone('Asia/Seoul')
     return datetime.now(korea_tz)
 
-# PostgreSQL 전용 연결 함수
 def get_db_connection():
-    """Supabase PostgreSQL 연결 (필수)"""
     try:
         import pg8000
         parsed = urllib.parse.urlparse(DATABASE_URL)
@@ -63,25 +60,18 @@ def get_db_connection():
         return conn
     except ImportError:
         print("❌ 치명적 오류: pg8000 라이브러리가 설치되지 않았습니다!")
-        print("📋 해결 방법: requirements.txt에 pg8000==1.30.2 추가")
         raise Exception("pg8000 라이브러리 필요")
     except Exception as e:
         print(f"❌ 치명적 오류: Supabase PostgreSQL 연결 실패!")
         print(f"   오류 내용: {e}")
-        print("📋 해결 방법:")
-        print("   1. SUPABASE_DB_URL 환경변수 확인")
-        print("   2. Supabase 프로젝트 상태 확인")
-        print("   3. 네트워크 연결 확인")
         raise Exception(f"Supabase 연결 실패: {e}")
 
-# Supabase 연결 테스트 및 초기화
 def init_db():
     try:
         print("🔄 Supabase PostgreSQL 연결 테스트 중...")
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 연결 테스트
         cursor.execute('SELECT version()')
         version_info = cursor.fetchone()[0]
         print(f"✅ Supabase 연결 성공!")
@@ -160,8 +150,6 @@ print("=" * 60)
 print("✅ 시스템 준비 완료 - Supabase 연결됨")
 print("=" * 60)
 
-# === 라우트들 ===
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -174,12 +162,10 @@ def register():
         employee_number = request.form['employee_number']
         password = request.form['password']
 
-        # 비밀번호 길이 검증
         if len(password) < 8:
             flash('비밀번호는 8자리 이상이어야 합니다.')
             return render_template('register.html')
 
-        # 사번 검증
         if not employee_number.startswith('N'):
             employee_number = 'N' + employee_number
             
@@ -403,10 +389,7 @@ def add_inventory_item():
     except Exception as e:
         flash('재고 추가 중 오류가 발생했습니다.')
     
-    if category == '전기차':
-        return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
-    else:
-        return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+    return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
 
 @app.route('/update_quantity', methods=['POST'])
 def update_quantity():
@@ -495,7 +478,6 @@ def view_photos(item_id):
         cursor.execute('SELECT id, filename, original_name, file_size, uploaded_by, uploaded_at FROM photos WHERE inventory_id = %s ORDER BY uploaded_at DESC', (item_id,))
         photos = cursor.fetchall()
         
-        # 재고 아이템 정보도 가져오기
         cursor.execute('SELECT part_name, warehouse, category FROM inventory WHERE id = %s', (item_id,))
         item_info = cursor.fetchone()
         conn.close()
@@ -520,19 +502,16 @@ def delete_photo(photo_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 파일 정보 가져오기
         cursor.execute('SELECT filename, inventory_id FROM photos WHERE id = %s', (photo_id,))
         photo_info = cursor.fetchone()
         
         if photo_info:
             filename, inventory_id = photo_info
             
-            # 파일 삭제
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
             
-            # DB에서 삭제
             cursor.execute('DELETE FROM photos WHERE id = %s', (photo_id,))
             conn.commit()
             flash('사진이 삭제되었습니다.')
@@ -546,37 +525,6 @@ def delete_photo(photo_id):
         flash('사진 삭제 중 오류가 발생했습니다.')
     
     return redirect(url_for('dashboard'))
-
-@app.route('/inventory_history/<int:item_id>')
-def inventory_history(item_id):
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 재고 아이템 정보
-        cursor.execute('SELECT part_name, warehouse, category, quantity FROM inventory WHERE id = %s', (item_id,))
-        item_info = cursor.fetchone()
-        
-        # 이력 정보
-        cursor.execute('''SELECT change_type, quantity_change, modifier_name, modified_at 
-                         FROM inventory_history 
-                         WHERE inventory_id = %s 
-                         ORDER BY modified_at DESC''', (item_id,))
-        
-        history = cursor.fetchall()
-        conn.close()
-
-        return render_template('inventory_history.html', 
-                             item_info=item_info, 
-                             history=history, 
-                             item_id=item_id)
-        
-    except Exception as e:
-        flash('이력 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('dashboard'))
 
 @app.route('/search_inventory')
 def search_inventory():
@@ -594,7 +542,6 @@ def search_inventory():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 검색 쿼리 구성
         where_conditions = []
         params = []
         
@@ -645,7 +592,6 @@ def delete_inventory(item_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 연관된 사진들 먼저 삭제
         cursor.execute('SELECT filename FROM photos WHERE inventory_id = %s', (item_id,))
         photos = cursor.fetchall()
         
@@ -679,7 +625,6 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# API 엔드포인트들
 @app.route('/api/inventory_stats')
 def inventory_stats():
     if 'user_id' not in session:
@@ -689,7 +634,6 @@ def inventory_stats():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 전체 통계
         cursor.execute('SELECT COUNT(*) FROM inventory')
         total_items = cursor.fetchone()[0]
         
@@ -727,10 +671,17 @@ def health():
             'database': 'postgresql',
             'supabase_connected': True,
             'timestamp': datetime.now().isoformat(),
+            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL) 정상 작동 중'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'database': 'postgresql',
+            'supabase_connected': False,
+            'timestamp': datetime.now().isoformat(),
             'message': f'Supabase 연결 오류: {str(e)}'
         }), 500
 
-# 에러 핸들러
 @app.errorhandler(500)
 def internal_error(error):
     return '''
