@@ -53,11 +53,10 @@ def init_db():
         conn, db_type = get_db_connection()
         
         if db_type == 'postgresql':
-            cursor = conn.cursor()
             print("✅ PostgreSQL (Supabase) 테이블 생성")
             
-            # PostgreSQL용 테이블 생성
-            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+            # pg8000용 쿼리 실행
+            conn.run('''CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 employee_id TEXT UNIQUE NOT NULL,
@@ -67,7 +66,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
 
-            cursor.execute('''CREATE TABLE IF NOT EXISTS inventory (
+            conn.run('''CREATE TABLE IF NOT EXISTS inventory (
                 id SERIAL PRIMARY KEY,
                 warehouse TEXT NOT NULL,
                 category TEXT NOT NULL,
@@ -77,11 +76,15 @@ def init_db():
                 last_modified TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
 
-            # 관리자 계정 생성 (PostgreSQL)
+            # 관리자 계정 생성 (pg8000)
             admin_password = generate_password_hash('Onsn1103813!')
-            cursor.execute('''INSERT INTO users (name, employee_id, team, password, is_approved) 
-                             VALUES (%s, %s, %s, %s, %s) ON CONFLICT (employee_id) DO NOTHING''',
-                          ('관리자', 'admin', '관리', admin_password, 1))
+            try:
+                conn.run('''INSERT INTO users (name, employee_id, team, password, is_approved) 
+                            VALUES (%s, %s, %s, %s, %s)''',
+                        ('관리자', 'admin', '관리', admin_password, 1))
+            except Exception as e:
+                # 이미 존재하는 경우 무시
+                print(f"관리자 계정 이미 존재: {e}")
             
         else:
             cursor = conn.cursor()
@@ -111,7 +114,8 @@ def init_db():
             cursor.execute('INSERT OR IGNORE INTO users (name, employee_id, team, password, is_approved) VALUES (?, ?, ?, ?, ?)',
                           ('관리자', 'admin', '관리', admin_password, 1))
 
-        conn.commit()
+            conn.commit()
+
         conn.close()
         print("✅ 데이터베이스 초기화 완료!")
         
