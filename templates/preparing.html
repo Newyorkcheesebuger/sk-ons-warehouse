@@ -94,3 +94,248 @@
                     <!-- 현재 이용 가능한 창고 -->
                     <div class="border-top pt-4 mt-4">
                         <h6 class="text-primary mb-3">
+                            <i class="fas fa-warehouse me-2"></i>
+                            현재 이용 가능한 창고
+                        </h6>
+                        <div class="d-flex justify-content-center">
+                            <a href="{{ url_for('warehouse', warehouse_name='보라매창고') }}" 
+                               class="btn btn-success" style="border-radius: 10px;">
+                                <i class="fas fa-warehouse me-2"></i>
+                                보라매창고 이용하기
+                            </a>
+                        </div>
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.9em;">
+                            보라매창고는 현재 정상 운영 중입니다
+                        </p>
+                    </div>
+                    
+                    <!-- 홈으로 돌아가기 -->
+                    <div class="mt-4">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary" style="border-radius: 10px;">
+                            <i class="fas fa-home me-2"></i>
+                            대시보드로 돌아가기
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 추가 정보 -->
+            <div class="row mt-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light" style="border-radius: 15px;">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-bell fa-2x text-info mb-2"></i>
+                            <h6>알림 설정</h6>
+                            <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                완료 시 자동 알림
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light" style="border-radius: 15px;">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                            <h6>보안 강화</h6>
+                            <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                안전한 데이터 관리
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light" style="border-radius: 15px;">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-mobile-alt fa-2x text-warning mb-2"></i>
+                            <h6>모바일 최적화</h6>
+                            <p class="text-muted mb-0" style="font-size: 0.9em;">
+                                언제 어디서나 접근
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 문의하기 모달 -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: 15px;">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>
+                    문의하기
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">{{ warehouse_name }} 구축 관련 문의사항이 있으시면 아래 정보로 연락해주세요.</p>
+                
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <i class="fas fa-user fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="mb-1">담당자</h6>
+                                <p class="mb-0 text-muted">시스템 관리팀</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <i class="fas fa-envelope fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="mb-1">이메일</h6>
+                                <p class="mb-0 text-muted">admin@sk-ons.co.kr</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <i class="fas fa-clock fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="mb-1">운영 시간</h6>
+                                <p class="mb-0 text-muted">평일 09:00 - 18:00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 10px;">
+                    <i class="fas fa-times me-1"></i>닫기
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 하단 문의 버튼 -->
+<div class="fixed-bottom p-3 d-flex justify-content-end">
+    <button type="button" class="btn btn-info btn-lg shadow" 
+            data-bs-toggle="modal" data-bs-target="#contactModal"
+            style="border-radius: 50px; padding: 15px 25px;">
+        <i class="fas fa-question-circle me-2"></i>
+        문의하기
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 준비 중 아이콘 애니메이션
+        const preparingIcon = document.querySelector('.preparing-icon i');
+        if (preparingIcon) {
+            let rotation = 0;
+            setInterval(() => {
+                rotation += 10;
+                preparingIcon.style.transform = `rotate(${rotation}deg)`;
+            }, 100);
+        }
+        
+        // 진행률 바 애니메이션
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            setTimeout(() => {
+                progressBar.style.width = '75%';
+            }, 500);
+        }
+        
+        // 카드 등장 애니메이션
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.6s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 200 + (index * 150));
+        });
+        
+        // 체크리스트 애니메이션
+        const checkItems = document.querySelectorAll('.fa-check');
+        checkItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.style.animation = 'pulse 0.5s ease-in-out';
+            }, 1000 + (index * 200));
+        });
+        
+        // 문의 버튼 호버 효과
+        const contactBtn = document.querySelector('[data-bs-target="#contactModal"]');
+        if (contactBtn) {
+            contactBtn.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.05)';
+            });
+            
+            contactBtn.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        }
+        
+        console.log(`${warehouse_name} 준비 중 페이지 로드됨`);
+    });
+    
+    // 진행률 업데이트 함수 (향후 실제 진행률 연동 시 사용)
+    function updateProgress(percentage) {
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+            progressBar.setAttribute('aria-valuenow', percentage);
+        }
+    }
+</script>
+
+<style>
+    .preparing-icon {
+        transition: all 0.3s ease;
+    }
+    
+    .preparing-icon:hover {
+        transform: scale(1.1);
+    }
+    
+    .progress-bar {
+        transition: width 1s ease-in-out;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+    
+    .card {
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .fixed-bottom .btn {
+        transition: all 0.3s ease;
+    }
+    
+    @media (max-width: 768px) {
+        .fixed-bottom {
+            position: relative !important;
+            bottom: auto !important;
+            margin-top: 2rem;
+        }
+        
+        .card-body {
+            padding: 2rem 1rem !important;
+        }
+        
+        .row .col-md-4 {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
