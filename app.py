@@ -23,7 +23,7 @@ print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
 print("=" * 60)
 
-# Supabase 연결 필수 체크 (개선됨)
+# Supabase 연결 필수 체크
 if not DATABASE_URL or not DATABASE_URL.startswith('postgresql://'):
     print("❌ 치명적 오류: 올바른 SUPABASE_DB_URL 환경변수가 설정되지 않았습니다!")
     print("📋 해결 방법:")
@@ -47,19 +47,27 @@ def get_korea_time():
     return datetime.now(korea_tz)
 
 def get_db_connection():
-    """개선된 데이터베이스 연결 함수"""
+    """pg8000 버전 호환성 문제 해결된 데이터베이스 연결 함수"""
     try:
         import pg8000
         parsed = urllib.parse.urlparse(DATABASE_URL)
         
+        # pg8000 최신 버전에서는 autocommit 파라미터가 제거됨
         conn = pg8000.connect(
             host=parsed.hostname,
             port=parsed.port or 5432,
             user=parsed.username,
             password=parsed.password,
-            database=parsed.path[1:] if parsed.path else 'postgres',
-            autocommit=False  # 명시적 트랜잭션 제어
+            database=parsed.path[1:] if parsed.path else 'postgres'
         )
+        
+        # 연결 후 autocommit 설정 (최신 방식)
+        try:
+            conn.autocommit = False
+        except AttributeError:
+            # autocommit 속성이 없는 구버전의 경우 무시
+            pass
+        
         return conn
     except ImportError:
         print("❌ 치명적 오류: pg8000 라이브러리가 설치되지 않았습니다!")
@@ -88,7 +96,7 @@ def check_db_health():
         return False
 
 def init_db():
-    """개선된 데이터베이스 초기화 함수 - 트랜잭션 오류 해결"""
+    """pg8000 호환성 문제 해결된 데이터베이스 초기화 함수"""
     try:
         print("🔄 Supabase PostgreSQL 연결 테스트 중...")
         conn = get_db_connection()
@@ -101,7 +109,7 @@ def init_db():
         
         print("🔄 데이터베이스 테이블 생성 중...")
         
-        # 단계 1: 테이블 생성 (별도 트랜잭션)
+        # 단계 1: 테이블 생성
         try:
             # 사용자 테이블
             cursor.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -154,7 +162,7 @@ def init_db():
             conn.rollback()
             print(f"⚠️ 테이블 생성 중 오류 (무시하고 계속): {table_error}")
         
-        # 단계 2: 관리자 계정 생성 (별도 트랜잭션)
+        # 단계 2: 관리자 계정 생성
         try:
             # 관리자 계정 존재 확인
             cursor.execute('SELECT id FROM users WHERE employee_id = %s', ('admin',))
@@ -189,9 +197,9 @@ def init_db():
         print(f"❌ 치명적 오류: Supabase 초기화 실패!")
         print(f"   오류 내용: {e}")
         print("💡 트러블슈팅:")
-        print("   1. SUPABASE_DB_URL 환경변수 확인")
-        print("   2. Supabase 프로젝트 상태 확인")
-        print("   3. 네트워크 연결 확인")
+        print("   1. pg8000 라이브러리 버전 확인")
+        print("   2. SUPABASE_DB_URL 환경변수 확인")
+        print("   3. Supabase 프로젝트 상태 확인")
         print("=" * 60)
         sys.exit(1)
 
@@ -775,7 +783,7 @@ if __name__ == '__main__':
     print("🎯 최종 시스템 정보:")
     print(f"📱 포트: {port}")
     print(f"🗄️ 데이터베이스: PostgreSQL (Supabase 전용)")
-    print(f"🔒 보안: 트랜잭션 오류 해결됨")
+    print(f"🔒 보안: pg8000 호환성 문제 해결됨")
     print(f"🌐 환경: {'Production (Render)' if is_render else 'Development'}")
     print(f"💾 데이터 보존: 영구 (Supabase)")
     print("=" * 60)
