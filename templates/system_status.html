@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시스템 상태 - SK오앤에스 창고관리</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .stat-card { background: #f8f9fa; padding: 20px; margin: 10px; border-radius: 5px; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #007bff; }
+        .recent-activity { background: white; border: 1px solid #ddd; padding: 15px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ 시스템 상태</h1>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+            <div class="stat-card">
+                <h3>👥 총 사용자</h3>
+                <div class="stat-number">{{ stats.total_users }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>✅ 승인된 사용자</h3>
+                <div class="stat-number">{{ stats.approved_users }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📦 총 재고 항목</h3>
+                <div class="stat-number">{{ stats.total_items }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📊 총 재고 수량</h3>
+                <div class="stat-number">{{ stats.total_quantity }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📷 총 사진</h3>
+                <div class="stat-number">{{ stats.total_photos }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>📝 총 이력</h3>
+                <div class="stat-number">{{ stats.total_history }}</div>
+            </div>
+        </div>
+        
+        <div class="recent-activity">
+            <h3>🕒 최근 활동 (최대 10개)</h3>
+            {% if recent_activities %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>변경 유형</th>
+                            <th>수량 변경</th>
+                            <th>수정자</th>
+                            <th>수정일</th>
+                            <th>부품명</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in recent_activities %}
+                        <tr>
+                            <td>
+                                {% if activity[0] == 'in' %}
+                                    ⬆️ 입고
+                                {% elif activity[0] == 'out' %}
+                                    ⬇️ 출고
+                                {% else %}
+                                    {{ activity[0] }}
+                                {% endif %}
+                            </td>
+                            <td>{{ activity[1] }}</td>
+                            <td>{{ activity[2] }}</td>
+                            <td>{{ activity[3] }}</td>
+                            <td>{{ activity[4] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>최근 활동이 없습니다.</p>
+            {% endif %}
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <a href="/admin/dashboard" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                ← 관리자 대시보드로 돌아가기
+            </a>
+        </div>
+    </div>
+</body>
+</html>
