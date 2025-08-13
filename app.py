@@ -938,7 +938,7 @@ def health():
 
 @app.route('/inventory_history/<int:item_id>')
 def inventory_history(item_id):
-    """재고 이력 페이지"""
+    """재고 이력 페이지 - 무한 리디렉션 및 datetime 오류 해결"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -951,7 +951,7 @@ def inventory_history(item_id):
                          FROM inventory_history 
                          WHERE inventory_id = %s 
                          ORDER BY modified_at DESC''', (item_id,))
-        history = cursor.fetchall()
+        raw_history = cursor.fetchall()
         
         # 재고 정보 조회
         cursor.execute('SELECT part_name, warehouse, category, quantity FROM inventory WHERE id = %s', (item_id,))
@@ -959,18 +959,38 @@ def inventory_history(item_id):
         
         conn.close()
         
+        # 🔧 datetime 객체를 문자열로 변환 (오류 방지)
+        history = []
+        for record in raw_history:
+            record_list = list(record)
+            if record_list[3]:  # modified_at이 존재하면
+                if isinstance(record_list[3], str):
+                    # 이미 문자열이면 그대로 사용
+                    pass
+                else:
+                    # datetime 객체면 문자열로 변환
+                    record_list[3] = record_list[3].strftime('%Y-%m-%d %H:%M:%S')
+            history.append(record_list)
+        
         return render_template('inventory_history.html',
                              history=history,
                              item_info=item_info,
                              item_id=item_id)
         
     except Exception as e:
-        flash('재고 이력을 불러오는 중 오류가 발생했습니다.')
-        if session.get('is_admin'):
-            return redirect('/admin/warehouse')
-        else:
-            return redirect('/dashboard')
-
+        print(f"❌ 재고 이력 페이지 오류: {type(e).__name__}: {str(e)}")
+        
+        # 🔧 리디렉션 대신 오류 페이지 표시 (무한 루프 방지)
+        return f'''
+        <html>
+        <head><title>재고 이력 오류</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+            <h2>🔧 재고 이력을 불러오는 중 문제가 발생했습니다</h2>
+            <p>오류: {str(e)}</p>
+            <a href="javascript:history.back()">← 뒤로가기</a>
+        </body>
+        </html>
+        '''
 @app.route('/export_inventory')
 def export_inventory():
     """재고 데이터 내보내기 (관리자 전용)"""
@@ -1083,6 +1103,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
