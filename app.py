@@ -27,7 +27,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # 환경변수 확인
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')  # 기본값 유지
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')  # 보안을 위해 환경변수 사용 권장
 
 print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
@@ -197,7 +197,7 @@ def log_session_debug(route_name):
     print(f"   세션 키들: {list(session.keys())}")
 
 # ========
-# 라우트 정의 (강제 디버깅 버전)
+# 라우트 정의 (무한 리디렉션 완전 해결)
 # ========
 @app.route('/')
 def index():
@@ -214,24 +214,6 @@ def index():
     
     print("   → 로그인 페이지 표시")
     return render_template('login.html')
-
-# ========
-# 강제 세션 생성 라우트 (디버깅용)
-# ========
-@app.route('/force_admin_login')
-def force_admin_login():
-    """강제 관리자 로그인 (디버깅용)"""
-    session.clear()
-    session['user_id'] = 1
-    session['user_name'] = '관리자'
-    session['employee_id'] = 'admin'
-    session['is_admin'] = True
-    session.permanent = True
-    
-    print("🔧 강제 관리자 세션 생성 완료")
-    log_session_debug('force_admin_login')
-    
-    return redirect('/admin/dashboard')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -347,7 +329,7 @@ def login():
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    """관리자 전용 대시보드"""
+    """관리자 전용 대시보드 - 수정된 버전"""
     log_session_debug('/admin/dashboard')
     
     if 'user_id' not in session:
@@ -366,31 +348,51 @@ def admin_dashboard():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != %s ORDER BY created_at DESC', ('admin',))
+        # 🔧 수정: SQL 쿼리 단순화
+        cursor.execute("SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != %s ORDER BY created_at DESC", ('admin',))
         users = cursor.fetchall()
         
-        # 재고 통계
-        cursor.execute('SELECT COUNT(*) FROM inventory')
-        total_items = cursor.fetchone()[0]
+        # 재고 통계 - 단순화
+        cursor.execute("SELECT COUNT(*) FROM inventory")
+        result = cursor.fetchone()
+        total_items = result[0] if result else 0
         
-        cursor.execute('SELECT SUM(quantity) FROM inventory')
-        total_quantity = cursor.fetchone()[0] or 0
+        cursor.execute("SELECT SUM(quantity) FROM inventory")
+        result = cursor.fetchone() 
+        total_quantity = result[0] if result and result[0] else 0
         
-        cursor.execute('SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse')
+        cursor.execute("SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse")
         warehouse_stats = cursor.fetchall()
         
         conn.close()
         
+        # 안전한 데이터 구조
+        warehouse_dict = {}
+        if warehouse_stats:
+            for stat in warehouse_stats:
+                warehouse_dict[stat[0]] = stat[1]
+        
         return render_template('admin_dashboard.html', 
-                             users=users,
+                             users=users or [],
                              total_items=total_items,
                              total_quantity=total_quantity,
-                             warehouse_stats=dict(warehouse_stats))
+                             warehouse_stats=warehouse_dict)
         
     except Exception as e:
-        print(f"❌ 관리자 대시보드 오류: {str(e)}")
-        flash(f'데이터를 불러오는 중 오류가 발생했습니다: {str(e)}')
-        return redirect('/')
+        print(f"❌ 관리자 대시보드 상세 오류: {type(e).__name__}: {str(e)}")
+        # 🔧 무한 루프 방지: 간단한 HTML 반환
+        return f"""
+        <html>
+        <head><title>관리자 대시보드</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1>🔧 관리자 대시보드 (임시)</h1>
+            <p>환영합니다, {session.get('user_name')}님!</p>
+            <p>시스템에 일시적인 문제가 있습니다.</p>
+            <p>오류: {str(e)}</p>
+            <a href="/logout">로그아웃</a>
+        </body>
+        </html>
+        """
 
 @app.route('/dashboard')
 def user_dashboard():
@@ -408,13 +410,503 @@ def user_dashboard():
     print("   → 사용자 대시보드 정상 표시")
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
 
-# 나머지 라우트들은 동일하게 유지...
+@app.route('/approve_user/<int:user_id>')
+def approve_user(user_id):
+    """사용자 승인 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE users SET is_approved = %s WHERE id = %s', (1, user_id))
+        conn.commit()
+        conn.close()
+        flash('사용자가 승인되었습니다.')
+        
+    except Exception as e:
+        flash('사용자 승인 중 오류가 발생했습니다.')
+    
+    return redirect('/admin/dashboard')
+
+@app.route('/delete_user/<int:user_id>')
+def delete_user(user_id):
+    """사용자 삭제 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT name, employee_id FROM users WHERE id = %s AND employee_id != %s', (user_id, 'admin'))
+        user = cursor.fetchone()
+        
+        if user:
+            cursor.execute('DELETE FROM users WHERE id = %s', (user_id,))
+            conn.commit()
+            flash(f'사용자 {user[0]}({user[1]})가 삭제되었습니다.')
+        else:
+            flash('삭제할 수 없는 사용자입니다.')
+        
+        conn.close()
+        
+    except Exception as e:
+        flash('사용자 삭제 중 오류가 발생했습니다.')
+    
+    return redirect('/admin/dashboard')
+
+@app.route('/warehouse/<warehouse_name>')
+def warehouse(warehouse_name):
+    """창고 선택 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    if warehouse_name not in WAREHOUSES:
+        return render_template('preparing.html', warehouse_name=warehouse_name)
+
+    return render_template('warehouse.html', warehouse_name=warehouse_name)
+
+@app.route('/warehouse/<warehouse_name>/electric')
+def electric_inventory(warehouse_name):
+    """전기차 부품 재고 관리 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''SELECT i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified,
+                                COUNT(p.id) as photo_count
+                         FROM inventory i
+                         LEFT JOIN photos p ON i.id = p.inventory_id
+                         WHERE i.warehouse = %s AND i.category = %s
+                         GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
+                         ORDER BY i.id''', (warehouse_name, "전기차"))
+        
+        inventory = cursor.fetchall()
+        conn.close()
+        
+        return render_template('electric_inventory.html',
+                               warehouse_name=warehouse_name,
+                               inventory=inventory,
+                               is_admin=session.get('is_admin', False))
+                               
+    except Exception as e:
+        flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
+        return redirect('/dashboard')
+
+@app.route('/add_inventory_item', methods=['POST'])
+def add_inventory_item():
+    """재고 아이템 추가 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    warehouse_name = request.form['warehouse_name']
+    category = request.form['category']
+    part_name = request.form['part_name']
+    quantity = int(request.form['quantity'])
+    korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier, last_modified) VALUES (%s, %s, %s, %s, %s, %s)',
+                      (warehouse_name, category, part_name, quantity, session['user_name'], korea_time))
+        
+        conn.commit()
+        conn.close()
+        flash('재고 아이템이 추가되었습니다.')
+        
+    except Exception as e:
+        flash('재고 추가 중 오류가 발생했습니다.')
+    
+    return redirect(f'/warehouse/{warehouse_name}/electric')
+
+@app.route('/update_quantity', methods=['POST'])
+def update_quantity():
+    """재고 수량 업데이트"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+
+    try:
+        data = request.get_json()
+        item_id = data['item_id']
+        change_type = data['change_type']
+        quantity_change = int(data['quantity'])
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT quantity, warehouse FROM inventory WHERE id = %s', (item_id,))
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'message': '재고 항목을 찾을 수 없습니다.'})
+            
+        current_quantity, warehouse = result
+
+        if change_type == 'out':
+            quantity_change = -quantity_change
+            if current_quantity + quantity_change < 0:
+                conn.close()
+                return jsonify({'success': False, 'message': '재고가 부족합니다.'})
+
+        new_quantity = current_quantity + quantity_change
+        korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+
+        cursor.execute('UPDATE inventory SET quantity = %s, last_modifier = %s, last_modified = %s WHERE id = %s',
+                      (new_quantity, session['user_name'], korea_time, item_id))
+
+        cursor.execute('INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name, modified_at) VALUES (%s, %s, %s, %s, %s)',
+                      (item_id, change_type, quantity_change, session['user_name'], korea_time))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'success': True, 'new_quantity': new_quantity})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': '수량 업데이트 중 오류가 발생했습니다.'})
+
+@app.route('/upload_photo/<int:item_id>', methods=['POST'])
+def upload_photo(item_id):
+    """사진 업로드"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+
+    if 'photo' not in request.files:
+        return jsonify({'success': False, 'message': '파일이 선택되지 않았습니다.'})
+
+    file = request.files['photo']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': '파일이 선택되지 않았습니다.'})
+
+    if file and allowed_file(file.filename):
+        filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        file_size = os.path.getsize(file_path) // 1024
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('INSERT INTO photos (inventory_id, filename, original_name, file_size, uploaded_by) VALUES (%s, %s, %s, %s, %s)',
+                          (item_id, filename, file.filename, file_size, session['user_name']))
+            
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'message': '사진이 업로드되었습니다.'})
+            
+        except Exception as e:
+            return jsonify({'success': False, 'message': '사진 업로드 중 오류가 발생했습니다.'})
+
+    return jsonify({'success': False, 'message': '지원하지 않는 파일 형식입니다.'})
+
+@app.route('/photos/<int:item_id>')
+def view_photos(item_id):
+    """사진 보기 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, filename, original_name, file_size, uploaded_by, uploaded_at FROM photos WHERE inventory_id = %s ORDER BY uploaded_at DESC', (item_id,))
+        photos = cursor.fetchall()
+        
+        cursor.execute('SELECT part_name, warehouse, category FROM inventory WHERE id = %s', (item_id,))
+        item_info = cursor.fetchone()
+        conn.close()
+
+        return render_template('photos.html', 
+                             photos=photos, 
+                             item_id=item_id, 
+                             item_info=item_info,
+                             is_admin=session.get('is_admin', False))
+        
+    except Exception as e:
+        flash('사진 정보를 불러오는 중 오류가 발생했습니다.')
+        return redirect('/dashboard')
+
+@app.route('/delete_photo/<int:photo_id>')
+def delete_photo(photo_id):
+    """사진 삭제 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT filename, inventory_id FROM photos WHERE id = %s', (photo_id,))
+        photo_info = cursor.fetchone()
+        
+        if photo_info:
+            filename, inventory_id = photo_info
+            
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            
+            cursor.execute('DELETE FROM photos WHERE id = %s', (photo_id,))
+            conn.commit()
+            flash('사진이 삭제되었습니다.')
+            conn.close()
+            return redirect(f'/photos/{inventory_id}')
+        else:
+            flash('삭제할 사진을 찾을 수 없습니다.')
+            conn.close()
+        
+    except Exception as e:
+        flash('사진 삭제 중 오류가 발생했습니다.')
+    
+    return redirect('/dashboard')
+
+@app.route('/search_inventory')
+def search_inventory():
+    """재고 검색 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+    
+    query = request.args.get('q', '').strip()
+    warehouse = request.args.get('warehouse', '')
+    category = request.args.get('category', '')
+    
+    if not query and not warehouse and not category:
+        return render_template('search_results.html', inventory=[], query='')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        where_conditions = []
+        params = []
+        
+        if query:
+            where_conditions.append("i.part_name LIKE %s")
+            params.append(f'%{query}%')
+        
+        if warehouse:
+            where_conditions.append("i.warehouse = %s")
+            params.append(warehouse)
+        
+        if category:
+            where_conditions.append("i.category = %s")
+            params.append(category)
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        query_sql = f'''SELECT i.id, i.warehouse, i.category, i.part_name, i.quantity, 
+                              i.last_modifier, i.last_modified, COUNT(p.id) as photo_count
+                       FROM inventory i
+                       LEFT JOIN photos p ON i.id = p.inventory_id
+                       WHERE {where_clause}
+                       GROUP BY i.id, i.warehouse, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
+                       ORDER BY i.warehouse, i.category, i.part_name'''
+        
+        cursor.execute(query_sql, params)
+        inventory = cursor.fetchall()
+        conn.close()
+        
+        return render_template('search_results.html', 
+                             inventory=inventory, 
+                             query=query,
+                             warehouse=warehouse,
+                             category=category,
+                             is_admin=session.get('is_admin', False))
+        
+    except Exception as e:
+        flash('검색 중 오류가 발생했습니다.')
+        return redirect('/dashboard')
+
+@app.route('/delete_inventory/<int:item_id>')
+def delete_inventory(item_id):
+    """재고 삭제 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT filename FROM photos WHERE inventory_id = %s', (item_id,))
+        photos = cursor.fetchall()
+        
+        for photo in photos:
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], photo[0])
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        cursor.execute('DELETE FROM photos WHERE inventory_id = %s', (item_id,))
+        cursor.execute('DELETE FROM inventory_history WHERE inventory_id = %s', (item_id,))
+        cursor.execute('SELECT warehouse, category FROM inventory WHERE id = %s', (item_id,))
+        item_info = cursor.fetchone()
+        cursor.execute('DELETE FROM inventory WHERE id = %s', (item_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('재고 아이템이 삭제되었습니다.')
+        
+        if item_info:
+            warehouse, category = item_info
+            return redirect(f'/warehouse/{warehouse}/electric')
+        
+    except Exception as e:
+        flash('재고 삭제 중 오류가 발생했습니다.')
+    
+    return redirect('/dashboard')
+
 @app.route('/logout')
 def logout():
     """로그아웃"""
     session.clear()
     flash('로그아웃되었습니다.')
     return redirect('/')
+
+@app.route('/api/inventory_stats')
+def inventory_stats():
+    """재고 통계 API"""
+    if 'user_id' not in session:
+        return jsonify({'error': '로그인이 필요합니다.'}), 401
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT COUNT(*) FROM inventory')
+        total_items = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT SUM(quantity) FROM inventory')
+        total_quantity = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse')
+        warehouse_stats = cursor.fetchall()
+        
+        cursor.execute('SELECT category, COUNT(*) FROM inventory GROUP BY category')
+        category_stats = cursor.fetchall()
+        
+        conn.close()
+        
+        return jsonify({
+            'total_items': total_items,
+            'total_quantity': total_quantity,
+            'warehouse_stats': dict(warehouse_stats),
+            'category_stats': dict(category_stats)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': '통계 조회 중 오류가 발생했습니다.'}), 500
+
+@app.route('/health')
+def health():
+    """시스템 상태 확인 API"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')
+        conn.close()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database': 'postgresql',
+            'supabase_connected': True,
+            'timestamp': datetime.now().isoformat(),
+            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL) 정상 작동 중'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'database': 'postgresql',
+            'supabase_connected': False,
+            'timestamp': datetime.now().isoformat(),
+            'message': f'Supabase 연결 오류: {str(e)}'
+        }), 500
+
+@app.route('/inventory_history/<int:item_id>')
+def inventory_history(item_id):
+    """재고 이력 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 재고 이력 조회
+        cursor.execute('''SELECT change_type, quantity_change, modifier_name, modified_at 
+                         FROM inventory_history 
+                         WHERE inventory_id = %s 
+                         ORDER BY modified_at DESC''', (item_id,))
+        history = cursor.fetchall()
+        
+        # 재고 정보 조회
+        cursor.execute('SELECT part_name, warehouse, category, quantity FROM inventory WHERE id = %s', (item_id,))
+        item_info = cursor.fetchone()
+        
+        conn.close()
+        
+        return render_template('inventory_history.html',
+                             history=history,
+                             item_info=item_info,
+                             item_id=item_id)
+        
+    except Exception as e:
+        flash('재고 이력을 불러오는 중 오류가 발생했습니다.')
+        return redirect('/dashboard')
+
+@app.route('/export_inventory')
+def export_inventory():
+    """재고 데이터 내보내기 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''SELECT warehouse, category, part_name, quantity, last_modifier, last_modified 
+                         FROM inventory 
+                         ORDER BY warehouse, category, part_name''')
+        inventory_data = cursor.fetchall()
+        conn.close()
+        
+        # CSV 형태로 데이터 준비
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # 헤더 작성
+        writer.writerow(['창고', '카테고리', '부품명', '수량', '최종수정자', '최종수정일'])
+        
+        # 데이터 작성
+        for row in inventory_data:
+            writer.writerow(row)
+        
+        # 파일 다운로드 응답
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=inventory_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+        )
+        
+        return response
+        
+    except Exception as e:
+        flash('데이터 내보내기 중 오류가 발생했습니다.')
+        return redirect('/admin/dashboard')
 
 # ========
 # 에러 핸들러
@@ -429,11 +921,38 @@ def page_not_found(error):
         <h1>404 - 페이지를 찾을 수 없습니다</h1>
         <p>요청하신 페이지가 존재하지 않습니다.</p>
         <a href="/" style="color: #007bff; text-decoration: none;">홈으로 돌아가기</a>
-        <br><br>
-        <a href="/force_admin_login" style="color: #dc3545; text-decoration: none;">[디버깅] 강제 관리자 로그인</a>
     </body>
     </html>
     ''', 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """500 에러 핸들러"""
+    return '''
+    <html>
+    <head><title>500 - 서버 오류</title></head>
+    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h1>500 - 서버 내부 오류</h1>
+        <p>서버에서 문제가 발생했습니다.</p>
+        <p>잠시 후 다시 시도해주세요.</p>
+        <a href="/" style="color: #007bff; text-decoration: none;">홈으로 돌아가기</a>
+    </body>
+    </html>
+    ''', 500
+
+@app.errorhandler(403)
+def forbidden(error):
+    """403 에러 핸들러"""
+    return '''
+    <html>
+    <head><title>403 - 접근 권한 없음</title></head>
+    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h1>403 - 접근 권한이 없습니다</h1>
+        <p>이 페이지에 접근할 권한이 없습니다.</p>
+        <a href="/" style="color: #007bff; text-decoration: none;">홈으로 돌아가기</a>
+    </body>
+    </html>
+    ''', 403
 
 # ========
 # 메인 실행 부분
