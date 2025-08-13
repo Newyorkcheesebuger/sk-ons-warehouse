@@ -488,7 +488,7 @@ def warehouse(warehouse_name):
 
 @app.route('/warehouse/<warehouse_name>/electric')
 def electric_inventory(warehouse_name):
-    """전기차 부품 재고 관리 페이지 - 무한 리디렉션 해결"""
+    """전기차 부품 재고 관리 페이지 - datetime 오류 완전 해결"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -506,8 +506,21 @@ def electric_inventory(warehouse_name):
                          GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
                          ORDER BY i.id''', (warehouse_name, "전기차"))
         
-        inventory = cursor.fetchall()
+        raw_inventory = cursor.fetchall()
         conn.close()
+        
+        # 🔧 날짜 형식 변환 처리 (datetime 오류 완전 해결)
+        inventory = []
+        for item in raw_inventory:
+            item_list = list(item)
+            if item_list[5]:  # last_modified가 존재하면
+                if isinstance(item_list[5], str):
+                    # 이미 문자열이면 그대로 사용
+                    pass
+                else:
+                    # datetime 객체면 문자열로 변환
+                    item_list[5] = item_list[5].strftime('%Y-%m-%d %H:%M:%S')
+            inventory.append(item_list)
         
         print(f"✅ 재고 데이터 조회 성공: {len(inventory)}개 항목")
         
@@ -525,6 +538,7 @@ def electric_inventory(warehouse_name):
             return redirect('/admin/warehouse')
         else:
             return redirect('/dashboard')
+
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
@@ -1020,3 +1034,4 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
