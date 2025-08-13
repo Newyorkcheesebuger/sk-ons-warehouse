@@ -410,6 +410,22 @@ def user_dashboard():
     print("   → 사용자 대시보드 정상 표시")
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
 
+@app.route('/admin/warehouse')
+def admin_warehouse():
+    """관리자용 창고 관리 페이지"""
+    if 'user_id' not in session:
+        flash('로그인이 필요합니다.')
+        return redirect('/')
+    
+    if not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/dashboard')
+    
+    print("✅ 관리자 창고 관리 페이지 접근 성공")
+    
+    # 관리자는 모든 창고에 접근 가능
+    return render_template('user_dashboard.html', warehouses=WAREHOUSES)
+
 @app.route('/approve_user/<int:user_id>')
 def approve_user(user_id):
     """사용자 승인 (관리자 전용)"""
