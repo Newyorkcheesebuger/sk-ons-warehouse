@@ -27,7 +27,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # 환경변수 확인
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')  # 보안을 위해 환경변수 사용 권장
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')
 
 print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
@@ -488,9 +488,11 @@ def warehouse(warehouse_name):
 
 @app.route('/warehouse/<warehouse_name>/electric')
 def electric_inventory(warehouse_name):
-    """전기차 부품 재고 관리 페이지"""
+    """전기차 부품 재고 관리 페이지 - 무한 리디렉션 해결"""
     if 'user_id' not in session:
         return redirect('/')
+
+    print(f"🔍 전기차 부품 재고 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
     try:
         conn = get_db_connection()
@@ -507,14 +509,22 @@ def electric_inventory(warehouse_name):
         inventory = cursor.fetchall()
         conn.close()
         
+        print(f"✅ 재고 데이터 조회 성공: {len(inventory)}개 항목")
+        
         return render_template('electric_inventory.html',
                                warehouse_name=warehouse_name,
                                inventory=inventory,
                                is_admin=session.get('is_admin', False))
                                
     except Exception as e:
+        print(f"❌ electric_inventory 오류: {type(e).__name__}: {str(e)}")
         flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect('/dashboard')
+        
+        # 🔧 관리자/사용자 구분하여 안전한 리디렉션 (무한 루프 방지)
+        if session.get('is_admin'):
+            return redirect('/admin/warehouse')
+        else:
+            return redirect('/dashboard')
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
@@ -652,7 +662,10 @@ def view_photos(item_id):
         
     except Exception as e:
         flash('사진 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect('/dashboard')
+        if session.get('is_admin'):
+            return redirect('/admin/warehouse')
+        else:
+            return redirect('/dashboard')
 
 @app.route('/delete_photo/<int:photo_id>')
 def delete_photo(photo_id):
@@ -687,7 +700,10 @@ def delete_photo(photo_id):
     except Exception as e:
         flash('사진 삭제 중 오류가 발생했습니다.')
     
-    return redirect('/dashboard')
+    if session.get('is_admin'):
+        return redirect('/admin/warehouse')
+    else:
+        return redirect('/dashboard')
 
 @app.route('/search_inventory')
 def search_inventory():
@@ -744,7 +760,10 @@ def search_inventory():
         
     except Exception as e:
         flash('검색 중 오류가 발생했습니다.')
-        return redirect('/dashboard')
+        if session.get('is_admin'):
+            return redirect('/admin/warehouse')
+        else:
+            return redirect('/dashboard')
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
@@ -783,7 +802,10 @@ def delete_inventory(item_id):
     except Exception as e:
         flash('재고 삭제 중 오류가 발생했습니다.')
     
-    return redirect('/dashboard')
+    if session.get('is_admin'):
+        return redirect('/admin/warehouse')
+    else:
+        return redirect('/dashboard')
 
 @app.route('/logout')
 def logout():
@@ -881,7 +903,10 @@ def inventory_history(item_id):
         
     except Exception as e:
         flash('재고 이력을 불러오는 중 오류가 발생했습니다.')
-        return redirect('/dashboard')
+        if session.get('is_admin'):
+            return redirect('/admin/warehouse')
+        else:
+            return redirect('/dashboard')
 
 @app.route('/export_inventory')
 def export_inventory():
