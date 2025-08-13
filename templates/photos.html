@@ -1,256 +1,415 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
-        <h3 style="color: #333; margin: 0;">📷 부품 사진 관리</h3>
-        <a href="javascript:history.back()" class="btn btn-secondary btn-small">
-            ← 뒤로가기
-        </a>
-    </div>
-
-    {% if photos %}
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
-        {% for photo in photos %}
-        <div class="photo-card">
-            <div class="photo-container">
-                <img src="{{ url_for('static', filename='uploads/' + photo[1]) }}"
-                     alt="{{ photo[2] }}"
-                     onclick="showImageModal('{{ url_for('static', filename='uploads/' + photo[1]) }}', '{{ photo[2] }}')"
-                     style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px;">
-            </div>
-
-            <div class="photo-info">
-                <h5 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; word-break: break-all;">
-                    {{ photo[2] }}
-                </h5>
-
-                <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                    <div>크기: {{ photo[3] }}KB</div>
-                    <div>업로드: {{ photo[4] }}</div>
-                    <div>일시: {{ photo[5][:16] }}</div>
-                </div>
-
-                {% if is_admin %}
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <a href="{{ url_for('download_photo', photo_id=photo[0]) }}"
-                       class="btn btn-success btn-small" style="font-size: 11px;">
-                        📥 다운로드
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부품 사진 관리 - SK오앤에스 창고관리</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f8f9fc;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            text-decoration: none;
+            color: white;
+        }
+        
+        .photo-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .photo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .photo-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .photo-container img {
+            transition: transform 0.3s ease;
+        }
+        
+        .photo-container:hover img {
+            transform: scale(1.05);
+        }
+        
+        .photo-info {
+            padding: 15px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        #imageModal .modal-content {
+            animation: fadeIn 0.3s ease;
+            max-width: 90%;
+            max-height: 90%;
+            padding: 0;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .photo-card {
+                margin-bottom: 15px;
+            }
+            
+            .photo-info {
+                padding: 12px;
+            }
+            
+            .btn-small {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+            
+            #imageModal .modal-content {
+                max-width: 95%;
+                margin: 5% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3 style="color: #333; margin: 0;">
+                <i class="fas fa-camera me-2"></i>부품 사진 관리
+            </h3>
+            <div>
+                {% if session.get('is_admin') %}
+                    <a href="/admin/warehouse" class="btn btn-secondary btn-small">
+                        <i class="fas fa-arrow-left me-1"></i>창고 관리
                     </a>
-                    <a href="{{ url_for('delete_photo', photo_id=photo[0]) }}"
-                       class="btn btn-danger btn-small" style="font-size: 11px;"
-                       onclick="return confirm('이 사진을 삭제하시겠습니까?')">
-                        🗑️ 삭제
+                {% else %}
+                    <a href="/dashboard" class="btn btn-secondary btn-small">
+                        <i class="fas fa-arrow-left me-1"></i>대시보드
                     </a>
-                </div>
                 {% endif %}
+                <a href="javascript:history.back()" class="btn btn-secondary btn-small">
+                    <i class="fas fa-undo me-1"></i>뒤로가기
+                </a>
             </div>
         </div>
-        {% endfor %}
-    </div>
 
-    <!-- 사진 업로드 버튼 -->
-    <div style="text-align: center; margin-top: 30px;">
-        <button onclick="showUploadModal()" class="btn btn-primary">
-            + 새 사진 업로드
-        </button>
-    </div>
-
-    {% else %}
-    <div style="text-align: center; padding: 60px; background: white; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <p style="font-size: 48px; margin-bottom: 20px;">📷</p>
-        <h4 style="color: #666; margin-bottom: 15px;">등록된 사진이 없습니다</h4>
-        <p style="color: #888; margin-bottom: 25px; font-size: 14px;">
-            이 부품의 사진을 업로드하여 관리해보세요
-        </p>
-        <button onclick="showUploadModal()" class="btn btn-primary">
-            첫 번째 사진 업로드
-        </button>
-    </div>
-    {% endif %}
-</div>
-
-<!-- 사진 업로드 모달 -->
-<div id="uploadModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h3>새 사진 업로드</h3>
-        <form id="photoUploadForm" enctype="multipart/form-data">
-            <div class="form-group">
-                <label>사진 파일 선택</label>
-                <input type="file" id="photoInput" name="photo" accept="image/*" required>
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    JPG, PNG, GIF 파일만 업로드 가능 (최대 16MB)
-                </small>
-            </div>
-
-            <div id="previewContainer" style="margin: 15px 0; display: none;">
-                <img id="previewImage" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
-            </div>
-
-            <button type="submit" class="btn btn-primary">업로드</button>
-        </form>
-    </div>
-</div>
-
-<!-- 이미지 확대 모달 -->
-<div id="imageModal" class="modal">
-    <div class="modal-content" style="max-width: 90%; max-height: 90%; padding: 0; border-radius: 10px; overflow: hidden;">
-        <div style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
-            <h4 id="imageTitle" style="margin: 0; font-size: 16px;"></h4>
-            <span class="close" style="color: white; font-size: 24px;">&times;</span>
+        {% if item_info %}
+        <div class="alert alert-info mb-4">
+            <h5 class="mb-1">
+                <i class="fas fa-info-circle me-2"></i>{{ item_info[0] }}
+            </h5>
+            <small>창고: {{ item_info[1] }} | 카테고리: {{ item_info[2] }}</small>
         </div>
-        <div style="text-align: center; background: #f8f9fa; padding: 20px;">
-            <img id="fullImage" style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 5px;">
+        {% endif %}
+
+        {% if photos %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+            {% for photo in photos %}
+            <div class="photo-card">
+                <div class="photo-container">
+                    <img src="/static/uploads/{{ photo[1] }}"
+                         alt="{{ photo[2] }}"
+                         onclick="showImageModal('/static/uploads/{{ photo[1] }}', '{{ photo[2] }}')"
+                         style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px 8px 0 0;">
+                </div>
+                <div class="photo-info">
+                    <h6 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; word-break: break-all;">
+                        {{ photo[2] }}
+                    </h6>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
+                        <div><i class="fas fa-weight me-1"></i>크기: {{ photo[3] }}KB</div>
+                        <div><i class="fas fa-user me-1"></i>업로드: {{ photo[4] }}</div>
+                        <div><i class="fas fa-clock me-1"></i>일시: {{ photo[5][:16] if photo[5] else '미설정' }}</div>
+                    </div>
+                    {% if is_admin %}
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <a href="/static/uploads/{{ photo[1] }}" download
+                           class="btn btn-success btn-small">
+                            <i class="fas fa-download me-1"></i>다운로드
+                        </a>
+                        <button onclick="confirmDeletePhoto({{ photo[0] }})" 
+                               class="btn btn-danger btn-small">
+                            <i class="fas fa-trash me-1"></i>삭제
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 사진 업로드 버튼 -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="showUploadModal()" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>새 사진 업로드
+            </button>
+        </div>
+
+        {% else %}
+        <div style="text-align: center; padding: 60px; background: #f8f9fa; border-radius: 15px; border: 2px dashed #dee2e6;">
+            <div style="font-size: 48px; margin-bottom: 20px; color: #6c757d;">
+                <i class="fas fa-camera"></i>
+            </div>
+            <h4 style="color: #666; margin-bottom: 15px;">등록된 사진이 없습니다</h4>
+            <p style="color: #888; margin-bottom: 25px; font-size: 14px;">
+                이 부품의 사진을 업로드하여 관리해보세요
+            </p>
+            <button onclick="showUploadModal()" class="btn btn-primary">
+                <i class="fas fa-camera me-2"></i>첫 번째 사진 업로드
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 사진 업로드 모달 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h4><i class="fas fa-upload me-2"></i>새 사진 업로드</h4>
+            <form id="photoUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label><i class="fas fa-image me-1"></i>사진 파일 선택</label>
+                    <input type="file" id="photoInput" name="photo" accept="image/*" required>
+                    <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                        JPG, PNG, GIF 파일만 업로드 가능 (최대 16MB)
+                    </small>
+                </div>
+                <div id="previewContainer" style="margin: 15px 0; display: none;">
+                    <img id="previewImage" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload me-1"></i>업로드
+                </button>
+            </form>
         </div>
     </div>
-</div>
 
-<script>
-// 모달 관리
-const modals = document.querySelectorAll('.modal');
-const closeButtons = document.querySelectorAll('.close');
+    <!-- 이미지 확대 모달 -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; margin: -20px -20px 20px -20px; border-radius: 15px 15px 0 0;">
+                <h5 id="imageTitle" style="margin: 0; font-size: 16px;"></h5>
+                <span class="close" style="color: white; font-size: 24px; margin: 0;">&times;</span>
+            </div>
+            <div style="text-align: center;">
+                <img id="fullImage" style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px;">
+            </div>
+        </div>
+    </div>
 
-closeButtons.forEach(btn => {
-    btn.onclick = function() {
-        this.closest('.modal').style.display = 'none';
-    }
-});
+    <script>
+        // 모달 관리
+        const modals = document.querySelectorAll('.modal');
+        const closeButtons = document.querySelectorAll('.close');
 
-window.onclick = function(event) {
-    modals.forEach(modal => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
+        closeButtons.forEach(btn => {
+            btn.onclick = function() {
+                this.closest('.modal').style.display = 'none';
+            }
+        });
+
+        window.onclick = function(event) {
+            modals.forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            });
         }
-    });
-}
 
-// 업로드 모달
-function showUploadModal() {
-    document.getElementById('uploadModal').style.display = 'block';
-    document.getElementById('photoInput').value = '';
-    document.getElementById('previewContainer').style.display = 'none';
-}
-
-// 이미지 미리보기
-document.getElementById('photoInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('previewImage').src = e.target.result;
-            document.getElementById('previewContainer').style.display = 'block';
+        // 업로드 모달
+        function showUploadModal() {
+            document.getElementById('uploadModal').style.display = 'block';
+            document.getElementById('photoInput').value = '';
+            document.getElementById('previewContainer').style.display = 'none';
         }
-        reader.readAsDataURL(file);
-    } else {
-        document.getElementById('previewContainer').style.display = 'none';
-    }
-});
 
-// 사진 업로드 처리
-document.getElementById('photoUploadForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+        // 이미지 미리보기
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImage').src = e.target.result;
+                    document.getElementById('previewContainer').style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                document.getElementById('previewContainer').style.display = 'none';
+            }
+        });
 
-    const formData = new FormData();
-    const photoFile = document.getElementById('photoInput').files[0];
+        // 사진 업로드 처리
+        document.getElementById('photoUploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const photoFile = document.getElementById('photoInput').files[0];
+            
+            if (!photoFile) {
+                alert('사진을 선택하세요.');
+                return;
+            }
+            
+            formData.append('photo', photoFile);
+            
+            fetch(`/upload_photo/{{ item_id }}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('사진이 성공적으로 업로드되었습니다.');
+                    location.reload();
+                } else {
+                    alert(data.message || '업로드 중 오류가 발생했습니다.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('업로드 중 오류가 발생했습니다.');
+            });
+            
+            document.getElementById('uploadModal').style.display = 'none';
+        });
 
-    if (!photoFile) {
-        alert('사진을 선택하세요.');
-        return;
-    }
-
-    formData.append('photo', photoFile);
-
-    fetch(`/upload_photo/{{ item_id }}`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message || '업로드 중 오류가 발생했습니다.');
+        // 이미지 확대 보기
+        function showImageModal(imageSrc, imageTitle) {
+            document.getElementById('fullImage').src = imageSrc;
+            document.getElementById('imageTitle').textContent = imageTitle;
+            document.getElementById('imageModal').style.display = 'block';
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('업로드 중 오류가 발생했습니다.');
-    });
 
-    document.getElementById('uploadModal').style.display = 'none';
-});
-
-// 이미지 확대 보기
-function showImageModal(imageSrc, imageTitle) {
-    document.getElementById('fullImage').src = imageSrc;
-    document.getElementById('imageTitle').textContent = imageTitle;
-    document.getElementById('imageModal').style.display = 'block';
-}
-</script>
-
-<style>
-.photo-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.1);
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.photo-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-.photo-container {
-    position: relative;
-    overflow: hidden;
-}
-
-.photo-container img {
-    transition: transform 0.3s ease;
-}
-
-.photo-container:hover img {
-    transform: scale(1.05);
-}
-
-.photo-info {
-    padding: 15px;
-}
-
-#imageModal .modal-content {
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
-}
-
-@media (max-width: 480px) {
-    .photo-card {
-        margin-bottom: 15px;
-    }
-
-    .photo-info {
-        padding: 12px;
-    }
-
-    .photo-info h5 {
-        font-size: 13px;
-    }
-
-    .btn-small {
-        padding: 6px 10px;
-        font-size: 10px;
-    }
-
-    #imageModal .modal-content {
-        max-width: 95%;
-        margin: 5% auto;
-    }
-}
-</style>
-{% endblock %}
+        // 사진 삭제 확인
+        function confirmDeletePhoto(photoId) {
+            if (confirm('정말로 이 사진을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+                window.location.href = `/delete_photo/${photoId}`;
+            }
+        }
+    </script>
+</body>
+</html>
