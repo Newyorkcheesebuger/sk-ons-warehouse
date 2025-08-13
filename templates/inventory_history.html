@@ -1,317 +1,281 @@
-{% extends "base.html" %}
-
-{% block title %}재고 이력 - {{ item_info[0] if item_info else '부품' }}{% endblock %}
-
-{% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>
-                <i class="fas fa-history me-2"></i>
-                재고 이력
-            </h2>
-            <div>
-                <a href="javascript:history.back()" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-1"></i>뒤로가기
-                </a>
-                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-home me-1"></i>대시보드
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 부품 정보 -->
-{% if item_info %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-primary" style="border-radius: 15px;">
-            <div class="card-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
-                <h5 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>부품 정보
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <h6 class="text-muted mb-1">부품명</h6>
-                        <p class="mb-0 fw-bold text-primary">{{ item_info[0] }}</p>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <h6 class="text-muted mb-1">창고</h6>
-                        <p class="mb-0">
-                            <span class="badge bg-secondary">{{ item_info[1] }}</span>
-                        </p>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <h6 class="text-muted mb-1">카테고리</h6>
-                        <p class="mb-0">
-                            <span class="badge {% if item_info[2] == '전기차' %}bg-info{% else %}bg-warning{% endif %}">
-                                {{ item_info[2] }}
-                            </span>
-                        </p>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <h6 class="text-muted mb-1">현재 수량</h6>
-                        <p class="mb-0">
-                            <span class="quantity-badge {% if item_info[3] > 0 %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
-                                {{ item_info[3] }}개
-                            </span>
-                        </p>
-                    </div>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>재고 이력 - SK오앤에스 창고관리</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f8f9fc;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            margin: -20px -20px 20px -20px;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            text-decoration: none;
+            color: white;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .history-item.out {
+            border-left-color: #dc3545;
+        }
+        
+        .badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-in { background: #d4edda; color: #155724; }
+        .badge-out { background: #f8d7da; color: #721c24; }
+        
+        .table th {
+            background-color: #f8f9fc;
+            border-color: #e3e6f0;
+            font-weight: 600;
+            color: #5a5c69;
+        }
+        
+        .table td {
+            border-color: #e3e6f0;
+            vertical-align: middle;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .header {
+                margin: -15px -15px 15px -15px;
+                padding: 1.5rem;
+            }
+            
+            .table-responsive {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-history me-2"></i>재고 변동 이력
+                    </h2>
+                    {% if item_info %}
+                    <p class="mb-0 opacity-75">{{ item_info[0] }} ({{ item_info[1] }} - {{ item_info[2] }})</p>
+                    {% endif %}
                 </div>
-                
-                <div class="d-flex gap-2 mt-3">
-                    <a href="{{ url_for('view_photos', item_id=item_id) }}" class="btn btn-outline-info btn-sm">
-                        <i class="fas fa-camera me-1"></i>사진 보기
-                    </a>
-                    {% if item_info[2] == '전기차' %}
-                    <a href="{{ url_for('electric_inventory', warehouse_name=item_info[1]) }}" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-list me-1"></i>재고 목록
-                    </a>
+                <div>
+                    {% if session.get('is_admin') %}
+                        <a href="/admin/warehouse" class="btn btn-light">
+                            <i class="fas fa-arrow-left me-1"></i>창고 관리
+                        </a>
                     {% else %}
-                    <a href="{{ url_for('hydrogen_inventory', warehouse_name=item_info[1]) }}" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-list me-1"></i>재고 목록
-                    </a>
+                        <a href="/dashboard" class="btn btn-light">
+                            <i class="fas fa-arrow-left me-1"></i>대시보드
+                        </a>
                     {% endif %}
+                    <a href="javascript:history.back()" class="btn btn-light">
+                        <i class="fas fa-undo me-1"></i>뒤로가기
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-{% endif %}
 
-<!-- 이력 목록 -->
-<div class="row">
-    <div class="col-12">
-        <div class="card" style="border-radius: 20px;">
-            <div class="card-header card-header-custom">
-                <h4 class="mb-0">
-                    <i class="fas fa-list me-2"></i>
-                    재고 변동 이력
-                    {% if history %}
-                        <span class="badge bg-light text-dark ms-2">{{ history|length }}건</span>
-                    {% endif %}
-                </h4>
+        {% if item_info %}
+        <div class="info-card">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong><i class="fas fa-box me-1"></i>부품명:</strong><br>
+                    {{ item_info[0] }}
+                </div>
+                <div class="col-md-3">
+                    <strong><i class="fas fa-warehouse me-1"></i>창고:</strong><br>
+                    {{ item_info[1] }}
+                </div>
+                <div class="col-md-3">
+                    <strong><i class="fas fa-tag me-1"></i>카테고리:</strong><br>
+                    {{ item_info[2] }}
+                </div>
+                <div class="col-md-3">
+                    <strong><i class="fas fa-cubes me-1"></i>현재 수량:</strong><br>
+                    <span class="badge {% if item_info[3] > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ item_info[3] }}개
+                    </span>
+                </div>
             </div>
-            <div class="card-body">
-                {% if history %}
-                    <!-- 데스크톱 테이블 뷰 -->
-                    <div class="d-none d-md-block">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th width="15%">날짜/시간</th>
-                                        <th width="15%">작업 유형</th>
-                                        <th width="15%">수량 변화</th>
-                                        <th width="20%">작업자</th>
-                                        <th width="35%">상세 정보</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for record in history %}
-                                    <tr>
-                                        <td>
-                                            <div class="text-muted" style="font-size: 0.9em;">
-                                                {{ record[3][:16] if record[3] else '미설정' }}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            {% if record[0] == 'in' %}
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-plus me-1"></i>입고
-                                                </span>
-                                            {% elif record[0] == 'out' %}
-                                                <span class="badge bg-warning text-dark">
-                                                    <i class="fas fa-minus me-1"></i>출고
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-info">
-                                                    <i class="fas fa-edit me-1"></i>수정
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="fw-bold {% if record[1] > 0 %}text-success{% else %}text-danger{% endif %}">
-                                                {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-user me-2 text-muted"></i>
-                                                <span>{{ record[2] or '시스템' }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="text-muted" style="font-size: 0.9em;">
-                                                {% if record[0] == 'in' %}
-                                                    {{ record[1] }}개가 입고되었습니다.
-                                                {% elif record[0] == 'out' %}
-                                                    {{ record[1]|abs }}개가 출고되었습니다.
-                                                {% else %}
-                                                    재고가 수정되었습니다.
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+        </div>
+        {% endif %}
 
-                    <!-- 모바일 카드 뷰 -->
-                    <div class="d-block d-md-none">
-                        {% for record in history %}
-                        <div class="card mb-3 border-0 shadow-sm">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        {% if record[0] == 'in' %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-plus me-1"></i>입고
-                                            </span>
-                                        {% elif record[0] == 'out' %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-minus me-1"></i>출고
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-info">
-                                                <i class="fas fa-edit me-1"></i>수정
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="fw-bold {% if record[1] > 0 %}text-success{% else %}text-danger{% endif %}">
-                                            {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row">
-                                    <div class="col-6">
-                                        <small class="text-muted">작업자</small>
-                                        <div>{{ record[2] or '시스템' }}</div>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">일시</small>
-                                        <div style="font-size: 0.9em;">{{ record[3][:16] if record[3] else '미설정' }}</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-2">
-                                    <small class="text-muted">
-                                        {% if record[0] == 'in' %}
-                                            {{ record[1] }}개가 입고되었습니다.
-                                        {% elif record[0] == 'out' %}
-                                            {{ record[1]|abs }}개가 출고되었습니다.
-                                        {% else %}
-                                            재고가 수정되었습니다.
-                                        {% endif %}
-                                    </small>
-                                </div>
-                            </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="fas fa-list me-2"></i>변동 내역</h4>
+            {% if history %}
+                <span class="badge bg-info">총 {{ history|length }}건</span>
+            {% endif %}
+        </div>
+
+        {% if history %}
+            <!-- 데스크톱 테이블 뷰 -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-exchange-alt me-1"></i>구분</th>
+                                <th><i class="fas fa-sort-numeric-up me-1"></i>수량 변동</th>
+                                <th><i class="fas fa-user me-1"></i>처리자</th>
+                                <th><i class="fas fa-clock me-1"></i>처리 일시</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in history %}
+                            <tr>
+                                <td>
+                                    {% if record[0] == 'in' %}
+                                        <span class="badge badge-in">
+                                            <i class="fas fa-arrow-up me-1"></i>입고
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-out">
+                                            <i class="fas fa-arrow-down me-1"></i>출고
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong style="color: {% if record[1] > 0 %}#28a745{% else %}#dc3545{% endif %};">
+                                        {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
+                                    </strong>
+                                </td>
+                                <td>{{ record[2] or '미설정' }}</td>
+                                <td>{{ record[3] or '미설정' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 모바일 카드 뷰 -->
+            <div class="d-block d-md-none">
+                {% for record in history %}
+                <div class="history-item {% if record[0] == 'out' %}out{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            {% if record[0] == 'in' %}
+                                <span class="badge badge-in">
+                                    <i class="fas fa-arrow-up me-1"></i>입고
+                                </span>
+                            {% else %}
+                                <span class="badge badge-out">
+                                    <i class="fas fa-arrow-down me-1"></i>출고
+                                </span>
+                            {% endif %}
                         </div>
-                        {% endfor %}
+                        <strong style="color: {% if record[1] > 0 %}#28a745{% else %}#dc3545{% endif %}; font-size: 1.2em;">
+                            {% if record[1] > 0 %}+{% endif %}{{ record[1] }}개
+                        </strong>
                     </div>
                     
-                {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-history fa-4x text-muted mb-3"></i>
-                        <h5 class="text-muted">재고 변동 이력이 없습니다</h5>
-                        <p class="text-muted mb-4">이 부품에 대한 입고/출고 기록이 아직 없습니다.</p>
-                        <div class="text-muted">
-                            <small>
-                                <i class="fas fa-info-circle me-1"></i>
-                                입고나 출고 작업을 수행하면 이력이 자동으로 기록됩니다.
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-user me-1"></i>처리자: {{ record[2] or '미설정' }}
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>{{ record[3] or '미설정' }}
                             </small>
                         </div>
                     </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 통계 정보 -->
-{% if history %}
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card border-info" style="border-radius: 15px;">
-            <div class="card-header bg-info text-white" style="border-radius: 15px 15px 0 0;">
-                <h6 class="mb-0">
-                    <i class="fas fa-chart-bar me-2"></i>통계 정보
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-6 col-md-3">
-                        <div class="border-end">
-                            <h5 class="text-success mb-1">
-                                {% set total_in = history|selectattr(0, 'equalto', 'in')|map(attribute=1)|sum %}
-                                {{ total_in or 0 }}
-                            </h5>
-                            <small class="text-muted">총 입고</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border-end">
-                            <h5 class="text-warning mb-1">
-                                {% set total_out = history|selectattr(0, 'equalto', 'out')|map(attribute=1)|map('abs')|sum %}
-                                {{ total_out or 0 }}
-                            </h5>
-                            <small class="text-muted">총 출고</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border-end">
-                            <h5 class="text-primary mb-1">{{ history|length }}</h5>
-                            <small class="text-muted">총 작업 횟수</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <h5 class="{% if item_info and item_info[3] > 0 %}text-success{% else %}text-danger{% endif %} mb-1">
-                            {{ item_info[3] if item_info else 0 }}
-                        </h5>
-                        <small class="text-muted">현재 재고</small>
-                    </div>
                 </div>
+                {% endfor %}
             </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
 
-{% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // 페이지 로드 애니메이션
-        const cards = document.querySelectorAll('.card');
-        cards.forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            
-            setTimeout(() => {
-                card.style.transition = 'all 0.5s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, index * 100);
-        });
-        
-        // 테이블 행 호버 효과
-        const tableRows = document.querySelectorAll('tbody tr');
-        tableRows.forEach(row => {
-            row.addEventListener('mouseenter', function() {
-                this.style.backgroundColor = '#f8f9fa';
-            });
-            
-            row.addEventListener('mouseleave', function() {
-                this.style.backgroundColor = '';
-            });
-        });
-    });
-</script>
-{% endblock %}
+        {% else %}
+            <div class="text-center py-5">
+                <div style="font-size: 48px; margin-bottom: 20px; color: #6c757d;">
+                    <i class="fas fa-history"></i>
+                </div>
+                <h4 style="color: #666; margin-bottom: 15px;">변동 이력이 없습니다</h4>
+                <p style="color: #888; margin-bottom: 25px;">
+                    아직 이 부품에 대한 입고/출고 기록이 없습니다.
+                </p>
+                <a href="javascript:history.back()" class="btn btn-primary">
+                    <i class="fas fa-arrow-left me-2"></i>돌아가기
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
