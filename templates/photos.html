@@ -231,10 +231,15 @@
             {% for photo in photos %}
             <div class="photo-card">
                 <div class="photo-container">
-                    <img src="/static/uploads/{{ photo[1] }}"
-                         alt="{{ photo[2] }}"
-                         onclick="showImageModal('/static/uploads/{{ photo[1] }}', '{{ photo[2] }}')"
-                         style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px 8px 0 0;">
+                    {% if photo|length > 6 and photo[6] %}  <!-- supabase_url이 있으면 -->
+                        <img src="{{ photo[6] }}" alt="{{ photo[2] }}"
+                             onclick="showImageModal('{{ photo[6] }}', '{{ photo[2] }}')"
+                             style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px 8px 0 0;">
+                    {% else %}  <!-- 기존 로컬 파일 (호환성) -->
+                        <img src="/static/uploads/{{ photo[1] }}" alt="{{ photo[2] }}"
+                             onclick="showImageModal('/static/uploads/{{ photo[1] }}', '{{ photo[2] }}')"
+                             style="width: 100%; height: 200px; object-fit: cover; cursor: pointer; border-radius: 8px 8px 0 0;">
+                    {% endif %}
                 </div>
                 <div class="photo-info">
                     <h6 style="margin: 10px 0 5px 0; font-size: 14px; color: #333; word-break: break-all;">
@@ -247,10 +252,15 @@
                     </div>
                     {% if is_admin %}
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <a href="/static/uploads/{{ photo[1] }}" download
-                           class="btn btn-success btn-small">
-                            <i class="fas fa-download me-1"></i>다운로드
-                        </a>
+                        {% if photo|length > 6 and photo[6] %}
+                            <a href="{{ photo[6] }}" download class="btn btn-success btn-small">
+                                <i class="fas fa-download me-1"></i>다운로드
+                            </a>
+                        {% else %}
+                            <a href="/static/uploads/{{ photo[1] }}" download class="btn btn-success btn-small">
+                                <i class="fas fa-download me-1"></i>다운로드
+                            </a>
+                        {% endif %}
                         <button onclick="confirmDeletePhoto({{ photo[0] }})" 
                                class="btn btn-danger btn-small">
                             <i class="fas fa-trash me-1"></i>삭제
@@ -295,7 +305,7 @@
                     <label><i class="fas fa-image me-1"></i>사진 파일 선택</label>
                     <input type="file" id="photoInput" name="photo" accept="image/*" required>
                     <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                        JPG, PNG, GIF 파일만 업로드 가능 (최대 16MB)
+                        JPG, PNG, GIF 파일만 업로드 가능 (최대 16MB, 자동으로 1MB 미만으로 압축됩니다)
                     </small>
                 </div>
                 <div id="previewContainer" style="margin: 15px 0; display: none;">
@@ -355,6 +365,10 @@
                 reader.onload = function(e) {
                     document.getElementById('previewImage').src = e.target.result;
                     document.getElementById('previewContainer').style.display = 'block';
+                    
+                    // 파일 크기 표시
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                    console.log(`선택된 파일 크기: ${sizeMB}MB`);
                 }
                 reader.readAsDataURL(file);
             } else {
@@ -376,6 +390,12 @@
             
             formData.append('photo', photoFile);
             
+            // 업로드 진행 표시
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>압축 및 업로드 중...';
+            submitBtn.disabled = true;
+            
             fetch(`/upload_photo/{{ item_id }}`, {
                 method: 'POST',
                 body: formData
@@ -383,18 +403,21 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('사진이 성공적으로 업로드되었습니다.');
+                    alert(`✅ ${data.message}`);
                     location.reload();
                 } else {
-                    alert(data.message || '업로드 중 오류가 발생했습니다.');
+                    alert(`❌ 오류: ${data.message}`);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('업로드 오류:', error);
                 alert('업로드 중 오류가 발생했습니다.');
+            })
+            .finally(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                document.getElementById('uploadModal').style.display = 'none';
             });
-            
-            document.getElementById('uploadModal').style.display = 'none';
         });
 
         // 이미지 확대 보기
