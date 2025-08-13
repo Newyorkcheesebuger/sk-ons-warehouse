@@ -653,7 +653,7 @@ def upload_photo(item_id):
 
 @app.route('/photos/<int:item_id>')
 def view_photos(item_id):
-    """사진 보기 페이지"""
+    """사진 보기 페이지 - 리디렉션 문제 해결"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -675,11 +675,18 @@ def view_photos(item_id):
                              is_admin=session.get('is_admin', False))
         
     except Exception as e:
-        flash('사진 정보를 불러오는 중 오류가 발생했습니다.')
-        if session.get('is_admin'):
-            return redirect('/admin/warehouse')
-        else:
-            return redirect('/dashboard')
+        print(f"❌ 사진 보기 페이지 오류: {type(e).__name__}: {str(e)}")
+        # 🔧 리디렉션 대신 오류 페이지 표시
+        return f'''
+        <html>
+        <head><title>사진 보기 오류</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+            <h2>🔧 사진을 불러오는 중 문제가 발생했습니다</h2>
+            <p>오류: {str(e)}</p>
+            <a href="javascript:history.back()">← 뒤로가기</a>
+        </body>
+        </html>
+        '''
 
 @app.route('/delete_photo/<int:photo_id>')
 def delete_photo(photo_id):
@@ -1063,5 +1070,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
