@@ -721,7 +721,7 @@ def delete_photo(photo_id):
 
 @app.route('/search_inventory')
 def search_inventory():
-    """재고 검색 페이지"""
+    """재고 검색 페이지 - 무한 리디렉션 및 datetime 오류 해결"""
     if 'user_id' not in session:
         return redirect('/')
     
@@ -729,8 +729,16 @@ def search_inventory():
     warehouse = request.args.get('warehouse', '')
     category = request.args.get('category', '')
     
+    print(f"🔍 재고 검색 요청: query='{query}', warehouse='{warehouse}', category='{category}'")
+    
     if not query and not warehouse and not category:
-        return render_template('search_results.html', inventory=[], query='')
+        # 빈 검색 결과 표시
+        return render_template('search_results.html', 
+                             inventory=[], 
+                             query='',
+                             warehouse='',
+                             category='',
+                             is_admin=session.get('is_admin', False))
     
     try:
         conn = get_db_connection()
@@ -762,8 +770,23 @@ def search_inventory():
                        ORDER BY i.warehouse, i.category, i.part_name'''
         
         cursor.execute(query_sql, params)
-        inventory = cursor.fetchall()
+        raw_inventory = cursor.fetchall()
         conn.close()
+        
+        # 🔧 날짜 형식 변환 처리 (datetime 오류 해결)
+        inventory = []
+        for item in raw_inventory:
+            item_list = list(item)
+            if item_list[6]:  # last_modified가 존재하면
+                if isinstance(item_list[6], str):
+                    # 이미 문자열이면 그대로 사용
+                    pass
+                else:
+                    # datetime 객체면 문자열로 변환
+                    item_list[6] = item_list[6].strftime('%Y-%m-%d %H:%M:%S')
+            inventory.append(item_list)
+        
+        print(f"✅ 검색 결과: {len(inventory)}개 항목 발견")
         
         return render_template('search_results.html', 
                              inventory=inventory, 
@@ -773,11 +796,17 @@ def search_inventory():
                              is_admin=session.get('is_admin', False))
         
     except Exception as e:
-        flash('검색 중 오류가 발생했습니다.')
-        if session.get('is_admin'):
-            return redirect('/admin/warehouse')
-        else:
-            return redirect('/dashboard')
+        print(f"❌ 검색 중 오류: {type(e).__name__}: {str(e)}")
+        
+        # 🔧 오류 발생 시 빈 결과와 함께 검색 페이지 표시 (리디렉션 방지)
+        return render_template('search_results.html', 
+                             inventory=[], 
+                             query=query,
+                             warehouse=warehouse,
+                             category=category,
+                             is_admin=session.get('is_admin', False),
+                             error_message=f'검색 중 오류가 발생했습니다: {str(e)}')
+
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
@@ -1034,4 +1063,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
