@@ -653,7 +653,7 @@ def upload_photo(item_id):
 
 @app.route('/photos/<int:item_id>')
 def view_photos(item_id):
-    """사진 보기 페이지 - 리디렉션 문제 해결"""
+    """사진 보기 페이지 - datetime 오류 완전 해결"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -662,11 +662,24 @@ def view_photos(item_id):
         cursor = conn.cursor()
         
         cursor.execute('SELECT id, filename, original_name, file_size, uploaded_by, uploaded_at FROM photos WHERE inventory_id = %s ORDER BY uploaded_at DESC', (item_id,))
-        photos = cursor.fetchall()
+        raw_photos = cursor.fetchall()
         
         cursor.execute('SELECT part_name, warehouse, category FROM inventory WHERE id = %s', (item_id,))
         item_info = cursor.fetchone()
         conn.close()
+
+        # 🔧 datetime 객체를 문자열로 변환
+        photos = []
+        for photo in raw_photos:
+            photo_list = list(photo)
+            if photo_list[5]:  # uploaded_at가 존재하면
+                if isinstance(photo_list[5], str):
+                    # 이미 문자열이면 그대로 사용
+                    pass
+                else:
+                    # datetime 객체면 문자열로 변환
+                    photo_list[5] = photo_list[5].strftime('%Y-%m-%d %H:%M:%S')
+            photos.append(photo_list)
 
         return render_template('photos.html', 
                              photos=photos, 
@@ -1070,6 +1083,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
