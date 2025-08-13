@@ -9,6 +9,8 @@ import pytz
 import sys
 import csv
 import io
+import requests
+from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
@@ -28,6 +30,8 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # 환경변수 확인
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
 
 print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
@@ -45,6 +49,7 @@ if not DATABASE_URL or not DATABASE_URL.startswith('postgresql://'):
     sys.exit(1)
 
 print(f"✅ SUPABASE_DB_URL: {DATABASE_URL[:50]}...")
+print(f"✅ SUPABASE_URL: {SUPABASE_URL}")
 
 # 허용된 파일 확장자
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -83,6 +88,118 @@ def get_db_connection():
         print(f"❌ 치명적 오류: Supabase PostgreSQL 연결 실패!")
         print(f"   오류 내용: {e}")
         raise Exception(f"Supabase 연결 실패: {e}")
+
+def compress_image_to_target_size(image_file, max_size_mb=1, max_width=800, quality=85):
+    """
+    이미지를 목표 크기(MB) 이하로 압축하는 함수
+    
+    Args:
+        image_file: 업로드된 이미지 파일
+        max_size_mb: 최대 파일 크기 (MB)
+        max_width: 최대 가로 크기 (픽셀)
+        quality: JPEG 품질 (20-95)
+    
+    Returns:
+        compressed_image_bytes: 압축된 이미지 바이트
+        final_size_kb: 최종 파일 크기 (KB)
+    """
+    try:
+        # PIL Image로 열기
+        img = Image.open(image_file)
+        
+        # EXIF 회전 정보 처리 (스마트폰 사진)
+        if hasattr(img, '_getexif') and img._getexif() is not None:
+            exif = img._getexif()
+            orientation = exif.get(274)
+            if orientation == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation == 8:
+                img = img.rotate(90, expand=True)
+        
+        # RGB 모드로 변환 (JPEG 저장용)
+        if img.mode in ('RGBA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # 원본 크기 계산
+        original_width, original_height = img.size
+        
+        # 크기 조정 (비율 유지)
+        if original_width > max_width:
+            ratio = max_width / original_width
+            new_height = int(original_height * ratio)
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        
+        # 목표 크기까지 품질 조정하면서 압축
+        max_size_bytes = max_size_mb * 1024 * 1024
+        current_quality = quality
+        
+        while current_quality > 20:
+            output = io.BytesIO()
+            img.save(output, format='JPEG', quality=current_quality, optimize=True)
+            
+            if output.tell() <= max_size_bytes:
+                break
+                
+            current_quality -= 5
+            output.seek(0)
+            output.truncate(0)
+        
+        output.seek(0)
+        compressed_bytes = output.getvalue()
+        final_size_kb = len(compressed_bytes) / 1024
+        
+        print(f"✅ 이미지 압축 완료: {final_size_kb:.1f}KB (품질: {current_quality})")
+        
+        return compressed_bytes, final_size_kb
+        
+    except Exception as e:
+        print(f"❌ 이미지 압축 오류: {e}")
+        return None, 0
+
+def upload_to_supabase_storage(image_bytes, filename, bucket_name='warehouse-photos'):
+    """
+    압축된 이미지를 Supabase Storage에 업로드
+    
+    Args:
+        image_bytes: 압축된 이미지 바이트
+        filename: 저장할 파일명
+        bucket_name: Supabase Storage 버킷명
+    
+    Returns:
+        public_url: 업로드된 파일의 공개 URL
+    """
+    try:
+        # Supabase Storage API 엔드포인트
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{filename}"
+        
+        headers = {
+            'Authorization': f'Bearer {SUPABASE_SERVICE_KEY}',
+            'Content-Type': 'image/jpeg'
+        }
+        
+        # 파일 업로드
+        response = requests.post(upload_url, data=image_bytes, headers=headers)
+        
+        if response.status_code in [200, 201]:
+            # 공개 URL 생성
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{filename}"
+            print(f"✅ Supabase Storage 업로드 성공: {public_url}")
+            return public_url
+        else:
+            print(f"❌ Supabase Storage 업로드 실패: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Supabase Storage 업로드 오류: {e}")
+        return None
 
 def init_db():
     """트랜잭션 오류 완전 해결된 초기화 함수"""
@@ -134,7 +251,8 @@ def init_db():
                 original_name TEXT NOT NULL,
                 file_size INTEGER,
                 uploaded_by TEXT,
-                uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+                uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
+                supabase_url TEXT
             )''')
         ]
         
@@ -148,6 +266,17 @@ def init_db():
                 print(f"⚠️ {table_name} 테이블 처리 중 오류 (무시): {e}")
                 cursor.close()
                 cursor = conn.cursor()
+        
+        # supabase_url 컬럼 추가 (이미 존재할 수 있으므로 오류 무시)
+        try:
+            cursor.execute('ALTER TABLE photos ADD COLUMN supabase_url TEXT')
+            conn.commit()
+            print("✅ photos 테이블에 supabase_url 컬럼 추가 완료")
+        except Exception as e:
+            conn.rollback()
+            print(f"ℹ️ supabase_url 컬럼 이미 존재 또는 추가 불필요: {e}")
+            cursor.close()
+            cursor = conn.cursor()
         
         # 관리자 계정 생성 (별도 트랜잭션)
         try:
@@ -539,7 +668,6 @@ def electric_inventory(warehouse_name):
         else:
             return redirect('/dashboard')
 
-
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
     """재고 아이템 추가 (관리자 전용)"""
@@ -617,7 +745,7 @@ def update_quantity():
 
 @app.route('/upload_photo/<int:item_id>', methods=['POST'])
 def upload_photo(item_id):
-    """사진 업로드"""
+    """사진 업로드 - Supabase Storage + 이미지 압축"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
 
@@ -629,25 +757,59 @@ def upload_photo(item_id):
         return jsonify({'success': False, 'message': '파일이 선택되지 않았습니다.'})
 
     if file and allowed_file(file.filename):
-        filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-
-        file_size = os.path.getsize(file_path) // 1024
-
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
+            # 원본 파일 크기 확인
+            file.seek(0, 2)  # 파일 끝으로 이동
+            original_size_bytes = file.tell()
+            file.seek(0)  # 파일 시작으로 이동
+            original_size_mb = original_size_bytes / (1024 * 1024)
             
-            cursor.execute('INSERT INTO photos (inventory_id, filename, original_name, file_size, uploaded_by) VALUES (%s, %s, %s, %s, %s)',
-                          (item_id, filename, file.filename, file_size, session['user_name']))
+            print(f"📊 원본 이미지 크기: {original_size_mb:.1f}MB")
             
-            conn.commit()
-            conn.close()
-            return jsonify({'success': True, 'message': '사진이 업로드되었습니다.'})
+            # 고유 파일명 생성
+            filename = f"{uuid.uuid4().hex}_{int(datetime.now().timestamp())}.jpg"
             
+            # 이미지 압축 (1MB 미만으로)
+            compressed_bytes, final_size_kb = compress_image_to_target_size(
+                file, 
+                max_size_mb=0.9,  # 1MB보다 약간 작게
+                max_width=800,    # 최대 800px 폭
+                quality=85        # 초기 품질
+            )
+            
+            if not compressed_bytes:
+                return jsonify({'success': False, 'message': '이미지 압축에 실패했습니다.'})
+            
+            # Supabase Storage에 업로드
+            supabase_url = upload_to_supabase_storage(compressed_bytes, filename)
+            
+            if supabase_url:
+                # 데이터베이스에 정보 저장
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute('''INSERT INTO photos 
+                                (inventory_id, filename, original_name, file_size, uploaded_by, supabase_url) 
+                                VALUES (%s, %s, %s, %s, %s, %s)''',
+                              (item_id, filename, file.filename, int(final_size_kb), 
+                               session['user_name'], supabase_url))
+                
+                conn.commit()
+                conn.close()
+                
+                return jsonify({
+                    'success': True, 
+                    'message': f'사진이 업로드되었습니다. (원본: {original_size_mb:.1f}MB → 압축: {final_size_kb:.0f}KB)',
+                    'url': supabase_url,
+                    'original_size': f"{original_size_mb:.1f}MB",
+                    'compressed_size': f"{final_size_kb:.0f}KB"
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Supabase Storage 업로드에 실패했습니다.'})
+                
         except Exception as e:
-            return jsonify({'success': False, 'message': '사진 업로드 중 오류가 발생했습니다.'})
+            print(f"❌ 사진 업로드 전체 오류: {e}")
+            return jsonify({'success': False, 'message': f'사진 업로드 중 오류가 발생했습니다: {str(e)}'})
 
     return jsonify({'success': False, 'message': '지원하지 않는 파일 형식입니다.'})
 
@@ -661,7 +823,7 @@ def view_photos(item_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, filename, original_name, file_size, uploaded_by, uploaded_at FROM photos WHERE inventory_id = %s ORDER BY uploaded_at DESC', (item_id,))
+        cursor.execute('SELECT id, filename, original_name, file_size, uploaded_by, uploaded_at, supabase_url FROM photos WHERE inventory_id = %s ORDER BY uploaded_at DESC', (item_id,))
         raw_photos = cursor.fetchall()
         
         cursor.execute('SELECT part_name, warehouse, category FROM inventory WHERE id = %s', (item_id,))
@@ -712,12 +874,23 @@ def delete_photo(photo_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT filename, inventory_id FROM photos WHERE id = %s', (photo_id,))
+        cursor.execute('SELECT filename, inventory_id, supabase_url FROM photos WHERE id = %s', (photo_id,))
         photo_info = cursor.fetchone()
         
         if photo_info:
-            filename, inventory_id = photo_info
+            filename, inventory_id, supabase_url = photo_info
             
+            # Supabase Storage에서 파일 삭제 (선택사항)
+            if supabase_url:
+                try:
+                    delete_url = f"{SUPABASE_URL}/storage/v1/object/warehouse-photos/{filename}"
+                    headers = {'Authorization': f'Bearer {SUPABASE_SERVICE_KEY}'}
+                    requests.delete(delete_url, headers=headers)
+                    print(f"✅ Supabase Storage에서 파일 삭제: {filename}")
+                except Exception as storage_error:
+                    print(f"⚠️ Supabase Storage 파일 삭제 실패: {storage_error}")
+            
+            # 로컬 파일 삭제 (호환성)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
@@ -747,17 +920,15 @@ def search_inventory():
     
     query = request.args.get('q', '').strip()
     warehouse = request.args.get('warehouse', '')
-    category = request.args.get('category', '')
     
-    print(f"🔍 재고 검색 요청: query='{query}', warehouse='{warehouse}', category='{category}'")
+    print(f"🔍 재고 검색 요청: query='{query}', warehouse='{warehouse}'")
     
-    if not query and not warehouse and not category:
+    if not query and not warehouse:
         # 빈 검색 결과 표시
         return render_template('search_results.html', 
                              inventory=[], 
                              query='',
                              warehouse='',
-                             category='',
                              is_admin=session.get('is_admin', False))
     
     try:
@@ -774,10 +945,6 @@ def search_inventory():
         if warehouse:
             where_conditions.append("i.warehouse = %s")
             params.append(warehouse)
-        
-        if category:
-            where_conditions.append("i.category = %s")
-            params.append(category)
         
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
@@ -812,7 +979,6 @@ def search_inventory():
                              inventory=inventory, 
                              query=query,
                              warehouse=warehouse,
-                             category=category,
                              is_admin=session.get('is_admin', False))
         
     except Exception as e:
@@ -823,10 +989,8 @@ def search_inventory():
                              inventory=[], 
                              query=query,
                              warehouse=warehouse,
-                             category=category,
                              is_admin=session.get('is_admin', False),
                              error_message=f'검색 중 오류가 발생했습니다: {str(e)}')
-
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
@@ -839,11 +1003,24 @@ def delete_inventory(item_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT filename FROM photos WHERE inventory_id = %s', (item_id,))
+        # 관련 사진들 삭제
+        cursor.execute('SELECT filename, supabase_url FROM photos WHERE inventory_id = %s', (item_id,))
         photos = cursor.fetchall()
         
         for photo in photos:
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], photo[0])
+            filename, supabase_url = photo
+            
+            # Supabase Storage에서 파일 삭제
+            if supabase_url:
+                try:
+                    delete_url = f"{SUPABASE_URL}/storage/v1/object/warehouse-photos/{filename}"
+                    headers = {'Authorization': f'Bearer {SUPABASE_SERVICE_KEY}'}
+                    requests.delete(delete_url, headers=headers)
+                except Exception as storage_error:
+                    print(f"⚠️ Supabase Storage 파일 삭제 실패: {storage_error}")
+            
+            # 로컬 파일 삭제 (호환성)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
         
@@ -876,65 +1053,6 @@ def logout():
     session.clear()
     flash('로그아웃되었습니다.')
     return redirect('/')
-
-@app.route('/api/inventory_stats')
-def inventory_stats():
-    """재고 통계 API"""
-    if 'user_id' not in session:
-        return jsonify({'error': '로그인이 필요합니다.'}), 401
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT COUNT(*) FROM inventory')
-        total_items = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT SUM(quantity) FROM inventory')
-        total_quantity = cursor.fetchone()[0] or 0
-        
-        cursor.execute('SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse')
-        warehouse_stats = cursor.fetchall()
-        
-        cursor.execute('SELECT category, COUNT(*) FROM inventory GROUP BY category')
-        category_stats = cursor.fetchall()
-        
-        conn.close()
-        
-        return jsonify({
-            'total_items': total_items,
-            'total_quantity': total_quantity,
-            'warehouse_stats': dict(warehouse_stats),
-            'category_stats': dict(category_stats)
-        })
-        
-    except Exception as e:
-        return jsonify({'error': '통계 조회 중 오류가 발생했습니다.'}), 500
-
-@app.route('/health')
-def health():
-    """시스템 상태 확인 API"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT 1')
-        conn.close()
-        
-        return jsonify({
-            'status': 'healthy',
-            'database': 'postgresql',
-            'supabase_connected': True,
-            'timestamp': datetime.now().isoformat(),
-            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL) 정상 작동 중'
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'database': 'postgresql',
-            'supabase_connected': False,
-            'timestamp': datetime.now().isoformat(),
-            'message': f'Supabase 연결 오류: {str(e)}'
-        }), 500
 
 @app.route('/inventory_history/<int:item_id>')
 def inventory_history(item_id):
@@ -991,6 +1109,7 @@ def inventory_history(item_id):
         </body>
         </html>
         '''
+
 @app.route('/export_inventory')
 def export_inventory():
     """재고 데이터 내보내기 - 한글 인코딩 문제 완전 해결"""
@@ -1028,11 +1147,14 @@ def export_inventory():
             writer.writerow(row_list)
         
         # 파일 다운로드 응답 (UTF-8 BOM 포함)
+        filename = f'SK오앤에스_재고목록_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        encoded_filename = urllib.parse.quote(filename, safe="")
+        
         response = Response(
             output.getvalue().encode('utf-8-sig'),  # UTF-8 BOM 인코딩
             mimetype='text/csv',
             headers={
-                'Content-Disposition': f'attachment; filename*=UTF-8\'\'{urllib.parse.quote("재고목록_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".csv", safe="")}'
+                'Content-Disposition': f'attachment; filename*=UTF-8\'\'{encoded_filename}'
             }
         )
         
@@ -1041,6 +1163,32 @@ def export_inventory():
     except Exception as e:
         flash('데이터 내보내기 중 오류가 발생했습니다.')
         return redirect('/admin/dashboard')
+
+@app.route('/health')
+def health():
+    """시스템 상태 확인 API"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')
+        conn.close()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database': 'postgresql',
+            'supabase_connected': True,
+            'storage_enabled': bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
+            'timestamp': datetime.now().isoformat(),
+            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL + Storage) 정상 작동 중'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'database': 'postgresql',
+            'supabase_connected': False,
+            'timestamp': datetime.now().isoformat(),
+            'message': f'Supabase 연결 오류: {str(e)}'
+        }), 500
 
 # ========
 # 에러 핸들러
@@ -1099,10 +1247,11 @@ if __name__ == '__main__':
     print("🎯 최종 시스템 정보:")
     print(f"📱 포트: {port}")
     print(f"🗄️ 데이터베이스: PostgreSQL (Supabase)")
+    print(f"📁 파일 저장: Supabase Storage + 이미지 압축")
     print(f"🔒 보안: 관리자/사용자 권한 분리")
     print(f"🌐 환경: {'Production (Render)' if is_render else 'Development'}")
     print(f"💾 데이터 보존: 영구 (Supabase)")
-    print(f"📁 템플릿: 관리자/사용자 분리")
+    print(f"📸 이미지 압축: 10MB → 1MB 미만 자동 압축")
     print(f"🏪 창고: {', '.join(WAREHOUSES)}")
     print("=" * 60)
     print("🚀 SK오앤에스 창고관리 시스템 시작!")
@@ -1113,9 +1262,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
-
-
-
-
-
-
