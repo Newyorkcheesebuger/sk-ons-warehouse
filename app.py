@@ -39,6 +39,9 @@ print(f"✅ SUPABASE_DB_URL: {DATABASE_URL[:50]}...")
 # 허용된 파일 확장자
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
+# 올바른 창고 목록
+WAREHOUSES = ['보라매창고', '관악창고', '양천창고', '강남창고', '강동창고']
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -177,7 +180,12 @@ print("=" * 60)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    if 'user_id' in session:
+        if session.get('is_admin'):
+            return redirect(url_for('admin_dashboard'))
+        else:
+            return redirect(url_for('user_dashboard'))
+    return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -261,7 +269,7 @@ def login():
             if session['is_admin']:
                 return redirect(url_for('admin_dashboard'))
             else:
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('user_dashboard'))
         else:
             flash('아이디 또는 비밀번호가 잘못되었습니다.')
             return redirect(url_for('index'))
@@ -270,17 +278,7 @@ def login():
         flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
         return redirect(url_for('index'))
 
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
-
-    if session.get('is_admin') == True:
-        return redirect(url_for('admin_dashboard'))
-
-    return render_template('dashboard.html')
-
-@app.route('/admin_dashboard')
+@app.route('/admin/dashboard')
 def admin_dashboard():
     if 'user_id' not in session:
         flash('로그인이 필요합니다.')
@@ -288,7 +286,7 @@ def admin_dashboard():
 
     if not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('user_dashboard'))
 
     try:
         conn = get_db_connection()
@@ -296,14 +294,44 @@ def admin_dashboard():
         
         cursor.execute('SELECT id, name, employee_id, team, is_approved, created_at FROM users WHERE employee_id != %s ORDER BY created_at DESC', ('admin',))
         users = cursor.fetchall()
+        
+        # 재고 통계
+        cursor.execute('SELECT COUNT(*) FROM inventory')
+        total_items = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT SUM(quantity) FROM inventory')
+        total_quantity = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse')
+        warehouse_stats = cursor.fetchall()
+        
         conn.close()
         
-        return render_template('admin_dashboard.html', users=users)
+        return render_template('admin_dashboard.html', 
+                             users=users,
+                             total_items=total_items,
+                             total_quantity=total_quantity,
+                             warehouse_stats=dict(warehouse_stats))
         
     except Exception as e:
         flash(f'데이터를 불러오는 중 오류가 발생했습니다: {str(e)}')
         session.clear()
         return redirect(url_for('index'))
+
+@app.route('/dashboard')
+def user_dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    if session.get('is_admin') == True:
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('user_dashboard.html', warehouses=WAREHOUSES)
+
+# 라우트 별칭 추가 (기존 코드와의 호환성)
+@app.route('/dashboard')
+def dashboard():
+    return user_dashboard()
 
 @app.route('/approve_user/<int:user_id>')
 def approve_user(user_id):
@@ -356,7 +384,7 @@ def warehouse(warehouse_name):
     if 'user_id' not in session:
         return redirect(url_for('index'))
 
-    if warehouse_name not in ['보라매창고', '판교창고', '반포창고', '천안창고']:
+    if warehouse_name not in WAREHOUSES:
         return render_template('preparing.html', warehouse_name=warehouse_name)
 
     return render_template('warehouse.html', warehouse_name=warehouse_name)
@@ -388,7 +416,7 @@ def electric_inventory(warehouse_name):
                                
     except Exception as e:
         flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('user_dashboard'))
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
@@ -521,7 +549,7 @@ def view_photos(item_id):
         
     except Exception as e:
         flash('사진 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('user_dashboard'))
 
 @app.route('/delete_photo/<int:photo_id>')
 def delete_photo(photo_id):
@@ -555,7 +583,7 @@ def delete_photo(photo_id):
     except Exception as e:
         flash('사진 삭제 중 오류가 발생했습니다.')
     
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('user_dashboard'))
 
 @app.route('/search_inventory')
 def search_inventory():
@@ -611,7 +639,7 @@ def search_inventory():
         
     except Exception as e:
         flash('검색 중 오류가 발생했습니다.')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('user_dashboard'))
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
@@ -649,7 +677,7 @@ def delete_inventory(item_id):
     except Exception as e:
         flash('재고 삭제 중 오류가 발생했습니다.')
     
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('user_dashboard'))
 
 @app.route('/logout')
 def logout():
