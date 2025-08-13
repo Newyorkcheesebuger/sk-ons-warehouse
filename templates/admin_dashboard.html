@@ -366,7 +366,17 @@
                                             <span class="badge bg-secondary">{{ user[2] }}</span>
                                         </td>
                                         <td>{{ user[3] }}</td>
-                                        <td>{{ user[5][:10] if user[5] else '미설정' }}</td>
+                                        <td>
+                                            {% if user[5] %}
+                                                {% if user[5] is string %}
+                                                    {{ user[5][:10] }}
+                                                {% else %}
+                                                    {{ user[5].strftime('%Y-%m-%d') }}
+                                                {% endif %}
+                                            {% else %}
+                                                미설정
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             {% if user[4] == 1 %}
                                                 <span class="badge bg-success">승인됨</span>
