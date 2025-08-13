@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 import os
 import urllib.parse
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import sys
 import csv
@@ -15,12 +15,17 @@ app.secret_key = 'sk_ons_warehouse_secret_key_2025'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
+# 세션 설정 추가
+app.permanent_session_lifetime = timedelta(hours=8)
+app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # 업로드 폴더 생성
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # 환경변수 확인
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
-
 print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
 print("=" * 60)
@@ -52,7 +57,7 @@ def get_korea_time():
     return datetime.now(korea_tz)
 
 def get_db_connection():
-    """트랜잭션 오류 완전 해결된 데이터베이스 연결 함수"""
+    """안정적인 데이터베이스 연결 함수"""
     try:
         import pg8000
         parsed = urllib.parse.urlparse(DATABASE_URL)
@@ -65,10 +70,7 @@ def get_db_connection():
             database=parsed.path[1:] if parsed.path else 'postgres'
         )
         
-        try:
-            conn.autocommit = False
-        except AttributeError:
-            pass
+        conn.autocommit = False
         
         return conn
     except ImportError:
@@ -180,18 +182,19 @@ print("=" * 60)
 print("✅ 시스템 준비 완료 - Supabase 연결됨")
 print("=" * 60)
 
-# ========================================
+# ========
 # 라우트 정의
-# ========================================
-
+# ========
 @app.route('/')
 def index():
     """메인 페이지 - 로그인된 사용자는 적절한 대시보드로 리다이렉트"""
+    # 무한 루프 방지를 위한 로직 개선
     if 'user_id' in session:
+        # 이미 로그인된 상태에서 / 경로로 접근한 경우만 리다이렉트
         if session.get('is_admin'):
-            return redirect(url_for('admin_dashboard'))
+            return redirect('/admin/dashboard')
         else:
-            return redirect(url_for('user_dashboard'))
+            return redirect('/dashboard')
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -249,8 +252,8 @@ def register():
 def login():
     """로그인 처리"""
     try:
-        employee_id = request.form.get('employee_id', '')
-        password = request.form.get('password', '')
+        employee_id = request.form.get('employee_id', '').strip()
+        password = request.form.get('password', '').strip()
 
         if not employee_id or not password:
             flash('아이디와 비밀번호를 입력해주세요.')
@@ -261,13 +264,14 @@ def login():
         
         cursor.execute('SELECT id, name, employee_id, password, is_approved FROM users WHERE employee_id = %s', (employee_id,))
         user = cursor.fetchone()
-        conn.close()
-
+        
         if user and check_password_hash(user[3], password):
             if user[4] == 0:
                 flash('관리자 승인 대기 중입니다.')
+                conn.close()
                 return redirect(url_for('index'))
 
+            # 세션 설정
             session.clear()
             session['user_id'] = user[0]
             session['user_name'] = user[1]
@@ -275,13 +279,18 @@ def login():
             session['is_admin'] = (employee_id == 'admin')
             session.permanent = True
 
+            conn.close()
+
+            # 로그인 후 리다이렉트 - 무한 루프 방지를 위해 직접 URL 사용
             if session['is_admin']:
-                return redirect(url_for('admin_dashboard'))
+                return redirect('/admin/dashboard')
             else:
-                return redirect(url_for('user_dashboard'))
+                return redirect('/dashboard')
         else:
             flash('아이디 또는 비밀번호가 잘못되었습니다.')
-            return redirect(url_for('index'))
+
+        conn.close()
+        return redirect(url_for('index'))
             
     except Exception as e:
         flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
@@ -333,8 +342,9 @@ def user_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('index'))
 
+    # 관리자가 user_dashboard로 접근하는 것을 방지
     if session.get('is_admin') == True:
-        return redirect(url_for('admin_dashboard'))
+        return redirect('/admin/dashboard')
 
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
 
@@ -439,7 +449,6 @@ def add_inventory_item():
     category = request.form['category']
     part_name = request.form['part_name']
     quantity = int(request.form['quantity'])
-
     korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
@@ -492,6 +501,7 @@ def update_quantity():
 
         cursor.execute('UPDATE inventory SET quantity = %s, last_modifier = %s, last_modified = %s WHERE id = %s',
                       (new_quantity, session['user_name'], korea_time, item_id))
+
         cursor.execute('INSERT INTO inventory_history (inventory_id, change_type, quantity_change, modifier_name, modified_at) VALUES (%s, %s, %s, %s, %s)',
                       (item_id, change_type, quantity_change, session['user_name'], korea_time))
 
@@ -532,7 +542,6 @@ def upload_photo(item_id):
             
             conn.commit()
             conn.close()
-
             return jsonify({'success': True, 'message': '사진이 업로드되었습니다.'})
             
         except Exception as e:
@@ -891,10 +900,9 @@ def system_status():
         flash('시스템 상태를 불러오는 중 오류가 발생했습니다.')
         return redirect(url_for('admin_dashboard'))
 
-# ========================================
+# ========
 # 에러 핸들러
-# ========================================
-
+# ========
 @app.errorhandler(404)
 def page_not_found(error):
     """404 에러 핸들러"""
@@ -956,10 +964,9 @@ def forbidden(error):
         </html>
         ''', 403
 
-# ========================================
+# ========
 # 메인 실행 부분
-# ========================================
-
+# ========
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     is_render = os.environ.get('RENDER') is not None
