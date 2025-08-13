@@ -183,14 +183,12 @@ print("✅ 시스템 준비 완료 - Supabase 연결됨")
 print("=" * 60)
 
 # ========
-# 라우트 정의
+# 라우트 정의 (무한 리디렉션 완전 해결)
 # ========
 @app.route('/')
 def index():
     """메인 페이지 - 로그인된 사용자는 적절한 대시보드로 리다이렉트"""
-    # 무한 루프 방지를 위한 로직 개선
     if 'user_id' in session:
-        # 이미 로그인된 상태에서 / 경로로 접근한 경우만 리다이렉트
         if session.get('is_admin'):
             return redirect('/admin/dashboard')
         else:
@@ -240,7 +238,7 @@ def register():
             conn.commit()
             conn.close()
             flash('회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.')
-            return redirect(url_for('index'))
+            return redirect('/')
             
         except Exception as e:
             flash('회원가입 중 오류가 발생했습니다.')
@@ -257,7 +255,7 @@ def login():
 
         if not employee_id or not password:
             flash('아이디와 비밀번호를 입력해주세요.')
-            return redirect(url_for('index'))
+            return redirect('/')
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -269,7 +267,7 @@ def login():
             if user[4] == 0:
                 flash('관리자 승인 대기 중입니다.')
                 conn.close()
-                return redirect(url_for('index'))
+                return redirect('/')
 
             # 세션 설정
             session.clear()
@@ -281,7 +279,7 @@ def login():
 
             conn.close()
 
-            # 로그인 후 리다이렉트 - 무한 루프 방지를 위해 직접 URL 사용
+            # 로그인 후 리다이렉트
             if session['is_admin']:
                 return redirect('/admin/dashboard')
             else:
@@ -290,22 +288,22 @@ def login():
             flash('아이디 또는 비밀번호가 잘못되었습니다.')
 
         conn.close()
-        return redirect(url_for('index'))
+        return redirect('/')
             
     except Exception as e:
         flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
     """관리자 전용 대시보드"""
     if 'user_id' not in session:
         flash('로그인이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     if not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('user_dashboard'))
+        return redirect('/dashboard')
 
     try:
         conn = get_db_connection()
@@ -334,16 +332,16 @@ def admin_dashboard():
         
     except Exception as e:
         flash(f'데이터를 불러오는 중 오류가 발생했습니다: {str(e)}')
-        return redirect(url_for('index'))
+        return redirect('/')
 
 @app.route('/dashboard')
 def user_dashboard():
     """사용자 대시보드"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
 
     # 관리자가 user_dashboard로 접근하는 것을 방지
-    if session.get('is_admin') == True:
+    if session.get('is_admin'):
         return redirect('/admin/dashboard')
 
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
@@ -353,7 +351,7 @@ def approve_user(user_id):
     """사용자 승인 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -367,14 +365,14 @@ def approve_user(user_id):
     except Exception as e:
         flash('사용자 승인 중 오류가 발생했습니다.')
     
-    return redirect(url_for('admin_dashboard'))
+    return redirect('/admin/dashboard')
 
 @app.route('/delete_user/<int:user_id>')
 def delete_user(user_id):
     """사용자 삭제 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -395,13 +393,13 @@ def delete_user(user_id):
     except Exception as e:
         flash('사용자 삭제 중 오류가 발생했습니다.')
     
-    return redirect(url_for('admin_dashboard'))
+    return redirect('/admin/dashboard')
 
 @app.route('/warehouse/<warehouse_name>')
 def warehouse(warehouse_name):
     """창고 선택 페이지"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
 
     if warehouse_name not in WAREHOUSES:
         return render_template('preparing.html', warehouse_name=warehouse_name)
@@ -412,7 +410,7 @@ def warehouse(warehouse_name):
 def electric_inventory(warehouse_name):
     """전기차 부품 재고 관리 페이지"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -436,14 +434,14 @@ def electric_inventory(warehouse_name):
                                
     except Exception as e:
         flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('user_dashboard'))
+        return redirect('/dashboard')
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
     """재고 아이템 추가 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     warehouse_name = request.form['warehouse_name']
     category = request.form['category']
@@ -465,7 +463,7 @@ def add_inventory_item():
     except Exception as e:
         flash('재고 추가 중 오류가 발생했습니다.')
     
-    return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+    return redirect(f'/warehouse/{warehouse_name}/electric')
 
 @app.route('/update_quantity', methods=['POST'])
 def update_quantity():
@@ -553,7 +551,7 @@ def upload_photo(item_id):
 def view_photos(item_id):
     """사진 보기 페이지"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -574,14 +572,14 @@ def view_photos(item_id):
         
     except Exception as e:
         flash('사진 정보를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('user_dashboard'))
+        return redirect('/dashboard')
 
 @app.route('/delete_photo/<int:photo_id>')
 def delete_photo(photo_id):
     """사진 삭제 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -601,7 +599,7 @@ def delete_photo(photo_id):
             conn.commit()
             flash('사진이 삭제되었습니다.')
             conn.close()
-            return redirect(url_for('view_photos', item_id=inventory_id))
+            return redirect(f'/photos/{inventory_id}')
         else:
             flash('삭제할 사진을 찾을 수 없습니다.')
             conn.close()
@@ -609,13 +607,13 @@ def delete_photo(photo_id):
     except Exception as e:
         flash('사진 삭제 중 오류가 발생했습니다.')
     
-    return redirect(url_for('user_dashboard'))
+    return redirect('/dashboard')
 
 @app.route('/search_inventory')
 def search_inventory():
     """재고 검색 페이지"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
     
     query = request.args.get('q', '').strip()
     warehouse = request.args.get('warehouse', '')
@@ -666,14 +664,14 @@ def search_inventory():
         
     except Exception as e:
         flash('검색 중 오류가 발생했습니다.')
-        return redirect(url_for('user_dashboard'))
+        return redirect('/dashboard')
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
     """재고 삭제 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -700,19 +698,19 @@ def delete_inventory(item_id):
         
         if item_info:
             warehouse, category = item_info
-            return redirect(url_for('electric_inventory', warehouse_name=warehouse))
+            return redirect(f'/warehouse/{warehouse}/electric')
         
     except Exception as e:
         flash('재고 삭제 중 오류가 발생했습니다.')
     
-    return redirect(url_for('user_dashboard'))
+    return redirect('/dashboard')
 
 @app.route('/logout')
 def logout():
     """로그아웃"""
     session.clear()
     flash('로그아웃되었습니다.')
-    return redirect(url_for('index'))
+    return redirect('/')
 
 @app.route('/api/inventory_stats')
 def inventory_stats():
@@ -777,7 +775,7 @@ def health():
 def inventory_history(item_id):
     """재고 이력 페이지"""
     if 'user_id' not in session:
-        return redirect(url_for('index'))
+        return redirect('/')
 
     try:
         conn = get_db_connection()
@@ -803,14 +801,14 @@ def inventory_history(item_id):
         
     except Exception as e:
         flash('재고 이력을 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('user_dashboard'))
+        return redirect('/dashboard')
 
 @app.route('/export_inventory')
 def export_inventory():
     """재고 데이터 내보내기 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
     
     try:
         conn = get_db_connection()
@@ -844,14 +842,14 @@ def export_inventory():
         
     except Exception as e:
         flash('데이터 내보내기 중 오류가 발생했습니다.')
-        return redirect(url_for('admin_dashboard'))
+        return redirect('/admin/dashboard')
 
 @app.route('/system_status')
 def system_status():
     """시스템 상태 페이지 (관리자 전용)"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
-        return redirect(url_for('index'))
+        return redirect('/')
     
     try:
         conn = get_db_connection()
@@ -898,7 +896,7 @@ def system_status():
         
     except Exception as e:
         flash('시스템 상태를 불러오는 중 오류가 발생했습니다.')
-        return redirect(url_for('admin_dashboard'))
+        return redirect('/admin/dashboard')
 
 # ========
 # 에러 핸들러
@@ -980,7 +978,6 @@ if __name__ == '__main__':
     print(f"💾 데이터 보존: 영구 (Supabase)")
     print(f"📁 템플릿: 관리자/사용자 분리")
     print(f"🏪 창고: {', '.join(WAREHOUSES)}")
-    print(f"👑 관리자 계정: admin / Onsn1103813!")
     print("=" * 60)
     print("🚀 SK오앤에스 창고관리 시스템 시작!")
     print("=" * 60)
