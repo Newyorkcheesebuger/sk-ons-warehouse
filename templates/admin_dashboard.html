@@ -1,433 +1,481 @@
-{% extends "base.html" %}
-
-{% block title %}관리자 대시보드 - SK오앤에스 창고관리{% endblock %}
-
-{% block content %}
-<div class="admin-header">
-    <div class="container-fluid">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h1 class="admin-title">
-                    <i class="fas fa-crown me-2 text-warning"></i>
-                    관리자 대시보드
-                </h1>
-                <p class="admin-subtitle">시스템 전반 관리 및 사용자 승인</p>
-            </div>
-            <div class="col-md-6 text-end">
-                <div class="admin-info">
-                    <span class="badge bg-danger px-3 py-2">관리자 모드</span>
-                    <span class="ms-2 text-muted">{{ session.user_name }}님</span>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드 - SK오앤에스 창고관리</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f8f9fc;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        .admin-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .admin-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .admin-info {
+            font-size: 1.1rem;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        
+        .border-left-primary {
+            border-left: 4px solid #4e73df !important;
+        }
+        
+        .border-left-success {
+            border-left: 4px solid #1cc88a !important;
+        }
+        
+        .border-left-info {
+            border-left: 4px solid #36b9cc !important;
+        }
+        
+        .border-left-warning {
+            border-left: 4px solid #f6c23e !important;
+        }
+        
+        .admin-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 1.5rem;
+            background: white;
+            border: 2px solid #e3e6f0;
+            border-radius: 15px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .admin-menu-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #667eea;
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .admin-menu-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .admin-menu-icon i {
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .admin-menu-content h5 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .admin-menu-content p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .table th {
+            background-color: #f8f9fc;
+            border-color: #e3e6f0;
+            font-weight: 600;
+            color: #5a5c69;
+        }
+        
+        .table td {
+            border-color: #e3e6f0;
+            vertical-align: middle;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            border-radius: 0.35rem;
+        }
+        
+        .stat-card {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .admin-title {
+                font-size: 2rem;
+            }
+            
+            .admin-menu-item {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .admin-menu-icon {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 관리자 헤더 -->
+    <div class="admin-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="admin-title">
+                        <i class="fas fa-crown me-2 text-warning"></i>
+                        관리자 대시보드
+                    </h1>
+                    <p class="admin-subtitle">시스템 전반 관리 및 사용자 승인</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="admin-info">
+                        <span class="badge bg-danger px-3 py-2">관리자 모드</span>
+                        <span class="ms-2 text-muted">{{ session.user_name }}님</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 시스템 통계 카드 -->
-<div class="container-fluid mb-4">
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">총 재고 항목</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_items }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">총 재고 수량</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_quantity:,g }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-cubes fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">전체 사용자</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ users|length }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-users fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">승인 대기</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {% set pending_count = users|selectattr(4, 'equalto', 0)|list|length %}
-                                {{ pending_count }}
+    <!-- 시스템 통계 카드 -->
+    <div class="container-fluid mb-4">
+        <div class="row">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2 stat-card" style="animation-delay: 0.1s">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-primary text-uppercase mb-1">총 재고 항목</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">{{ total_items or 0 }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-boxes fa-2x text-gray-300"></i>
                             </div>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2 stat-card" style="animation-delay: 0.2s">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-success text-uppercase mb-1">총 재고 수량</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">{{ "{:,}".format(total_quantity or 0) }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-cubes fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2 stat-card" style="animation-delay: 0.3s">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-info text-uppercase mb-1">전체 사용자</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">{{ (users|length) if users else 0 }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-users fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2 stat-card" style="animation-delay: 0.4s">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-warning text-uppercase mb-1">승인 대기</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">
+                                    {% set pending_count = 0 %}
+                                    {% if users %}
+                                        {% for user in users %}
+                                            {% if user[4] == 0 %}
+                                                {% set pending_count = pending_count + 1 %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    {{ pending_count }}
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-clock fa-2x text-gray-300"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 관리자 전용 메뉴 -->
-<div class="container-fluid mb-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-tools me-2"></i>관리자 전용 기능
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <a href="{{ url_for('user_dashboard') }}" class="admin-menu-item">
-                                <div class="admin-menu-icon bg-primary">
-                                    <i class="fas fa-warehouse"></i>
-                                </div>
-                                <div class="admin-menu-content">
-                                    <h5>창고 관리</h5>
-                                    <p>재고 및 부품 관리</p>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <a href="#systemSettings" class="admin-menu-item" data-bs-toggle="modal">
-                                <div class="admin-menu-icon bg-success">
-                                    <i class="fas fa-cogs"></i>
-                                </div>
-                                <div class="admin-menu-content">
-                                    <h5>시스템 설정</h5>
-                                    <p>기본 설정 관리</p>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <a href="#bulkManagement" class="admin-menu-item" data-bs-toggle="modal">
-                                <div class="admin-menu-icon bg-info">
-                                    <i class="fas fa-database"></i>
-                                </div>
-                                <div class="admin-menu-content">
-                                    <h5>일괄 관리</h5>
-                                    <p>대량 데이터 처리</p>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <a href="#systemLogs" class="admin-menu-item" data-bs-toggle="modal">
-                                <div class="admin-menu-icon bg-warning">
-                                    <i class="fas fa-file-alt"></i>
-                                </div>
-                                <div class="admin-menu-content">
-                                    <h5>시스템 로그</h5>
-                                    <p>활동 기록 확인</p>
-                                </div>
-                            </a>
+    <!-- 관리자 전용 메뉴 -->
+    <div class="container-fluid mb-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-tools me-2"></i>관리자 전용 기능
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <a href="/dashboard" class="admin-menu-item">
+                                    <div class="admin-menu-icon bg-primary">
+                                        <i class="fas fa-warehouse"></i>
+                                    </div>
+                                    <div class="admin-menu-content">
+                                        <h5>창고 관리</h5>
+                                        <p>재고 및 부품 관리</p>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <a href="#" onclick="showComingSoon('시스템 설정')" class="admin-menu-item">
+                                    <div class="admin-menu-icon bg-success">
+                                        <i class="fas fa-cogs"></i>
+                                    </div>
+                                    <div class="admin-menu-content">
+                                        <h5>시스템 설정</h5>
+                                        <p>기본 설정 관리</p>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <a href="/export_inventory" class="admin-menu-item">
+                                    <div class="admin-menu-icon bg-info">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <div class="admin-menu-content">
+                                        <h5>데이터 내보내기</h5>
+                                        <p>재고 데이터 다운로드</p>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <a href="#" onclick="showComingSoon('시스템 로그')" class="admin-menu-item">
+                                    <div class="admin-menu-icon bg-warning">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div class="admin-menu-content">
+                                        <h5>시스템 로그</h5>
+                                        <p>활동 기록 확인</p>
+                                    </div>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 사용자 관리 테이블 -->
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-users me-2"></i>사용자 승인 및 관리
-                    </h6>
-                    <div class="dropdown no-arrow">
-                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-right shadow">
-                            <a class="dropdown-item" href="#exportUsers">
-                                <i class="fas fa-download fa-sm fa-fw me-2 text-gray-400"></i>
-                                사용자 목록 내보내기
-                            </a>
+    <!-- 사용자 관리 테이블 -->
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-users me-2"></i>사용자 승인 및 관리
+                        </h6>
+                        <div class="dropdown">
+                            <button class="btn btn-link dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/export_inventory">
+                                    <i class="fas fa-download fa-sm fa-fw me-2 text-gray-400"></i>
+                                    데이터 내보내기
+                                </a></li>
+                            </ul>
                         </div>
                     </div>
-                </div>
-                <div class="card-body">
-                    {% if users %}
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>이름</th>
-                                    <th>사번</th>
-                                    <th>소속팀</th>
-                                    <th>가입일</th>
-                                    <th>상태</th>
-                                    <th>관리</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for user in users %}
-                                <tr>
-                                    <td class="font-weight-bold">{{ user[1] }}</td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ user[2] }}</span>
-                                    </td>
-                                    <td>{{ user[3] }}</td>
-                                    <td>{{ user[5][:10] if user[5] else '미설정' }}</td>
-                                    <td>
-                                        {% if user[4] == 1 %}
-                                            <span class="badge bg-success">승인됨</span>
-                                        {% else %}
-                                            <span class="badge bg-warning">승인 대기</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user[4] == 0 %}
-                                            <button class="btn btn-success btn-sm me-1" onclick="approveUser({{ user[0] }}, '{{ user[1] }}')">
-                                                <i class="fas fa-check"></i> 승인
+                    <div class="card-body">
+                        {% if users %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>이름</th>
+                                        <th>사번</th>
+                                        <th>소속팀</th>
+                                        <th>가입일</th>
+                                        <th>상태</th>
+                                        <th>관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td class="fw-bold">{{ user[1] }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ user[2] }}</span>
+                                        </td>
+                                        <td>{{ user[3] }}</td>
+                                        <td>{{ user[5][:10] if user[5] else '미설정' }}</td>
+                                        <td>
+                                            {% if user[4] == 1 %}
+                                                <span class="badge bg-success">승인됨</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">승인 대기</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user[4] == 0 %}
+                                                <button class="btn btn-success btn-sm me-1" onclick="approveUser({{ user[0] }}, '{{ user[1] }}')">
+                                                    <i class="fas fa-check"></i> 승인
+                                                </button>
+                                            {% endif %}
+                                            <button class="btn btn-danger btn-sm" onclick="deleteUser({{ user[0] }}, '{{ user[1] }}')">
+                                                <i class="fas fa-trash"></i> 삭제
                                             </button>
-                                        {% endif %}
-                                        <button class="btn btn-danger btn-sm" onclick="deleteUser({{ user[0] }}, '{{ user[1] }}')">
-                                            <i class="fas fa-trash"></i> 삭제
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-4x text-gray-300 mb-3"></i>
+                            <h5 class="text-gray-600">등록된 사용자가 없습니다</h5>
+                            <p class="text-gray-500">새로운 사용자가 가입하면 여기에 표시됩니다.</p>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-users fa-4x text-gray-300 mb-3"></i>
-                        <h5 class="text-gray-600">등록된 사용자가 없습니다</h5>
-                        <p class="text-gray-500">새로운 사용자가 가입하면 여기에 표시됩니다.</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 창고별 통계 -->
-{% if warehouse_stats %}
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-chart-bar me-2"></i>창고별 재고 현황
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for warehouse, count in warehouse_stats.items() %}
-                        <div class="col-md-3 mb-3">
-                            <div class="card border-left-info">
-                                <div class="card-body py-3">
-                                    <div class="text-center">
-                                        <h6 class="text-info">{{ warehouse }}</h6>
-                                        <h4 class="text-gray-800">{{ count }}개</h4>
+    <!-- 창고별 통계 -->
+    {% if warehouse_stats %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-chart-bar me-2"></i>창고별 재고 현황
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for warehouse, count in warehouse_stats.items() %}
+                            <div class="col-md-3 mb-3">
+                                <div class="card border-left-info">
+                                    <div class="card-body py-3">
+                                        <div class="text-center">
+                                            <h6 class="text-info">{{ warehouse }}</h6>
+                                            <h4 class="text-gray-800">{{ count }}개</h4>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
-<style>
-.admin-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    border-radius: 0 0 20px 20px;
-}
+    <!-- 하단 네비게이션 -->
+    <div class="container-fluid mt-4 mb-4">
+        <div class="row">
+            <div class="col-12 text-center">
+                <a href="/dashboard" class="btn btn-primary me-2">
+                    <i class="fas fa-warehouse me-2"></i>사용자 대시보드
+                </a>
+                <a href="/logout" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                </a>
+            </div>
+        </div>
+    </div>
 
-.admin-title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.admin-subtitle {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin: 0;
-}
-
-.admin-info {
-    font-size: 1.1rem;
-}
-
-.card {
-    border: none;
-    border-radius: 15px;
-}
-
-.border-left-primary {
-    border-left: 4px solid #4e73df !important;
-}
-
-.border-left-success {
-    border-left: 4px solid #1cc88a !important;
-}
-
-.border-left-info {
-    border-left: 4px solid #36b9cc !important;
-}
-
-.border-left-warning {
-    border-left: 4px solid #f6c23e !important;
-}
-
-.admin-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 1.5rem;
-    background: white;
-    border: 2px solid #e3e6f0;
-    border-radius: 15px;
-    text-decoration: none;
-    color: inherit;
-    transition: all 0.3s ease;
-    height: 100%;
-}
-
-.admin-menu-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    border-color: #667eea;
-    color: inherit;
-    text-decoration: none;
-}
-
-.admin-menu-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 1rem;
-    flex-shrink: 0;
-}
-
-.admin-menu-icon i {
-    font-size: 1.5rem;
-    color: white;
-}
-
-.admin-menu-content h5 {
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-}
-
-.admin-menu-content p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #6c757d;
-}
-
-.table th {
-    background-color: #f8f9fc;
-    border-color: #e3e6f0;
-    font-weight: 600;
-    color: #5a5c69;
-}
-
-.table td {
-    border-color: #e3e6f0;
-    vertical-align: middle;
-}
-
-.btn-sm {
-    padding: 0.25rem 0.75rem;
-    font-size: 0.875rem;
-    border-radius: 0.35rem;
-}
-
-@media (max-width: 768px) {
-    .admin-title {
-        font-size: 2rem;
-    }
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    .admin-menu-item {
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .admin-menu-icon {
-        width: 50px;
-        height: 50px;
-    }
-}
-</style>
+    <script>
+        function approveUser(userId, userName) {
+            if (confirm(`${userName}님을 승인하시겠습니까?`)) {
+                window.location.href = `/approve_user/${userId}`;
+            }
+        }
 
-<script>
-function approveUser(userId, userName) {
-    if (confirm(`${userName}님을 승인하시겠습니까?`)) {
-        window.location.href = `/approve_user/${userId}`;
-    }
-}
+        function deleteUser(userId, userName) {
+            if (confirm(`정말로 ${userName}님을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+                window.location.href = `/delete_user/${userId}`;
+            }
+        }
 
-function deleteUser(userId, userName) {
-    if (confirm(`정말로 ${userName}님을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-        window.location.href = `/delete_user/${userId}`;
-    }
-}
+        function showComingSoon(feature) {
+            alert(`${feature} 기능은 곧 업데이트 예정입니다.`);
+        }
 
-// 페이지 로드 시 통계 카드 애니메이션
-document.addEventListener('DOMContentLoaded', function() {
-    const cards = document.querySelectorAll('.card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
-    });
-});
-</script>
-{% endblock %}
+        // 페이지 로드 시 애니메이션
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.stat-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${(index + 1) * 0.1}s`;
+            });
+        });
+    </script>
+</body>
+</html>
