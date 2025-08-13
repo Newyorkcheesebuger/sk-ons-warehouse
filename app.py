@@ -993,7 +993,7 @@ def inventory_history(item_id):
         '''
 @app.route('/export_inventory')
 def export_inventory():
-    """재고 데이터 내보내기 (관리자 전용)"""
+    """재고 데이터 내보내기 - 한글 인코딩 문제 완전 해결"""
     if 'user_id' not in session or not session.get('is_admin'):
         flash('관리자 권한이 필요합니다.')
         return redirect('/')
@@ -1008,8 +1008,12 @@ def export_inventory():
         inventory_data = cursor.fetchall()
         conn.close()
         
-        # CSV 형태로 데이터 준비
+        # 🔧 한글 인코딩 문제 해결: UTF-8 BOM 추가
         output = io.StringIO()
+        
+        # UTF-8 BOM 추가 (Excel 한글 인식용)
+        output.write('\ufeff')  # BOM 추가
+        
         writer = csv.writer(output)
         
         # 헤더 작성
@@ -1017,13 +1021,19 @@ def export_inventory():
         
         # 데이터 작성
         for row in inventory_data:
-            writer.writerow(row)
+            # datetime 객체 처리
+            row_list = list(row)
+            if row_list[5] and not isinstance(row_list[5], str):
+                row_list[5] = row_list[5].strftime('%Y-%m-%d %H:%M:%S')
+            writer.writerow(row_list)
         
-        # 파일 다운로드 응답
+        # 파일 다운로드 응답 (UTF-8 BOM 포함)
         response = Response(
-            output.getvalue(),
+            output.getvalue().encode('utf-8-sig'),  # UTF-8 BOM 인코딩
             mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename=inventory_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+            headers={
+                'Content-Disposition': f'attachment; filename*=UTF-8\'\'{urllib.parse.quote("재고목록_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".csv", safe="")}'
+            }
         )
         
         return response
@@ -1103,6 +1113,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
