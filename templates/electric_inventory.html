@@ -111,7 +111,7 @@
             padding-top: 10px;
             border-top: 1px solid #dee2e6;
         }
-
+        
         /* 데스크톱용 테이블 */
         .desktop-table {
             width: 100%; 
@@ -182,7 +182,7 @@
             border: 1px solid #ddd; 
             border-radius: 4px; 
         }
-
+        
         /* 모달 스타일 */
         .modal {
             display: none;
@@ -225,7 +225,7 @@
             justify-content: center;
             margin-top: 15px;
         }
-
+        
         /* 반응형 디자인 */
         @media (max-width: 768px) {
             .header h1 { font-size: 1.2em; }
@@ -255,7 +255,6 @@
                 text-align: center;
             }
         }
-
         @media (min-width: 769px) {
             .mobile-inventory { display: none; }
             .desktop-table { display: table; }
@@ -267,8 +266,12 @@
         <div class="header">
             <h1>{{ warehouse_name }} - 전기차 부품 재고</h1>
             <div>
-                <a href="{{ url_for('warehouse', warehouse_name=warehouse_name) }}" class="btn btn-secondary">← 창고 메뉴</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-danger">로그아웃</a>
+                {% if session.get('is_admin') %}
+                    <a href="/admin/warehouse" class="btn btn-secondary">← 창고 관리</a>
+                {% else %}
+                    <a href="/warehouse/{{ warehouse_name }}" class="btn btn-secondary">← 창고 메뉴</a>
+                {% endif %}
+                <a href="/logout" class="btn btn-danger">로그아웃</a>
             </div>
         </div>
 
@@ -287,7 +290,7 @@
         {% if is_admin %}
         <div class="add-item-form">
             <h3>새 물품 추가</h3>
-            <form method="POST" action="{{ url_for('add_inventory_item') }}">
+            <form method="POST" action="/add_inventory_item">
                 <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
                 <input type="hidden" name="category" value="전기차">
                 
@@ -325,12 +328,11 @@
                 <div class="action-buttons">
                     <button class="btn btn-success" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')">입고</button>
                     <button class="btn btn-warning" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')">출고</button>
-                    <a href="{{ url_for('view_photos', item_id=item[0]) }}" class="btn btn-info">사진({{ item[6] }})</a>
+                    <a href="/photos/{{ item[0] }}" class="btn btn-info">사진({{ item[6] }})</a>
                 </div>
                 
                 {% if is_admin %}
                 <div class="admin-buttons">
-                    <a href="{{ url_for('edit_inventory_item', item_id=item[0]) }}" class="btn btn-primary">수정</a>
                     <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
                 </div>
                 {% endif %}
@@ -372,7 +374,7 @@
                     <td>{{ item[4] or '미설정' }}</td>
                     <td>{{ item[5][:16] if item[5] else '미설정' }}</td>
                     <td>
-                        <a href="{{ url_for('view_photos', item_id=item[0]) }}" class="btn btn-info">
+                        <a href="/photos/{{ item[0] }}" class="btn btn-info">
                             사진 보기 ({{ item[6] }}장)
                         </a>
                     </td>
@@ -385,7 +387,6 @@
                     {% if is_admin %}
                     <td>
                         <div class="admin-controls">
-                            <a href="{{ url_for('edit_inventory_item', item_id=item[0]) }}" class="btn btn-primary">수정</a>
                             <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
                         </div>
                     </td>
@@ -506,7 +507,7 @@
 
         function confirmDelete(itemId, itemName) {
             if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
-                window.location.href = `/delete_inventory_item/${itemId}`;
+                window.location.href = `/delete_inventory/${itemId}`;
             }
         }
 
