@@ -3,339 +3,841 @@
 {% block title %}{{ warehouse_name }} - 준비 중{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="text-center">
-            <!-- 준비 중 애니메이션 -->
-            <div class="mb-4">
-                <div class="preparing-icon">
-                    <i class="fas fa-tools fa-4x text-warning"></i>
-                </div>
+<div class="preparing-container">
+    <div class="preparing-card">
+        <div class="preparing-animation">
+            <div class="gear-container">
+                <i class="fas fa-cog gear gear-1"></i>
+                <i class="fas fa-cog gear gear-2"></i>
+                <i class="fas fa-cog gear gear-3"></i>
             </div>
-            
-            <!-- 메인 메시지 -->
-            <h2 class="mb-3">{{ warehouse_name }}</h2>
-            <h4 class="text-warning mb-4">
+        </div>
+        
+        <div class="preparing-content">
+            <h1 class="warehouse-title">{{ warehouse_name }}</h1>
+            <h2 class="status-title">
                 <i class="fas fa-clock me-2"></i>
-                준비 중입니다
-            </h4>
+                시스템 구축 중
+            </h2>
             
-            <div class="card" style="border-radius: 20px;">
-                <div class="card-body p-5">
-                    <p class="lead text-muted mb-4">
-                        {{ warehouse_name }}는 현재 시스템 구축 중입니다.
-                    </p>
-                    
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="progress mb-3" style="height: 10px; border-radius: 10px;">
-                                <div class="progress-bar bg-warning" role="progressbar" 
-                                     style="width: 75%; border-radius: 10px;" 
-                                     aria-valuenow="75" aria-valuemin="0" aria-valuemax="100">
-                                </div>
-                            </div>
-                            <small class="text-muted">구축 진행률: 75%</small>
-                        </div>
+            <p class="status-description">
+                {{ warehouse_name }}는 현재 시스템 구축 작업이 진행 중입니다.<br>
+                완료되는 대로 안내해드리겠습니다.
+            </p>
+            
+            <!-- 진행률 표시 -->
+            <div class="progress-section">
+                <div class="progress-info">
+                    <span>구축 진행률</span>
+                    <span class="progress-percentage">75%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" data-progress="75"></div>
+                </div>
+            </div>
+            
+            <!-- 예정 기능 체크리스트 -->
+            <div class="features-section">
+                <h4>
+                    <i class="fas fa-list-check me-2"></i>
+                    구축 중인 기능
+                </h4>
+                <div class="feature-grid">
+                    <div class="feature-item completed">
+                        <i class="fas fa-check-circle"></i>
+                        <span>데이터베이스 설정</span>
                     </div>
-                    
-                    <!-- 예정 기능 -->
-                    <div class="text-start mb-4">
-                        <h6 class="text-primary mb-3">
-                            <i class="fas fa-list-check me-2"></i>
-                            준비 중인 기능들
-                        </h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li class="mb-2">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        <span class="text-decoration-line-through text-muted">데이터베이스 설정</span>
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        <span class="text-decoration-line-through text-muted">사용자 관리</span>
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="fas fa-spinner fa-spin text-warning me-2"></i>
-                                        재고 관리 시스템
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li class="mb-2">
-                                        <i class="fas fa-clock text-muted me-2"></i>
-                                        사진 관리
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="fas fa-clock text-muted me-2"></i>
-                                        이력 추적
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="fas fa-clock text-muted me-2"></i>
-                                        통계 분석
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
+                    <div class="feature-item completed">
+                        <i class="fas fa-check-circle"></i>
+                        <span>사용자 관리 시스템</span>
                     </div>
-                    
-                    <!-- 예상 완료 시기 -->
-                    <div class="alert alert-info" role="alert" style="border-radius: 15px;">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-calendar-alt fa-2x me-3"></i>
-                            <div>
-                                <h6 class="alert-heading mb-1">예상 완료 시기</h6>
-                                <p class="mb-0">2025년 9월 중 서비스 시작 예정</p>
-                            </div>
-                        </div>
+                    <div class="feature-item in-progress">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>재고 관리 시스템</span>
                     </div>
-                    
-                    <!-- 현재 이용 가능한 창고 -->
-                    <div class="border-top pt-4 mt-4">
-                        <h6 class="text-primary mb-3">
-                            <i class="fas fa-warehouse me-2"></i>
-                            현재 이용 가능한 창고
-                        </h6>
-                        <div class="d-flex justify-content-center">
-                            <a href="{{ url_for('warehouse', warehouse_name='보라매창고') }}" 
-                               class="btn btn-success" style="border-radius: 10px;">
-                                <i class="fas fa-warehouse me-2"></i>
-                                보라매창고 이용하기
-                            </a>
-                        </div>
-                        <p class="text-muted mt-2 mb-0" style="font-size: 0.9em;">
-                            보라매창고는 현재 정상 운영 중입니다
-                        </p>
+                    <div class="feature-item pending">
+                        <i class="fas fa-clock"></i>
+                        <span>사진 업로드 기능</span>
                     </div>
-                    
-                    <!-- 홈으로 돌아가기 -->
-                    <div class="mt-4">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary" style="border-radius: 10px;">
-                            <i class="fas fa-home me-2"></i>
-                            대시보드로 돌아가기
-                        </a>
+                    <div class="feature-item pending">
+                        <i class="fas fa-clock"></i>
+                        <span>이력 추적 시스템</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <i class="fas fa-clock"></i>
+                        <span>통계 및 분석</span>
                     </div>
                 </div>
             </div>
             
-            <!-- 추가 정보 -->
-            <div class="row mt-4">
-                <div class="col-md-4 mb-3">
-                    <div class="card border-0 bg-light" style="border-radius: 15px;">
-                        <div class="card-body text-center py-4">
-                            <i class="fas fa-bell fa-2x text-info mb-2"></i>
-                            <h6>알림 설정</h6>
-                            <p class="text-muted mb-0" style="font-size: 0.9em;">
-                                완료 시 자동 알림
-                            </p>
-                        </div>
+            <!-- 예상 완료 시기 -->
+            <div class="timeline-section">
+                <div class="timeline-card">
+                    <div class="timeline-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h5>예상 완료 시기</h5>
+                        <p class="timeline-date">2025년 9월 중</p>
+                        <p class="timeline-description">시스템 테스트 완료 후 정식 서비스 시작 예정</p>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card border-0 bg-light" style="border-radius: 15px;">
-                        <div class="card-body text-center py-4">
-                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
-                            <h6>보안 강화</h6>
-                            <p class="text-muted mb-0" style="font-size: 0.9em;">
-                                안전한 데이터 관리
-                            </p>
-                        </div>
-                    </div>
+            </div>
+            
+            <!-- 액션 버튼 -->
+            <div class="action-section">
+                <h5>현재 이용 가능한 서비스</h5>
+                <div class="action-buttons">
+                    <a href="{{ url_for('warehouse', warehouse_name='보라매창고') }}" class="btn btn-primary">
+                        <i class="fas fa-warehouse me-2"></i>
+                        보라매창고 이용하기
+                    </a>
+                    <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">
+                        <i class="fas fa-home me-2"></i>
+                        대시보드로 돌아가기
+                    </a>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card border-0 bg-light" style="border-radius: 15px;">
-                        <div class="card-body text-center py-4">
-                            <i class="fas fa-mobile-alt fa-2x text-warning mb-2"></i>
-                            <h6>모바일 최적화</h6>
-                            <p class="text-muted mb-0" style="font-size: 0.9em;">
-                                언제 어디서나 접근
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <p class="service-note">
+                    <i class="fas fa-info-circle me-1"></i>
+                    보라매창고는 현재 정상 운영 중입니다
+                </p>
             </div>
         </div>
     </div>
-</div>
-
-<!-- 문의하기 모달 -->
-<div class="modal fade" id="contactModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content" style="border-radius: 15px;">
-            <div class="modal-header modal-header-custom">
-                <h5 class="modal-title">
-                    <i class="fas fa-envelope me-2"></i>
-                    문의하기
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-3">{{ warehouse_name }} 구축 관련 문의사항이 있으시면 아래 정보로 연락해주세요.</p>
-                
-                <div class="row">
-                    <div class="col-12 mb-3">
-                        <div class="d-flex align-items-center p-3 bg-light rounded">
-                            <i class="fas fa-user fa-2x text-primary me-3"></i>
-                            <div>
-                                <h6 class="mb-1">담당자</h6>
-                                <p class="mb-0 text-muted">시스템 관리팀</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 mb-3">
-                        <div class="d-flex align-items-center p-3 bg-light rounded">
-                            <i class="fas fa-envelope fa-2x text-success me-3"></i>
-                            <div>
-                                <h6 class="mb-1">이메일</h6>
-                                <p class="mb-0 text-muted">admin@sk-ons.co.kr</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="d-flex align-items-center p-3 bg-light rounded">
-                            <i class="fas fa-clock fa-2x text-warning me-3"></i>
-                            <div>
-                                <h6 class="mb-1">운영 시간</h6>
-                                <p class="mb-0 text-muted">평일 09:00 - 18:00</p>
-                            </div>
-                        </div>
-                    </div>
+    
+    <!-- 문의 정보 카드 -->
+    <div class="contact-card">
+        <div class="contact-header">
+            <i class="fas fa-headset me-2"></i>
+            문의 및 지원
+        </div>
+        <div class="contact-body">
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div class="contact-info">
+                    <h6>담당자</h6>
+                    <p>시스템 관리팀</p>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 10px;">
-                    <i class="fas fa-times me-1"></i>닫기
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div class="contact-info">
+                    <h6>이메일</h6>
+                    <p>admin@sk-ons.co.kr</p>
+                </div>
+            </div>
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="contact-info">
+                    <h6>운영시간</h6>
+                    <p>평일 09:00 - 18:00</p>
+                </div>
+            </div>
+            
+            <div class="notification-section">
+                <h6>
+                    <i class="fas fa-bell me-2"></i>
+                    알림 서비스
+                </h6>
+                <p>완료 시 자동으로 안내 메시지를 보내드립니다.</p>
+                <button class="btn btn-notification" onclick="requestNotification()">
+                    <i class="fas fa-bell me-2"></i>
+                    알림 신청
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 하단 문의 버튼 -->
-<div class="fixed-bottom p-3 d-flex justify-content-end">
-    <button type="button" class="btn btn-info btn-lg shadow" 
-            data-bs-toggle="modal" data-bs-target="#contactModal"
-            style="border-radius: 50px; padding: 15px 25px;">
-        <i class="fas fa-question-circle me-2"></i>
-        문의하기
-    </button>
-</div>
-{% endblock %}
+<style>
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
 
-{% block scripts %}
+.preparing-container {
+    display: flex;
+    gap: 2rem;
+    max-width: 1000px;
+    width: 100%;
+}
+
+.preparing-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    overflow: hidden;
+    flex: 2;
+}
+
+.preparing-animation {
+    background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.gear-container {
+    position: relative;
+    height: 80px;
+}
+
+.gear {
+    position: absolute;
+    color: rgba(255,255,255,0.3);
+    animation: rotate 3s linear infinite;
+}
+
+.gear-1 {
+    font-size: 3rem;
+    left: 20%;
+    top: 0;
+    animation-direction: normal;
+}
+
+.gear-2 {
+    font-size: 2rem;
+    right: 30%;
+    top: 10px;
+    animation-direction: reverse;
+    animation-duration: 2s;
+}
+
+.gear-3 {
+    font-size: 1.5rem;
+    left: 50%;
+    top: 20px;
+    animation-direction: normal;
+    animation-duration: 4s;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.preparing-content {
+    padding: 2rem;
+}
+
+.warehouse-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.status-title {
+    font-size: 1.5rem;
+    color: #ffc107;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.status-description {
+    text-align: center;
+    color: #6c757d;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.progress-section {
+    margin-bottom: 2rem;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.progress-percentage {
+    color: #ffc107;
+}
+
+.progress-bar-container {
+    height: 10px;
+    background: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #ffc107 0%, #ff8c00 100%);
+    border-radius: 5px;
+    width: 0%;
+    transition: width 2s ease-in-out;
+}
+
+.features-section {
+    margin-bottom: 2rem;
+}
+
+.features-section h4 {
+    color: #333;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.feature-item i {
+    margin-right: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.feature-item.completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.feature-item.completed i {
+    color: #28a745;
+}
+
+.feature-item.in-progress {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.feature-item.in-progress i {
+    color: #ffc107;
+}
+
+.feature-item.pending {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.timeline-section {
+    margin-bottom: 2rem;
+}
+
+.timeline-card {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 15px;
+}
+
+.timeline-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.timeline-icon i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.timeline-content h5 {
+    margin-bottom: 0.5rem;
+    color: #1976d2;
+    font-weight: 600;
+}
+
+.timeline-date {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-description {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.action-section {
+    text-align: center;
+}
+
+.action-section h5 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(108,117,125,0.3);
+    color: white;
+    text-decoration: none;
+}
+
+.service-note {
+    margin: 0;
+    color: #28a745;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.contact-card {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 1.5rem;
+    flex: 1;
+    max-width: 350px;
+    height: fit-content;
+}
+
+.contact-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.contact-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.contact-icon i {
+    font-size: 1.2rem;
+    color: white;
+}
+
+.contact-info h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.contact-info p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.notification-section {
+    background: #e8f5e8;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.notification-section h6 {
+    color: #155724;
+    margin-bottom: 0.5rem;
+}
+
+.notification-section p {
+    color: #155724;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.btn-notification {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.btn-notification:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40,167,69,0.3);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem 0.5rem;
+    }
+    
+    .preparing-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .preparing-card,
+    .contact-card {
+        max-width: 100%;
+    }
+    
+    .warehouse-title {
+        font-size: 2rem;
+    }
+    
+    .status-title {
+        font-size: 1.3rem;
+    }
+    
+    .preparing-content {
+        padding: 1.5rem;
+    }
+    
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .timeline-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    .timeline-icon {
+        margin-right: 0;
+        margin-bottom: 1rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .contact-card {
+        order: -1;
+    }
+    
+    .contact-item {
+        padding: 0.75rem;
+    }
+    
+    .contact-icon {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .preparing-animation {
+        padding: 1rem;
+    }
+    
+    .preparing-content {
+        padding: 1rem;
+    }
+    
+    .warehouse-title {
+        font-size: 1.5rem;
+    }
+    
+    .feature-item {
+        padding: 0.5rem;
+    }
+    
+    .timeline-card {
+        padding: 0.75rem;
+    }
+    
+    .contact-card {
+        padding: 1rem;
+    }
+}
+
+/* 애니메이션 효과 */
+.preparing-card {
+    animation: slideInUp 0.5s ease-out;
+}
+
+.contact-card {
+    animation: slideInUp 0.5s ease-out 0.2s both;
+}
+
+.feature-item {
+    animation: fadeInUp 0.5s ease-out both;
+}
+
+.feature-item:nth-child(1) { animation-delay: 0.1s; }
+.feature-item:nth-child(2) { animation-delay: 0.2s; }
+.feature-item:nth-child(3) { animation-delay: 0.3s; }
+.feature-item:nth-child(4) { animation-delay: 0.4s; }
+.feature-item:nth-child(5) { animation-delay: 0.5s; }
+.feature-item:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 호버 효과 */
+.feature-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.contact-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 로딩 효과 */
+.btn:active {
+    transform: scale(0.98);
+}
+</style>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // 준비 중 아이콘 애니메이션
-        const preparingIcon = document.querySelector('.preparing-icon i');
-        if (preparingIcon) {
-            let rotation = 0;
-            setInterval(() => {
-                rotation += 10;
-                preparingIcon.style.transform = `rotate(${rotation}deg)`;
-            }, 100);
-        }
-        
-        // 진행률 바 애니메이션
-        const progressBar = document.querySelector('.progress-bar');
-        if (progressBar) {
-            setTimeout(() => {
-                progressBar.style.width = '75%';
-            }, 500);
-        }
-        
-        // 카드 등장 애니메이션
-        const cards = document.querySelectorAll('.card');
-        cards.forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(30px)';
-            
-            setTimeout(() => {
-                card.style.transition = 'all 0.6s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 200 + (index * 150));
+document.addEventListener('DOMContentLoaded', function() {
+    // 진행률 바 애니메이션
+    const progressBar = document.querySelector('.progress-bar');
+    const targetProgress = progressBar.getAttribute('data-progress');
+    
+    setTimeout(() => {
+        progressBar.style.width = targetProgress + '%';
+    }, 500);
+    
+    // 기어 애니메이션 개선
+    const gears = document.querySelectorAll('.gear');
+    gears.forEach((gear, index) => {
+        gear.addEventListener('mouseover', function() {
+            this.style.animationDuration = '0.5s';
         });
         
-        // 체크리스트 애니메이션
-        const checkItems = document.querySelectorAll('.fa-check');
-        checkItems.forEach((item, index) => {
-            setTimeout(() => {
-                item.style.animation = 'pulse 0.5s ease-in-out';
-            }, 1000 + (index * 200));
+        gear.addEventListener('mouseout', function() {
+            this.style.animationDuration = ['3s', '2s', '4s'][index];
         });
-        
-        // 문의 버튼 호버 효과
-        const contactBtn = document.querySelector('[data-bs-target="#contactModal"]');
-        if (contactBtn) {
-            contactBtn.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.05)';
-            });
-            
-            contactBtn.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
-            });
-        }
-        
-        console.log(`${warehouse_name} 준비 중 페이지 로드됨`);
     });
     
-    // 진행률 업데이트 함수 (향후 실제 진행률 연동 시 사용)
-    function updateProgress(percentage) {
-        const progressBar = document.querySelector('.progress-bar');
-        if (progressBar) {
-            progressBar.style.width = `${percentage}%`;
-            progressBar.setAttribute('aria-valuenow', percentage);
-        }
-    }
-</script>
+    // 기능 아이템 순차 애니메이션
+    const featureItems = document.querySelectorAll('.feature-item');
+    featureItems.forEach((item, index) => {
+        setTimeout(() => {
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+        }, 500 + (index * 100));
+    });
+    
+    // 연락처 카드 호버 효과
+    const contactItems = document.querySelectorAll('.contact-item');
+    contactItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-3px)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    console.log(`${document.title} 페이지 로드 완료`);
+});
 
-<style>
-    .preparing-icon {
-        transition: all 0.3s ease;
-    }
+// 알림 신청 함수
+function requestNotification() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
     
-    .preparing-icon:hover {
-        transform: scale(1.1);
-    }
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>신청 중...';
+    btn.disabled = true;
     
-    .progress-bar {
-        transition: width 1s ease-in-out;
-    }
-    
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.2); }
-        100% { transform: scale(1); }
-    }
-    
-    .card {
-        transition: all 0.3s ease;
-    }
-    
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-    
-    .fixed-bottom .btn {
-        transition: all 0.3s ease;
-    }
-    
-    @media (max-width: 768px) {
-        .fixed-bottom {
-            position: relative !important;
-            bottom: auto !important;
-            margin-top: 2rem;
-        }
+    setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-check me-2"></i>신청 완료';
+        btn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
         
-        .card-body {
-            padding: 2rem 1rem !important;
-        }
+        // 알림 메시지 표시
+        showNotificationAlert('알림 신청이 완료되었습니다! 시스템 완료 시 안내해드리겠습니다.', 'success');
         
-        .row .col-md-4 {
-            margin-bottom: 1rem;
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.style.background = '';
+        }, 3000);
+    }, 1500);
+}
+
+// 진행률 업데이트 함수 (실제 환경에서 사용)
+function updateProgress(percentage) {
+    const progressBar = document.querySelector('.progress-bar');
+    const progressPercentage = document.querySelector('.progress-percentage');
+    
+    if (progressBar && progressPercentage) {
+        progressBar.style.width = percentage + '%';
+        progressPercentage.textContent = percentage + '%';
+    }
+}
+
+// 기능 상태 업데이트 함수
+function updateFeatureStatus(featureIndex, status) {
+    const featureItems = document.querySelectorAll('.feature-item');
+    const item = featureItems[featureIndex];
+    
+    if (item) {
+        item.className = `feature-item ${status}`;
+        
+        const icon = item.querySelector('i');
+        if (status === 'completed') {
+            icon.className = 'fas fa-check-circle';
+        } else if (status === 'in-progress') {
+            icon.className = 'fas fa-spinner fa-spin';
+        } else {
+            icon.className = 'fas fa-clock';
         }
     }
-</style>
+}
+
+// 알림 메시지 표시 함수
+function showNotificationAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `notification-alert ${type}`;
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        padding: 1rem 1.5rem;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        border-left: 4px solid ${type === 'success' ? '#28a745' : '#007bff'};
+        max-width: 350px;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    alertDiv.innerHTML = `
+        <div style="display: flex; align-items: center;">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2" 
+               style="color: ${type === 'success' ? '#28a745' : '#007bff'}; font-size: 1.2rem;"></i>
+            <span style="color: #333; font-weight: 500;">${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" 
+                    style="background: none; border: none; margin-left: 1rem; color: #6c757d; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // 5초 후 자동 제거
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => alertDiv.remove(), 300);
+        }
+    }, 5000);
+}
+
+// CSS 애니메이션 추가
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+</script>
 {% endblock %}
