@@ -1,150 +1,298 @@
 {% extends "base.html" %}
 
+{% block title %}{{ warehouse_name }} - SK오앤에스 창고관리{% endblock %}
+
 {% block content %}
-<div style="max-width: 500px; margin: 0 auto;">
-    <div style="margin-bottom: 30px;">
-        <h3 style="color: #333; margin-bottom: 10px;">
-            📦 {{ warehouse_name }}
-        </h3>
-        <p style="color: #666; font-size: 14px;">
-            관리할 카테고리를 선택하세요
-        </p>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
-        <!-- 전기차 카테고리 -->
-        <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_name) }}"
-           class="category-item" style="text-decoration: none; color: inherit;">
-            <div class="category-icon">🚗</div>
-            <div class="category-content">
-                <h4>전기차</h4>
-                <p>전기차 부품 재고 관리</p>
-                <div class="status-badge active">✅ 운영중</div>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- 헤더 -->
+            <div class="text-center mb-4">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-warehouse text-primary me-3"></i>
+                    {{ warehouse_name }}
+                </h1>
+                <p class="lead text-muted">관리할 카테고리를 선택하세요</p>
             </div>
-            <div class="arrow">→</div>
-        </a>
 
-        <!-- Access 카테고리 -->
-        <div class="category-item disabled">
-            <div class="category-icon">🔑</div>
-            <div class="category-content">
-                <h4>Access</h4>
-                <p>접근 권한 관리</p>
-                <div class="status-badge preparing">🚧 준비중</div>
+            <!-- 카테고리 선택 카드 -->
+            <div class="row">
+                <!-- 전기차 카테고리 -->
+                <div class="col-12 mb-4">
+                    <div class="card category-card h-100" onclick="location.href='{{ url_for('electric_inventory', warehouse_name=warehouse_name) }}'">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="category-icon me-4">
+                                <i class="fas fa-car fa-4x text-success"></i>
+                            </div>
+                            <div class="category-content flex-grow-1">
+                                <h3 class="card-title mb-2">전기차 부품</h3>
+                                <p class="card-text text-muted mb-3">전기차 관련 부품 재고를 관리합니다</p>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2">
+                                        <i class="fas fa-check me-1"></i>운영 중
+                                    </span>
+                                    <small class="text-muted">실시간 재고 관리 가능</small>
+                                </div>
+                            </div>
+                            <div class="category-arrow">
+                                <i class="fas fa-chevron-right fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Access 카테고리 (준비 중) -->
+                <div class="col-12 mb-4">
+                    <div class="card category-card preparing h-100">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="category-icon me-4">
+                                <i class="fas fa-key fa-4x text-warning"></i>
+                            </div>
+                            <div class="category-content flex-grow-1">
+                                <h3 class="card-title mb-2">Access 관리</h3>
+                                <p class="card-text text-muted mb-3">접근 권한 및 보안 관리 시스템</p>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-warning text-dark me-2">
+                                        <i class="fas fa-clock me-1"></i>준비 중
+                                    </span>
+                                    <small class="text-muted">2025년 9월 출시 예정</small>
+                                </div>
+                            </div>
+                            <div class="category-arrow">
+                                <i class="fas fa-clock fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="arrow">→</div>
+
+            <!-- 정보 섹션 -->
+            <div class="row mt-5">
+                <div class="col-md-6 mb-3">
+                    <div class="card info-card h-100">
+                        <div class="card-body text-center">
+                            <div class="info-icon mb-3">
+                                <i class="fas fa-chart-line fa-3x text-info"></i>
+                            </div>
+                            <h5 class="card-title">실시간 현황</h5>
+                            <p class="card-text text-muted">재고 현황을 실시간으로 확인하고 관리할 수 있습니다</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="card info-card h-100">
+                        <div class="card-body text-center">
+                            <div class="info-icon mb-3">
+                                <i class="fas fa-history fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">이력 관리</h5>
+                            <p class="card-text text-muted">모든 입출고 내역이 자동으로 기록되고 추적됩니다</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 네비게이션 버튼 -->
+            <div class="text-center mt-4">
+                <a href="{{ url_for('user_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>대시보드로 돌아가기
+                </a>
+            </div>
         </div>
-    </div>
-
-    <div style="margin-top: 40px; text-align: center;">
-        <a href="{{ url_for('dashboard') }}"
-           style="color: #667eea; text-decoration: none; font-size: 14px;">
-            ← 창고 목록으로 돌아가기
-        </a>
     </div>
 </div>
 
 <style>
-.category-item {
-    background: white;
+.category-card {
     border: 2px solid #e9ecef;
     border-radius: 15px;
-    padding: 25px;
-    display: flex;
-    align-items: center;
     transition: all 0.3s ease;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.category-item:hover:not(.disabled) {
-    border-color: #667eea;
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
     background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
 }
 
-.category-item.disabled {
-    opacity: 0.6;
+.category-card:hover:not(.preparing) {
+    border-color: #28a745;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(40, 167, 69, 0.15);
+}
+
+.category-card.preparing {
+    opacity: 0.7;
     cursor: not-allowed;
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.category-card.preparing:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 .category-icon {
-    font-size: 48px;
-    margin-right: 20px;
     flex-shrink: 0;
 }
 
 .category-content {
-    flex: 1;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.category-content h4 {
-    font-size: 20px;
-    color: #333;
-    margin: 0 0 8px 0;
-    font-weight: 600;
-}
-
-.category-content p {
-    color: #666;
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    line-height: 1.4;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.status-badge.active {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-badge.preparing {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.arrow {
-    font-size: 24px;
-    color: #667eea;
-    margin-left: 15px;
+.category-arrow {
     transition: transform 0.3s ease;
+    flex-shrink: 0;
 }
 
-.category-item:hover:not(.disabled) .arrow {
-    transform: translateX(5px);
+.category-card:hover:not(.preparing) .category-arrow {
+    transform: translateX(10px);
 }
 
-.category-item.disabled .arrow {
-    color: #ccc;
+.info-card {
+    border: 1px solid #e9ecef;
+    border-radius: 15px;
+    transition: all 0.3s ease;
 }
 
-@media (max-width: 480px) {
-    .category-item {
-        padding: 20px 15px;
+.info-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.info-icon {
+    opacity: 0.8;
+}
+
+.display-5 {
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .category-card .card-body {
+        flex-direction: column;
+        text-align: center;
     }
-
+    
     .category-icon {
-        font-size: 36px;
-        margin-right: 15px;
+        margin-right: 0 !important;
+        margin-bottom: 1rem;
     }
-
-    .category-content h4 {
-        font-size: 18px;
+    
+    .category-arrow {
+        margin-top: 1rem;
     }
+    
+    .category-card:hover:not(.preparing) .category-arrow {
+        transform: translateY(5px);
+    }
+    
+    .display-5 {
+        font-size: 2rem;
+    }
+}
 
-    .arrow {
-        font-size: 20px;
-        margin-left: 10px;
+@media (max-width: 576px) {
+    .category-card .card-body {
+        padding: 1.5rem !important;
+    }
+    
+    .category-icon i {
+        font-size: 2.5rem !important;
+    }
+    
+    .info-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .info-icon i {
+        font-size: 2rem !important;
+    }
+}
+
+/* 애니메이션 */
+.category-card {
+    animation: slideInUp 0.5s ease-out both;
+}
+
+.category-card:nth-child(1) { animation-delay: 0.1s; }
+.category-card:nth-child(2) { animation-delay: 0.2s; }
+
+.info-card {
+    animation: fadeInUp 0.5s ease-out both;
+}
+
+.info-card:nth-child(1) { animation-delay: 0.3s; }
+.info-card:nth-child(2) { animation-delay: 0.4s; }
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 준비 중인 카테고리 클릭 방지
+    const preparingCards = document.querySelectorAll('.category-card.preparing');
+    preparingCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showAlert('이 기능은 현재 준비 중입니다. 조금만 기다려주세요!', 'warning');
+        });
+    });
+    
+    // 활성 카테고리 호버 효과 개선
+    const activeCards = document.querySelectorAll('.category-card:not(.preparing)');
+    activeCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 10px 25px rgba(40, 167, 69, 0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+    
+    // 키보드 네비게이션
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const focusedElement = document.activeElement;
+            if (focusedElement.classList.contains('category-card') && !focusedElement.classList.contains('preparing')) {
+                focusedElement.click();
+            }
+        }
+    });
+    
+    console.log(`${document.title} 페이지 로드 완료`);
+});
+
+// 카테고리 클릭 시 로딩 효과
+function navigateToCategory(url) {
+    showAlert('페이지를 로드하는 중...', 'info', 2000);
+    setTimeout(() => {
+        window.location.href = url;
+    }, 500);
+}
+</script>
 {% endblock %}
