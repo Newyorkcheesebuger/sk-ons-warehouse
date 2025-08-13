@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_code }} 오류 - SK오앤에스 창고관리{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="error-container text-center">
+                <div class="error-icon mb-4">
+                    {% if error_code == 404 %}
+                        <i class="fas fa-search fa-5x text-warning"></i>
+                    {% elif error_code == 500 %}
+                        <i class="fas fa-exclamation-triangle fa-5x text-danger"></i>
+                    {% elif error_code == 403 %}
+                        <i class="fas fa-lock fa-5x text-warning"></i>
+                    {% else %}
+                        <i class="fas fa-question-circle fa-5x text-muted"></i>
+                    {% endif %}
+                </div>
+                
+                <h1 class="error-code display-1 fw-bold mb-3">{{ error_code }}</h1>
+                <h2 class="error-message mb-3">{{ error_message }}</h2>
+                <p class="error-description text-muted mb-4">{{ error_description }}</p>
+                
+                <div class="error-actions">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-home me-2"></i>홈으로 돌아가기
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>이전 페이지
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-container {
+    padding: 3rem 0;
+}
+
+.error-code {
+    color: #6c757d;
+    font-size: 6rem;
+    line-height: 1;
+}
+
+.error-message {
+    color: #495057;
+    font-weight: 600;
+}
+
+.error-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.error-icon {
+    opacity: 0.7;
+}
+
+.error-actions {
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .error-code {
+        font-size: 4rem;
+    }
+    
+    .error-container {
+        padding: 2rem 0;
+    }
+}
+</style>
+{% endblock %}
