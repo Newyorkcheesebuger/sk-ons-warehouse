@@ -1,82 +1,98 @@
 {% extends "base.html" %}
-
 {% block title %}SK오앤에스 창고관리 시스템 - 로그인{% endblock %}
-
 {% block content %}
-<div class="login-container">
-    <div class="login-card">
-        <div class="login-header">
-            <div class="logo-section">
-                <i class="fas fa-warehouse fa-3x mb-3"></i>
-                <h2>SK오앤에스</h2>
-                <h4>창고관리 시스템</h4>
+<div class="page-wrapper">
+    <!-- Flash 메시지 영역 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo-section">
+                    <i class="fas fa-warehouse fa-3x mb-3"></i>
+                    <h2>SK오앤에스</h2>
+                    <h4>창고관리 시스템</h4>
+                </div>
+            </div>
+            
+            <div class="login-body">
+                <form method="POST" action="{{ url_for('login') }}" class="login-form">
+                    <div class="form-group">
+                        <label for="employee_id">
+                            <i class="fas fa-id-card me-2"></i>사번
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="employee_id" 
+                               name="employee_id" 
+                               placeholder="사번을 입력하세요" 
+                               required
+                               autocomplete="username"
+                               value="{{ request.form.employee_id if request.form.employee_id }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock me-2"></i>비밀번호
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               placeholder="비밀번호를 입력하세요" 
+                               required
+                               autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-login">
+                        <i class="fas fa-sign-in-alt me-2"></i>로그인
+                    </button>
+                </form>
+                
+                <div class="login-footer">
+                    <p>계정이 없으신가요?</p>
+                    <a href="{{ url_for('register') }}" class="btn btn-register">
+                        <i class="fas fa-user-plus me-2"></i>회원가입
+                    </a>
+                </div>
             </div>
         </div>
         
-        <div class="login-body">
-            <form method="POST" action="{{ url_for('login') }}" class="login-form">
-                <div class="form-group">
-                    <label for="employee_id">
-                        <i class="fas fa-id-card me-2"></i>사번
-                    </label>
-                    <input type="text" 
-                           class="form-control" 
-                           id="employee_id" 
-                           name="employee_id" 
-                           placeholder="사번을 입력하세요" 
-                           required
-                           autocomplete="username">
+        <!-- 시스템 정보 카드 -->
+        <div class="info-card">
+            <div class="info-header">
+                <i class="fas fa-info-circle me-2"></i>
+                시스템 정보
+            </div>
+            <div class="info-body">
+                <div class="info-item">
+                    <i class="fas fa-car text-primary"></i>
+                    <span>전기차 부품 재고 관리</span>
                 </div>
-                
-                <div class="form-group">
-                    <label for="password">
-                        <i class="fas fa-lock me-2"></i>비밀번호
-                    </label>
-                    <input type="password" 
-                           class="form-control" 
-                           id="password" 
-                           name="password" 
-                           placeholder="비밀번호를 입력하세요" 
-                           required
-                           autocomplete="current-password">
+                <div class="info-item">
+                    <i class="fas fa-warehouse text-success"></i>
+                    <span>다중 창고 운영 시스템</span>
                 </div>
-                
-                <button type="submit" class="btn btn-login">
-                    <i class="fas fa-sign-in-alt me-2"></i>로그인
-                </button>
-            </form>
-            
-            <div class="login-footer">
-                <p>계정이 없으신가요?</p>
-                <a href="{{ url_for('register') }}" class="btn btn-register">
-                    <i class="fas fa-user-plus me-2"></i>회원가입
-                </a>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 시스템 정보 카드 -->
-    <div class="info-card">
-        <div class="info-header">
-            <i class="fas fa-info-circle me-2"></i>
-            시스템 정보
-        </div>
-        <div class="info-body">
-            <div class="info-item">
-                <i class="fas fa-car text-primary"></i>
-                <span>전기차 부품 재고 관리</span>
-            </div>
-            <div class="info-item">
-                <i class="fas fa-warehouse text-success"></i>
-                <span>다중 창고 운영 시스템</span>
-            </div>
-            <div class="info-item">
-                <i class="fas fa-mobile-alt text-info"></i>
-                <span>모바일 최적화 지원</span>
-            </div>
-            <div class="info-item">
-                <i class="fas fa-shield-alt text-warning"></i>
-                <span>안전한 데이터 관리</span>
+                <div class="info-item">
+                    <i class="fas fa-mobile-alt text-info"></i>
+                    <span>모바일 최적화 지원</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-shield-alt text-warning"></i>
+                    <span>안전한 데이터 관리</span>
+                </div>
             </div>
         </div>
     </div>
@@ -86,17 +102,63 @@
 body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+.page-wrapper {
+    min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
+    position: relative;
+}
+
+/* Flash 메시지 스타일 */
+.flash-messages {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    width: 90%;
+    max-width: 500px;
+}
+
+.alert {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin-bottom: 10px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-left: 4px solid #ffc107;
 }
 
 .login-container {
     display: flex;
     gap: 2rem;
-    max-width: 800px;
+    max-width: 900px;
     width: 100%;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 .login-card {
@@ -106,6 +168,7 @@ body {
     overflow: hidden;
     flex: 1;
     max-width: 400px;
+    min-width: 350px;
 }
 
 .login-header {
@@ -148,6 +211,7 @@ body {
     border-radius: 10px;
     font-size: 1rem;
     transition: all 0.3s ease;
+    box-sizing: border-box;
 }
 
 .form-control:focus {
@@ -167,6 +231,7 @@ body {
     font-weight: 600;
     transition: all 0.3s ease;
     margin-bottom: 1.5rem;
+    cursor: pointer;
 }
 
 .btn-login:hover {
@@ -210,6 +275,7 @@ body {
     padding: 1.5rem;
     flex: 1;
     max-width: 350px;
+    min-width: 300px;
     height: fit-content;
 }
 
@@ -245,66 +311,51 @@ body {
 
 /* 반응형 디자인 */
 @media (max-width: 768px) {
-    body {
+    .page-wrapper {
         padding: 1rem 0.5rem;
     }
     
     .login-container {
         flex-direction: column;
         gap: 1rem;
+        align-items: center;
     }
     
     .login-card,
     .info-card {
         max-width: 100%;
-    }
-    
-    .login-header {
-        padding: 1.5rem;
-    }
-    
-    .logo-section h2 {
-        font-size: 1.5rem;
-    }
-    
-    .logo-section h4 {
-        font-size: 1rem;
-    }
-    
-    .login-body {
-        padding: 1.5rem;
+        min-width: auto;
+        width: 100%;
     }
     
     .info-card {
         order: -1;
+        max-width: 400px;
+    }
+    
+    .flash-messages {
+        width: 95%;
+        top: 10px;
     }
 }
 
 @media (max-width: 480px) {
-    .login-header {
-        padding: 1rem;
-    }
-    
-    .login-body {
-        padding: 1rem;
-    }
-    
+    .login-header,
+    .login-body,
     .info-card {
         padding: 1rem;
     }
     
-    .info-item {
-        padding: 0.5rem;
+    .flash-messages {
+        top: 5px;
+        width: 98%;
     }
 }
 
 /* 애니메이션 효과 */
-.login-card {
-    animation: slideInUp 0.5s ease-out;
-}
-
+.login-card,
 .info-card {
-    animation: slideInUp 0.5s ease-out 0.2s both;
+    animation: slideInUp 0.5s ease-out;
 }
 
 @keyframes slideInUp {
@@ -317,92 +368,70 @@ body {
         transform: translateY(0);
     }
 }
-
-/* 로딩 상태 */
-.btn-login:active {
-    transform: scale(0.98);
-}
-
-/* 포커스 표시 개선 */
-.form-control:focus,
-.btn-login:focus,
-.btn-register:focus {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Flash 메시지 자동 닫기
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            }
+        }, 5000);
+    });
+
     // 폼 유효성 검사
     const form = document.querySelector('.login-form');
     const employeeIdInput = document.getElementById('employee_id');
     const passwordInput = document.getElementById('password');
     
-    form.addEventListener('submit', function(e) {
-        const employeeId = employeeIdInput.value.trim();
-        const password = passwordInput.value.trim();
-        
-        if (!employeeId || !password) {
-            e.preventDefault();
-            showAlert('사번과 비밀번호를 모두 입력해주세요.', 'warning');
-            return;
-        }
-        
-        // 로딩 상태 표시
-        const submitBtn = form.querySelector('.btn-login');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>로그인 중...';
-        submitBtn.disabled = true;
-        
-        // 실패 시 원래 상태로 복원 (실제로는 서버에서 처리)
-        setTimeout(() => {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        }, 3000);
-    });
-    
-    // 엔터키 처리
-    [employeeIdInput, passwordInput].forEach(input => {
-        input.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const employeeId = employeeIdInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            if (!employeeId || !password) {
                 e.preventDefault();
-                form.requestSubmit();
+                showAlert('사번과 비밀번호를 모두 입력해주세요.', 'warning');
+                return;
             }
+            
+            // 로딩 상태 표시
+            const submitBtn = form.querySelector('.btn-login');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>로그인 중...';
+            submitBtn.disabled = true;
+            
+            // 타임아웃으로 버튼 복원 (실제로는 페이지 리로드됨)
+            setTimeout(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }, 10000);
         });
-    });
-    
-    // 입력 필드 애니메이션
-    [employeeIdInput, passwordInput].forEach(input => {
-        input.addEventListener('focus', function() {
-            this.parentElement.classList.add('focused');
-        });
-        
-        input.addEventListener('blur', function() {
-            if (!this.value) {
-                this.parentElement.classList.remove('focused');
-            }
-        });
-    });
+    }
     
     console.log('로그인 페이지 로드 완료');
 });
 
 function showAlert(message, type = 'info') {
-    // 기존 알림이 있으면 제거
-    const existingAlert = document.querySelector('.alert');
+    const existingAlert = document.querySelector('.temp-alert');
     if (existingAlert) {
         existingAlert.remove();
     }
     
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show temp-alert`;
     alertDiv.style.cssText = `
         position: fixed;
         top: 20px;
-        right: 20px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 9999;
         min-width: 300px;
+        max-width: 90vw;
         border-radius: 10px;
     `;
     alertDiv.innerHTML = `
@@ -413,10 +442,10 @@ function showAlert(message, type = 'info') {
     
     document.body.appendChild(alertDiv);
     
-    // 3초 후 자동 제거
     setTimeout(() => {
         if (alertDiv.parentNode) {
-            alertDiv.remove();
+            alertDiv.style.opacity = '0';
+            setTimeout(() => alertDiv.remove(), 300);
         }
     }, 3000);
 }
