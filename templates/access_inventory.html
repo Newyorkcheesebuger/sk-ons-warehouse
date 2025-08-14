@@ -507,22 +507,22 @@
                 </div>
             </div>
             
-            <!-- 단계 4: 이메일 발송 -->
+            <!-- 단계 4: 이미지 저장 및 공유 -->
             <div id="step4" class="receipt-step" style="display: none;">
-                <h4>이메일 발송</h4>
+                <h4>인수증 저장 및 공유</h4>
                 
-                <div class="form-group">
-                    <label for="myEmail">내 이메일:</label>
-                    <input type="email" id="myEmail" placeholder="your@email.com" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="recipientEmails">상대방 이메일 (여러 개는 쉼표로 구분):</label>
-                    <input type="text" id="recipientEmails" placeholder="recipient1@email.com, recipient2@email.com" required>
+                <!-- 인수증 미리보기 -->
+                <div id="receiptPreview" style="background: white; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; font-family: Arial, sans-serif;">
+                    <!-- 여기에 인수증 내용이 동적으로 생성됩니다 -->
                 </div>
                 
                 <div class="modal-buttons">
-                    <button class="btn btn-success" onclick="sendReceipt()">발송</button>
+                    <button class="btn btn-success" onclick="downloadReceiptImage()">
+                        <i class="fas fa-download me-1"></i>이미지로 저장
+                    </button>
+                    <button class="btn btn-info" onclick="shareReceipt()">
+                        <i class="fas fa-share me-1"></i>공유하기
+                    </button>
                     <button class="btn btn-secondary" onclick="showStep(3)">이전</button>
                 </div>
             </div>
@@ -789,45 +789,150 @@
             // 서명 데이터 저장
             const canvas = document.getElementById('signatureCanvas');
             receiptData.signature = canvas.toDataURL();
+            
+            // 인수증 미리보기 생성
+            generateReceiptPreview();
             showStep(4);
         }
 
-        function sendReceipt() {
-            const myEmail = document.getElementById('myEmail').value;
-            const recipientEmails = document.getElementById('recipientEmails').value;
+        function generateReceiptPreview() {
+            const preview = document.getElementById('receiptPreview');
+            const typeKorean = receiptData.type === 'in' ? '입고' : '출고';
+            const currentDate = new Date().toLocaleString('ko-KR');
             
-            if (!myEmail || !recipientEmails) {
-                alert('이메일 주소를 모두 입력해주세요.');
-                return;
+            let html = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h2 style="color: #333; margin-bottom: 10px;">SK오앤에스 창고관리 시스템</h2>
+                    <h3 style="color: #666; margin: 0;">${typeKorean} 인수증</h3>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div><strong>일자:</strong> ${receiptData.date}</div>
+                        <div><strong>창고:</strong> ${receiptData.warehouse}</div>
+                        <div><strong>구분:</strong> ${typeKorean}</div>
+                        <div><strong>작성자:</strong> {{ session.user_name }}</div>
+                    </div>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background: #e9ecef;">
+                            <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">번호</th>
+                            <th style="border: 1px solid #ddd; padding: 10px;">부품명</th>
+                            <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">수량</th>
+                            <th style="border: 1px solid #ddd; padding: 10px;">담당자</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            receiptData.items.forEach((item, index) => {
+                html += `
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">${item.part_name}</td>
+                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${item.quantity}개</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">${item.modifier}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            // 전자서명 추가
+            if (receiptData.signature) {
+                html += `
+                    <div style="text-align: center; margin-top: 30px;">
+                        <p style="margin-bottom: 10px;"><strong>전자서명:</strong></p>
+                        <img src="${receiptData.signature}" style="max-width: 300px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                `;
             }
             
-            // 이메일 주소 배열로 변환
-            const emailList = [myEmail, ...recipientEmails.split(',').map(email => email.trim())];
+            html += `
+                <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                    <p>생성일시: ${currentDate}</p>
+                    <p>본 인수증은 SK오앤에스 창고관리 시스템에서 자동으로 생성되었습니다.</p>
+                </div>
+            `;
             
-            // 인수증 저장 및 이메일 발송
-            fetch('/send_delivery_receipt', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    emails: emailList,
-                    receipt_data: receiptData
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('인수증이 성공적으로 발송되었습니다.');
-                    closeReceiptModal();
-                } else {
-                    alert('발송 실패: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('발송 중 오류가 발생했습니다.');
-            });
+            preview.innerHTML = html;
+        }
+
+        function downloadReceiptImage() {
+            const preview = document.getElementById('receiptPreview');
+            
+            // html2canvas 라이브러리 동적 로드
+            if (!window.html2canvas) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                script.onload = function() {
+                    captureAndDownload();
+                };
+                document.head.appendChild(script);
+            } else {
+                captureAndDownload();
+            }
+            
+            function captureAndDownload() {
+                html2canvas(preview, {
+                    backgroundColor: '#ffffff',
+                    scale: 2, // 고해상도
+                    logging: false,
+                    useCORS: true
+                }).then(canvas => {
+                    // 이미지 다운로드
+                    const link = document.createElement('a');
+                    const typeKorean = receiptData.type === 'in' ? '입고' : '출고';
+                    link.download = `SK오앤에스_${typeKorean}인수증_${receiptData.date}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    alert('인수증 이미지가 다운로드되었습니다!\n\n💡 활용 방법:\n- 카카오톡, 문자에 첨부\n- 이메일에 첨부\n- 프린트 출력');
+                }).catch(error => {
+                    console.error('이미지 생성 오류:', error);
+                    alert('이미지 생성 중 오류가 발생했습니다.');
+                });
+            }
+        }
+
+        function shareReceipt() {
+            const preview = document.getElementById('receiptPreview');
+            
+            if (navigator.share) {
+                // 네이티브 공유 API (모바일)
+                html2canvas(preview, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false,
+                    useCORS: true
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const file = new File([blob], `SK오앤에스_인수증_${receiptData.date}.png`, { type: 'image/png' });
+                        
+                        navigator.share({
+                            title: 'SK오앤에스 인수증',
+                            text: `${receiptData.type === 'in' ? '입고' : '출고'} 인수증 - ${receiptData.date}`,
+                            files: [file]
+                        }).catch(err => {
+                            console.log('공유 취소:', err);
+                        });
+                    });
+                });
+            } else {
+                // 데스크톱: 클립보드 복사
+                downloadReceiptImage();
+                alert('💡 공유 방법:\n\n1. 다운로드된 이미지를 확인하세요\n2. 카카오톡, 이메일 등에 첨부하여 공유하세요\n3. 또는 프린트로 출력하세요');
+            }
+        }
+
+        function sendReceipt() {
+            // 이제 사용하지 않는 함수 (하위 호환성 유지)
+            alert('이메일 발송 기능이 이미지 저장으로 변경되었습니다.');
         }
 
         // 모달 외부 클릭 시 닫기
