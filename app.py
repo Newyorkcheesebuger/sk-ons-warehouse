@@ -11,6 +11,12 @@ import csv
 import io
 import requests
 from PIL import Image
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import base64
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
@@ -32,6 +38,12 @@ DATABASE_URL = os.environ.get('SUPABASE_DB_URL')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Onsn1103813!')
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
+
+# 이메일 설정 (환경변수에서 가져오기)
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_USERNAME = os.environ.get('SMTP_USERNAME')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')
 
 print("=" * 60)
 print("🚀 SK오앤에스 창고관리 시스템 시작")
@@ -88,6 +100,34 @@ def get_db_connection():
         print(f"❌ 치명적 오류: Supabase PostgreSQL 연결 실패!")
         print(f"   오류 내용: {e}")
         raise Exception(f"Supabase 연결 실패: {e}")
+
+def send_email(to_emails, subject, html_content):
+    """이메일 발송 함수"""
+    try:
+        if not SMTP_USERNAME or not SMTP_PASSWORD:
+            return False, "이메일 설정이 되어있지 않습니다."
+        
+        msg = MIMEMultipart('alternative')
+        msg['From'] = SMTP_USERNAME
+        msg['To'] = ', '.join(to_emails) if isinstance(to_emails, list) else to_emails
+        msg['Subject'] = subject
+        
+        html_part = MIMEText(html_content, 'html', 'utf-8')
+        msg.attach(html_part)
+        
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        
+        text = msg.as_string()
+        server.sendmail(SMTP_USERNAME, to_emails, text)
+        server.quit()
+        
+        return True, "이메일이 성공적으로 발송되었습니다."
+        
+    except Exception as e:
+        print(f"이메일 발송 오류: {e}")
+        return False, f"이메일 발송 실패: {str(e)}"
 
 def compress_image_to_target_size(image_file, max_size_mb=1, max_width=800, quality=85):
     """
@@ -253,6 +293,15 @@ def init_db():
                 uploaded_by TEXT,
                 uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
                 supabase_url TEXT
+            )'''),
+            ('delivery_receipts', '''CREATE TABLE IF NOT EXISTS delivery_receipts (
+                id SERIAL PRIMARY KEY,
+                receipt_date DATE NOT NULL,
+                receipt_type TEXT NOT NULL,
+                items_data TEXT,
+                signature_data TEXT,
+                created_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
         ]
         
@@ -326,7 +375,7 @@ def log_session_debug(route_name):
     print(f"   세션 키들: {list(session.keys())}")
 
 # ========
-# 라우트 정의 (무한 리디렉션 완전 해결)
+# 기존 라우트들 (변경사항 없음)
 # ========
 @app.route('/')
 def index():
@@ -555,6 +604,295 @@ def admin_warehouse():
     # 관리자는 모든 창고에 접근 가능
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
 
+# ========
+# NEW: Access 관리 관련 라우트들
+# ========
+@app.route('/warehouse/<warehouse_name>/access')
+def access_inventory(warehouse_name):
+    """Access 관리 - 기타 부품 재고 관리 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    if warehouse_name not in WAREHOUSES:
+        return render_template('preparing.html', warehouse_name=warehouse_name)
+
+    print(f"🔍 Access 관리 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''SELECT i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified,
+                                COUNT(p.id) as photo_count
+                         FROM inventory i
+                         LEFT JOIN photos p ON i.id = p.inventory_id
+                         WHERE i.warehouse = %s AND i.category = %s
+                         GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
+                         ORDER BY i.id''', (warehouse_name, "기타"))
+        
+        raw_inventory = cursor.fetchall()
+        conn.close()
+        
+        # 🔧 날짜 형식 변환 처리 (datetime 오류 완전 해결)
+        inventory = []
+        for item in raw_inventory:
+            item_list = list(item)
+            if item_list[5]:  # last_modified가 존재하면
+                if isinstance(item_list[5], str):
+                    # 이미 문자열이면 그대로 사용
+                    pass
+                else:
+                    # datetime 객체면 문자열로 변환
+                    item_list[5] = item_list[5].strftime('%Y-%m-%d %H:%M:%S')
+            inventory.append(item_list)
+        
+        print(f"✅ Access 관리 재고 데이터 조회 성공: {len(inventory)}개 항목")
+        
+        return render_template('access_inventory.html',
+                               warehouse_name=warehouse_name,
+                               inventory=inventory,
+                               is_admin=session.get('is_admin', False))
+                               
+    except Exception as e:
+        print(f"❌ access_inventory 오류: {type(e).__name__}: {str(e)}")
+        flash('재고 정보를 불러오는 중 오류가 발생했습니다.')
+        
+        # 🔧 관리자/사용자 구분하여 안전한 리디렉션 (무한 루프 방지)
+        if session.get('is_admin'):
+            return redirect('/admin/warehouse')
+        else:
+            return redirect('/dashboard')
+
+@app.route('/add_access_inventory_item', methods=['POST'])
+def add_access_inventory_item():
+    """Access 관리 - 재고 아이템 추가 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+
+    warehouse_name = request.form['warehouse_name']
+    category = request.form['category']
+    part_name = request.form['part_name']
+    quantity = int(request.form['quantity'])
+    korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('INSERT INTO inventory (warehouse, category, part_name, quantity, last_modifier, last_modified) VALUES (%s, %s, %s, %s, %s, %s)',
+                      (warehouse_name, category, part_name, quantity, session['user_name'], korea_time))
+        
+        conn.commit()
+        conn.close()
+        flash('재고 아이템이 추가되었습니다.')
+        
+    except Exception as e:
+        flash('재고 추가 중 오류가 발생했습니다.')
+    
+    return redirect(f'/warehouse/{warehouse_name}/access')
+
+@app.route('/delivery_receipt/<warehouse_name>')
+def delivery_receipt_form(warehouse_name):
+    """인수증 생성 페이지"""
+    if 'user_id' not in session:
+        return redirect('/')
+    
+    return render_template('delivery_receipt.html', warehouse_name=warehouse_name)
+
+@app.route('/get_inventory_changes', methods=['POST'])
+def get_inventory_changes():
+    """특정 날짜의 입고/출고 내역 조회"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'})
+    
+    try:
+        data = request.get_json()
+        target_date = data.get('date')
+        change_type = data.get('type')  # 'in' 또는 'out'
+        warehouse_name = data.get('warehouse')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 해당 날짜의 변경 내역 조회
+        cursor.execute('''
+            SELECT h.inventory_id, i.part_name, h.quantity_change, h.modifier_name, h.modified_at
+            FROM inventory_history h
+            JOIN inventory i ON h.inventory_id = i.id
+            WHERE DATE(h.modified_at AT TIME ZONE 'Asia/Seoul') = %s
+            AND h.change_type = %s
+            AND i.warehouse = %s
+            AND i.category = %s
+            ORDER BY h.modified_at DESC
+        ''', (target_date, change_type, warehouse_name, "기타"))
+        
+        changes = cursor.fetchall()
+        conn.close()
+        
+        # 데이터 포맷팅
+        formatted_changes = []
+        for change in changes:
+            formatted_changes.append({
+                'inventory_id': change[0],
+                'part_name': change[1],
+                'quantity': abs(change[2]),  # 절댓값으로 표시
+                'modifier': change[3],
+                'time': change[4].strftime('%H:%M') if change[4] else ''
+            })
+        
+        return jsonify({
+            'success': True,
+            'changes': formatted_changes
+        })
+        
+    except Exception as e:
+        print(f"❌ 재고 변경 내역 조회 오류: {e}")
+        return jsonify({'success': False, 'message': '데이터 조회 중 오류가 발생했습니다.'})
+
+@app.route('/save_delivery_receipt', methods=['POST'])
+def save_delivery_receipt():
+    """인수증 저장"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'})
+    
+    try:
+        data = request.get_json()
+        receipt_date = data.get('date')
+        receipt_type = data.get('type')
+        items_data = data.get('items', [])
+        signature_data = data.get('signature')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 인수증 데이터 저장
+        cursor.execute('''
+            INSERT INTO delivery_receipts 
+            (receipt_date, receipt_type, items_data, signature_data, created_by) 
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (receipt_date, receipt_type, str(items_data), signature_data, session['user_name']))
+        
+        conn.commit()
+        receipt_id = cursor.lastrowid if cursor.lastrowid else cursor.fetchone()[0]
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'receipt_id': receipt_id,
+            'message': '인수증이 저장되었습니다.'
+        })
+        
+    except Exception as e:
+        print(f"❌ 인수증 저장 오류: {e}")
+        return jsonify({'success': False, 'message': '인수증 저장 중 오류가 발생했습니다.'})
+
+@app.route('/send_delivery_receipt', methods=['POST'])
+def send_delivery_receipt():
+    """인수증 이메일 발송"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'})
+    
+    try:
+        data = request.get_json()
+        to_emails = data.get('emails', [])
+        receipt_data = data.get('receipt_data', {})
+        
+        if not to_emails:
+            return jsonify({'success': False, 'message': '수신자 이메일을 입력해주세요.'})
+        
+        # 이메일 HTML 생성
+        receipt_type_korean = "입고" if receipt_data.get('type') == 'in' else "출고"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .header {{ text-align: center; margin-bottom: 30px; }}
+                .receipt-info {{ background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+                .items-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+                .items-table th, .items-table td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+                .items-table th {{ background-color: #f2f2f2; }}
+                .signature {{ text-align: center; margin-top: 30px; }}
+                .signature img {{ max-width: 300px; border: 1px solid #ddd; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>SK오앤에스 창고관리 시스템</h2>
+                <h3>{receipt_type_korean} 인수증</h3>
+            </div>
+            
+            <div class="receipt-info">
+                <p><strong>일자:</strong> {receipt_data.get('date', '')}</p>
+                <p><strong>창고:</strong> {receipt_data.get('warehouse', '')}</p>
+                <p><strong>구분:</strong> {receipt_type_korean}</p>
+                <p><strong>작성자:</strong> {session.get('user_name', '')}</p>
+            </div>
+            
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>번호</th>
+                        <th>부품명</th>
+                        <th>수량</th>
+                        <th>담당자</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for i, item in enumerate(receipt_data.get('items', []), 1):
+            html_content += f"""
+                    <tr>
+                        <td>{i}</td>
+                        <td>{item.get('part_name', '')}</td>
+                        <td>{item.get('quantity', '')}개</td>
+                        <td>{item.get('modifier', '')}</td>
+                    </tr>
+            """
+        
+        html_content += """
+                </tbody>
+            </table>
+        """
+        
+        # 전자서명이 있으면 추가
+        if receipt_data.get('signature'):
+            html_content += f"""
+            <div class="signature">
+                <p><strong>전자서명:</strong></p>
+                <img src="{receipt_data.get('signature')}" alt="전자서명">
+            </div>
+            """
+        
+        html_content += """
+            <p style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                본 인수증은 SK오앤에스 창고관리 시스템에서 자동으로 생성되었습니다.
+            </p>
+        </body>
+        </html>
+        """
+        
+        # 이메일 발송
+        subject = f"[SK오앤에스] {receipt_type_korean} 인수증 - {receipt_data.get('date', '')}"
+        success, message = send_email(to_emails, subject, html_content)
+        
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+        
+    except Exception as e:
+        print(f"❌ 인수증 이메일 발송 오류: {e}")
+        return jsonify({'success': False, 'message': f'이메일 발송 중 오류가 발생했습니다: {str(e)}'})
+
+# ========
+# 기존 라우트들 계속 (변경사항 없음)
+# ========
 @app.route('/approve_user/<int:user_id>')
 def approve_user(user_id):
     """사용자 승인 (관리자 전용)"""
@@ -1037,7 +1375,10 @@ def delete_inventory(item_id):
         
         if item_info:
             warehouse, category = item_info
-            return redirect(f'/warehouse/{warehouse}/electric')
+            if category == "전기차":
+                return redirect(f'/warehouse/{warehouse}/electric')
+            else:
+                return redirect(f'/warehouse/{warehouse}/access')
         
     except Exception as e:
         flash('재고 삭제 중 오류가 발생했습니다.')
@@ -1178,8 +1519,9 @@ def health():
             'database': 'postgresql',
             'supabase_connected': True,
             'storage_enabled': bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
+            'email_enabled': bool(SMTP_USERNAME and SMTP_PASSWORD),
             'timestamp': datetime.now().isoformat(),
-            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL + Storage) 정상 작동 중'
+            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL + Storage + Email) 정상 작동 중'
         })
     except Exception as e:
         return jsonify({
@@ -1248,13 +1590,15 @@ if __name__ == '__main__':
     print(f"📱 포트: {port}")
     print(f"🗄️ 데이터베이스: PostgreSQL (Supabase)")
     print(f"📁 파일 저장: Supabase Storage + 이미지 압축")
+    print(f"📧 이메일: {'설정됨' if SMTP_USERNAME else '미설정'}")
     print(f"🔒 보안: 관리자/사용자 권한 분리")
     print(f"🌐 환경: {'Production (Render)' if is_render else 'Development'}")
     print(f"💾 데이터 보존: 영구 (Supabase)")
     print(f"📸 이미지 압축: 10MB → 1MB 미만 자동 압축")
+    print(f"📋 인수증 기능: 전자서명 + 이메일 발송")
     print(f"🏪 창고: {', '.join(WAREHOUSES)}")
     print("=" * 60)
-    print("🚀 SK오앤에스 창고관리 시스템 시작!")
+    print("🚀 SK오앤에스 창고관리 시스템 (Access 관리 포함) 시작!")
     print("=" * 60)
     
     try:
