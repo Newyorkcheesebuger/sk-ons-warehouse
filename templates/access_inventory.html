@@ -204,8 +204,8 @@
             border-radius: 4px; 
         }
         
-        /* 간단한 모달 */
-        .simple-modal {
+        /* 모달 스타일 */
+        .modal {
             display: none;
             position: fixed;
             z-index: 1000;
@@ -216,45 +216,35 @@
             background-color: rgba(0,0,0,0.5);
         }
         
-        .simple-modal-content {
+        .modal-content {
             background-color: white;
-            margin: 5% auto;
+            margin: 15% auto;
             padding: 20px;
             border-radius: 8px;
             width: 90%;
-            max-width: 500px;
+            max-width: 400px;
             text-align: center;
         }
         
-        .simple-modal h3 {
+        .modal h3 {
             margin-top: 0;
             color: #333;
         }
         
-        .simple-modal input, .simple-modal textarea {
+        .modal input {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
             border: 1px solid #ddd;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 16px;
         }
         
-        .simple-modal-buttons {
+        .modal-buttons {
             display: flex;
             gap: 10px;
             justify-content: center;
             margin-top: 15px;
-        }
-        
-        /* 서명 캔버스 */
-        .signature-canvas {
-            border: 2px solid #007bff;
-            border-radius: 8px;
-            cursor: crosshair;
-            background: #fafafa;
-            margin: 10px 0;
-            touch-action: none;
         }
         
         /* 반응형 디자인 */
@@ -312,10 +302,10 @@
                 <i class="fas fa-file-invoice" style="margin-right: 10px;"></i>
                 인수증 관리
             </h3>
-            <p style="margin: 0 0 15px 0; opacity: 0.9;">입고 및 출고 인수증을 생성하고 이미지로 저장됩니다.</p>
-            <button class="receipt-btn" onclick="openSimpleReceiptModal()">
+            <p style="margin: 0 0 15px 0; opacity: 0.9;">간단한 인수증을 생성하고 이미지로 저장됩니다.</p>
+            <button class="receipt-btn" onclick="showReceiptModal()">
                 <i class="fas fa-plus" style="margin-right: 8px;"></i>
-                인수증 보내기
+                인수증 만들기
             </button>
         </div>
 
@@ -451,12 +441,12 @@
     </div>
 
     <!-- 수량 입력 모달 -->
-    <div id="quantityModal" class="simple-modal">
-        <div class="simple-modal-content">
+    <div id="quantityModal" class="modal">
+        <div class="modal-content">
             <h3 id="modalTitle">수량 입력</h3>
             <p id="modalMessage">수량을 입력하세요:</p>
             <input type="number" id="modalQuantity" min="1" value="1" placeholder="수량">
-            <div class="simple-modal-buttons">
+            <div class="modal-buttons">
                 <button class="btn btn-primary" onclick="confirmQuantityUpdate()">확인</button>
                 <button class="btn btn-secondary" onclick="closeModal()">취소</button>
             </div>
@@ -464,71 +454,69 @@
     </div>
 
     <!-- 간단한 인수증 모달 -->
-    <div id="simpleReceiptModal" class="simple-modal">
-        <div class="simple-modal-content" style="max-width: 600px;">
-            <h3>📋 간단 인수증 생성</h3>
-            
-            <div style="text-align: left; margin: 20px 0;">
+    <div id="receiptModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3>📋 간단 인수증</h3>
+            <div style="text-align: left;">
                 <label><strong>날짜:</strong></label>
-                <input type="date" id="simpleDate" required>
+                <input type="date" id="receiptDate" required>
                 
                 <label><strong>구분:</strong></label>
                 <div style="margin: 10px 0;">
                     <label style="margin-right: 20px;">
-                        <input type="radio" name="simpleType" value="in" checked> 입고
+                        <input type="radio" name="receiptType" value="in" checked> 입고
                     </label>
                     <label>
-                        <input type="radio" name="simpleType" value="out"> 출고
+                        <input type="radio" name="receiptType" value="out"> 출고
                     </label>
                 </div>
                 
-                <label><strong>반출자 이름:</strong></label>
+                <label><strong>반출자:</strong></label>
                 <input type="text" id="delivererName" placeholder="반출하는 사람" required>
                 
-                <label><strong>인수자 이름:</strong></label>
+                <label><strong>인수자:</strong></label>
                 <input type="text" id="receiverName" placeholder="받는 사람" required>
                 
                 <label><strong>사유:</strong></label>
                 <input type="text" id="purpose" placeholder="예: A동 설치작업" required>
-                
-                <label><strong>서명 (반출자):</strong></label>
-                <canvas id="simpleSignature1" width="400" height="100" class="signature-canvas"></canvas>
-                <button onclick="clearSignature1()" style="margin: 5px;">지우기</button>
-                
-                <label><strong>서명 (인수자):</strong></label>
-                <canvas id="simpleSignature2" width="400" height="100" class="signature-canvas"></canvas>
-                <button onclick="clearSignature2()" style="margin: 5px;">지우기</button>
             </div>
             
-            <div class="simple-modal-buttons">
-                <button class="btn btn-success" onclick="generateSimpleReceipt()">이미지 생성</button>
-                <button class="btn btn-secondary" onclick="closeSimpleReceiptModal()">취소</button>
+            <div class="modal-buttons">
+                <button class="btn btn-success" onclick="createSimpleReceipt()">이미지 생성</button>
+                <button class="btn btn-secondary" onclick="closeReceiptModal()">취소</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 전역 변수
         let currentItemId = null;
         let currentChangeType = null;
         let currentItemName = null;
-        let signature1Pad = null;
-        let signature2Pad = null;
 
-        // 수량 모달
+        // 수량 모달 함수들
         function showQuantityModal(itemId, changeType, itemName) {
             currentItemId = itemId;
             currentChangeType = changeType;
             currentItemName = itemName;
             
-            document.getElementById('modalTitle').textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
-            document.getElementById('modalMessage').textContent = `"${itemName}" ${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
-            document.getElementById('modalQuantity').value = '1';
-            document.getElementById('quantityModal').style.display = 'block';
+            const modal = document.getElementById('quantityModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const quantityInput = document.getElementById('modalQuantity');
+            
+            title.textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
+            message.textContent = `"${itemName}" ${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
+            quantityInput.value = '1';
+            quantityInput.focus();
+            
+            modal.style.display = 'block';
         }
 
         function closeModal() {
             document.getElementById('quantityModal').style.display = 'none';
+            currentItemId = null;
+            currentChangeType = null;
+            currentItemName = null;
         }
 
         function confirmQuantityUpdate() {
@@ -539,126 +527,73 @@
                 return;
             }
 
+            updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
+            closeModal();
+        }
+
+        function updateQuantity(itemId, changeType, quantity) {
             fetch('/update_quantity', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
-                    item_id: currentItemId,
-                    change_type: currentChangeType,
-                    quantity: parseInt(quantity)
+                    item_id: itemId,
+                    change_type: changeType,
+                    quantity: quantity
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`처리 완료! 현재 수량: ${data.new_quantity}`);
+                    // 수량 업데이트 (데스크톱 테이블)
+                    const quantitySpan = document.getElementById('quantity-' + itemId);
+                    if (quantitySpan) {
+                        quantitySpan.textContent = data.new_quantity;
+                        
+                        // 색상 업데이트
+                        if (data.new_quantity > 0) {
+                            quantitySpan.style.color = '#28a745';
+                        } else {
+                            quantitySpan.style.color = '#dc3545';
+                        }
+                    }
+                    
+                    // 성공 메시지
+                    const action = changeType === 'in' ? '입고' : '출고';
+                    alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
+                    
+                    // 페이지 새로고침으로 모바일 카드도 업데이트
                     location.reload();
                 } else {
                     alert('오류: ' + data.message);
                 }
             })
             .catch(error => {
+                console.error('Error:', error);
                 alert('처리 중 오류가 발생했습니다.');
             });
-            
-            closeModal();
         }
 
         function confirmDelete(itemId, itemName) {
-            if (confirm(`"${itemName}" 물품을 삭제하시겠습니까?`)) {
+            if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
                 window.location.href = `/delete_inventory/${itemId}`;
             }
         }
 
-        // 간단 인수증 모달
-        function openSimpleReceiptModal() {
-            document.getElementById('simpleDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('simpleReceiptModal').style.display = 'block';
-            
-            // 서명 패드 초기화
-            setTimeout(() => {
-                initSimpleSignature();
-            }, 100);
+        // 인수증 모달 함수들
+        function showReceiptModal() {
+            document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('receiptModal').style.display = 'block';
         }
 
-        function closeSimpleReceiptModal() {
-            document.getElementById('simpleReceiptModal').style.display = 'none';
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
         }
 
-        // 간단한 서명 패드 초기화
-        function initSimpleSignature() {
-            signature1Pad = setupCanvas('simpleSignature1');
-            signature2Pad = setupCanvas('simpleSignature2');
-        }
-
-        function setupCanvas(canvasId) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            let isDrawing = false;
-            
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            
-            function startDraw(e) {
-                isDrawing = true;
-                draw(e);
-            }
-            
-            function draw(e) {
-                if (!isDrawing) return;
-                
-                const rect = canvas.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const y = (e.clientY || e.touches[0].clientY) - rect.top;
-                
-                ctx.lineTo(x, y);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-            }
-            
-            function stopDraw() {
-                isDrawing = false;
-                ctx.beginPath();
-            }
-            
-            canvas.addEventListener('mousedown', startDraw);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDraw);
-            
-            canvas.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                startDraw(e);
-            });
-            canvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                draw(e);
-            });
-            canvas.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                stopDraw();
-            });
-            
-            return { canvas, ctx };
-        }
-
-        function clearSignature1() {
-            if (signature1Pad) {
-                signature1Pad.ctx.clearRect(0, 0, signature1Pad.canvas.width, signature1Pad.canvas.height);
-            }
-        }
-
-        function clearSignature2() {
-            if (signature2Pad) {
-                signature2Pad.ctx.clearRect(0, 0, signature2Pad.canvas.width, signature2Pad.canvas.height);
-            }
-        }
-
-        // 간단 인수증 생성
-        function generateSimpleReceipt() {
-            const date = document.getElementById('simpleDate').value;
-            const type = document.querySelector('input[name="simpleType"]:checked').value;
+        function createSimpleReceipt() {
+            const date = document.getElementById('receiptDate').value;
+            const type = document.querySelector('input[name="receiptType"]:checked').value;
             const deliverer = document.getElementById('delivererName').value;
             const receiver = document.getElementById('receiverName').value;
             const purpose = document.getElementById('purpose').value;
@@ -673,65 +608,65 @@
             const currentTime = new Date().toLocaleString('ko-KR');
             
             const receiptHTML = `
-                <div style="font-family: Arial; padding: 30px; background: white; max-width: 600px; margin: 0 auto;">
+                <div style="font-family: Arial; padding: 30px; background: white; max-width: 600px; margin: 0 auto; border: 2px solid #333;">
                     <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-                        <h1 style="margin: 0; color: #333;">SK오앤에스 창고관리</h1>
-                        <h2 style="margin: 10px 0 0 0; color: #666;">${typeKorean} 인수증</h2>
+                        <h1 style="margin: 0; color: #333; font-size: 28px;">SK오앤에스</h1>
+                        <h2 style="margin: 10px 0 0 0; color: #666; font-size: 24px;">${typeKorean} 인수증</h2>
                     </div>
                     
                     <div style="margin-bottom: 30px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 18px;">
                             <div><strong>일자:</strong> ${date}</div>
                             <div><strong>창고:</strong> {{ warehouse_name }}</div>
                             <div><strong>구분:</strong> ${typeKorean}</div>
                             <div><strong>사유:</strong> ${purpose}</div>
                         </div>
                         
-                        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 5px;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <div style="border: 2px solid #333; padding: 30px; border-radius: 10px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
                                 <div>
-                                    <h4 style="margin: 0 0 10px 0;">반출자</h4>
-                                    <div style="margin-bottom: 15px;">이름: ${deliverer}</div>
-                                    <div style="border: 1px solid #ccc; height: 80px; text-align: center; line-height: 80px; background: url('${signature1Pad ? signature1Pad.canvas.toDataURL() : ''}') center/contain no-repeat;">
-                                        ${signature1Pad ? '' : '서명'}
+                                    <h3 style="margin: 0 0 20px 0; font-size: 20px; text-align: center;">반출자</h3>
+                                    <div style="font-size: 18px; text-align: center; margin-bottom: 30px;">${deliverer}</div>
+                                    <div style="border: 2px solid #333; height: 100px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666;">
+                                        서명란
                                     </div>
                                 </div>
                                 <div>
-                                    <h4 style="margin: 0 0 10px 0;">인수자</h4>
-                                    <div style="margin-bottom: 15px;">이름: ${receiver}</div>
-                                    <div style="border: 1px solid #ccc; height: 80px; text-align: center; line-height: 80px; background: url('${signature2Pad ? signature2Pad.canvas.toDataURL() : ''}') center/contain no-repeat;">
-                                        ${signature2Pad ? '' : '서명'}
+                                    <h3 style="margin: 0 0 20px 0; font-size: 20px; text-align: center;">인수자</h3>
+                                    <div style="font-size: 18px; text-align: center; margin-bottom: 30px;">${receiver}</div>
+                                    <div style="border: 2px solid #333; height: 100px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666;">
+                                        서명란
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div style="text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 15px;">
+                    <div style="text-align: center; color: #666; font-size: 14px; border-top: 1px solid #666; padding-top: 20px;">
                         생성일시: ${currentTime}<br>
                         본 인수증은 SK오앤에스 창고관리 시스템에서 생성되었습니다.
                     </div>
                 </div>
             `;
             
-            // 임시 div에 HTML 추가
+            // 임시 div에 HTML 추가하고 이미지 생성
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = receiptHTML;
             document.body.appendChild(tempDiv);
             
-            // html2canvas로 이미지 생성
+            // html2canvas 라이브러리 로드 및 실행
             if (!window.html2canvas) {
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
                 script.onload = function() {
-                    captureReceipt();
+                    generateImage();
                 };
                 document.head.appendChild(script);
             } else {
-                captureReceipt();
+                generateImage();
             }
             
-            function captureReceipt() {
+            function generateImage() {
                 html2canvas(tempDiv.firstElementChild, {
                     backgroundColor: '#ffffff',
                     scale: 2
@@ -741,3 +676,37 @@
                     link.download = `SK오앤에스_${typeKorean}인수증_${date}.png`;
                     link.href = canvas.toDataURL();
                     link.click();
+                    
+                    // 정리
+                    document.body.removeChild(tempDiv);
+                    
+                    alert('✅ 인수증이 다운로드되었습니다!\n📁 다운로드 폴더를 확인하세요.');
+                    closeReceiptModal();
+                }).catch(error => {
+                    alert('이미지 생성 중 오류가 발생했습니다.');
+                    document.body.removeChild(tempDiv);
+                });
+            }
+        }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const quantityModal = document.getElementById('quantityModal');
+            const receiptModal = document.getElementById('receiptModal');
+            if (event.target === quantityModal) {
+                closeModal();
+            }
+            if (event.target === receiptModal) {
+                closeReceiptModal();
+            }
+        }
+
+        // Enter 키로 확인
+        document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmQuantityUpdate();
+            }
+        });
+    </script>
+</body>
+</html>
