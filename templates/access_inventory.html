@@ -197,7 +197,7 @@
             margin-bottom: 5px; 
             font-weight: bold; 
         }
-        .form-group input { 
+        .form-group input, .form-group select { 
             width: 100%; 
             padding: 8px; 
             border: 1px solid #ddd; 
@@ -218,26 +218,28 @@
         
         .modal-content {
             background-color: white;
-            margin: 15% auto;
+            margin: 2% auto;
             padding: 20px;
             border-radius: 8px;
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
+            width: 95%;
+            max-width: 800px;
+            max-height: 95vh;
+            overflow-y: auto;
         }
         
         .modal h3 {
             margin-top: 0;
             color: #333;
+            text-align: center;
         }
         
-        .modal input {
+        .modal input, .modal select {
             width: 100%;
             padding: 10px;
-            margin: 10px 0;
+            margin: 5px 0 15px 0;
             border: 1px solid #ddd;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 14px;
         }
         
         .modal-buttons {
@@ -245,6 +247,125 @@
             gap: 10px;
             justify-content: center;
             margin-top: 15px;
+        }
+        
+        /* 부품 선택 테이블 */
+        .parts-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        
+        .parts-table th, .parts-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        .parts-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .parts-table input[type="number"] {
+            width: 80px;
+            padding: 5px;
+            margin: 0;
+        }
+        
+        .parts-table input[type="checkbox"] {
+            width: auto;
+        }
+        
+        /* 서명 패드 */
+        .signature-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .signature-pad {
+            text-align: center;
+        }
+        
+        .signature-canvas {
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        
+        .signature-controls {
+            margin-top: 10px;
+        }
+        
+        .signature-controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        /* 인수증 미리보기 */
+        .receipt-preview {
+            display: none;
+            margin-top: 20px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            background: white;
+        }
+        
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .receipt-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .receipt-parts {
+            margin: 20px 0;
+        }
+        
+        .receipt-parts table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .receipt-parts th, .receipt-parts td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        .signature-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .signature-box {
+            text-align: center;
+        }
+        
+        .signature-image {
+            border: 2px solid #333;
+            border-radius: 5px;
+            width: 200px;
+            height: 100px;
+            margin: 10px auto;
+            display: block;
         }
         
         /* 반응형 디자인 */
@@ -267,13 +388,19 @@
                 justify-content: center;
             }
             
-            .add-item-form {
-                padding: 10px;
+            .signature-section {
+                grid-template-columns: 1fr;
             }
             
-            .action-buttons .btn {
-                flex: 1;
-                text-align: center;
+            .signature-area {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .modal-content {
+                width: 98%;
+                margin: 1% auto;
+                padding: 15px;
             }
         }
         @media (min-width: 769px) {
@@ -299,13 +426,11 @@
         <!-- 인수증 보내기 섹션 -->
         <div class="receipt-section">
             <h3 style="margin: 0 0 15px 0;">
-                <i class="fas fa-file-invoice" style="margin-right: 10px;"></i>
-                인수증 관리
+                📋 인수증 관리
             </h3>
-            <p style="margin: 0 0 15px 0; opacity: 0.9;">간단한 인수증을 생성하고 이미지로 저장됩니다.</p>
+            <p style="margin: 0 0 15px 0; opacity: 0.9;">부품별 인수증을 생성하고 JPG 이미지로 저장됩니다.</p>
             <button class="receipt-btn" onclick="showReceiptModal()">
-                <i class="fas fa-plus" style="margin-right: 8px;"></i>
-                인수증 만들기
+                ➕ 인수증 만들기
             </button>
         </div>
 
@@ -442,49 +567,109 @@
 
     <!-- 수량 입력 모달 -->
     <div id="quantityModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 400px;">
             <h3 id="modalTitle">수량 입력</h3>
             <p id="modalMessage">수량을 입력하세요:</p>
             <input type="number" id="modalQuantity" min="1" value="1" placeholder="수량">
             <div class="modal-buttons">
                 <button class="btn btn-primary" onclick="confirmQuantityUpdate()">확인</button>
-                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                <button class="btn btn-secondary" onclick="closeQuantityModal()">취소</button>
             </div>
         </div>
     </div>
 
-    <!-- 간단한 인수증 모달 -->
+    <!-- 인수증 생성 모달 -->
     <div id="receiptModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <h3>📋 간단 인수증</h3>
-            <div style="text-align: left;">
-                <label><strong>날짜:</strong></label>
-                <input type="date" id="receiptDate" required>
-                
-                <label><strong>구분:</strong></label>
-                <div style="margin: 10px 0;">
-                    <label style="margin-right: 20px;">
-                        <input type="radio" name="receiptType" value="in" checked> 입고
-                    </label>
-                    <label>
-                        <input type="radio" name="receiptType" value="out"> 출고
-                    </label>
+        <div class="modal-content">
+            <h3>📋 인수증 생성</h3>
+            
+            <!-- 기본 정보 입력 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <label><strong>날짜:</strong></label>
+                    <input type="date" id="receiptDate" required>
                 </div>
-                
-                <label><strong>반출자:</strong></label>
-                <input type="text" id="delivererName" placeholder="반출하는 사람" required>
-                
-                <label><strong>인수자:</strong></label>
-                <input type="text" id="receiverName" placeholder="받는 사람" required>
-                
+                <div>
+                    <label><strong>구분:</strong></label>
+                    <select id="receiptType" onchange="updatePartsDisplay()">
+                        <option value="in">입고</option>
+                        <option value="out">출고</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 부품 선택 -->
+            <div>
+                <label><strong>부품 선택:</strong></label>
+                <table class="parts-table">
+                    <thead>
+                        <tr>
+                            <th>선택</th>
+                            <th>부품명</th>
+                            <th>현재재고</th>
+                            <th>수량</th>
+                        </tr>
+                    </thead>
+                    <tbody id="partsTableBody">
+                        {% for item in inventory %}
+                        <tr>
+                            <td><input type="checkbox" id="part_{{ item[0] }}" data-part-id="{{ item[0] }}" data-part-name="{{ item[2] }}" data-current-qty="{{ item[3] }}"></td>
+                            <td>{{ item[2] }}</td>
+                            <td>{{ item[3] }}개</td>
+                            <td><input type="number" id="qty_{{ item[0] }}" min="1" value="1" disabled></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 인원 정보 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                <div>
+                    <label><strong>반출자 소속:</strong></label>
+                    <input type="text" id="delivererDept" placeholder="예: SK오앤에스" required>
+                    <label><strong>반출자 이름:</strong></label>
+                    <input type="text" id="delivererName" placeholder="홍길동" required>
+                </div>
+                <div>
+                    <label><strong>인수자 소속:</strong></label>
+                    <input type="text" id="receiverDept" placeholder="예: 협력업체" required>
+                    <label><strong>인수자 이름:</strong></label>
+                    <input type="text" id="receiverName" placeholder="김철수" required>
+                </div>
+            </div>
+            
+            <div>
                 <label><strong>사유:</strong></label>
                 <input type="text" id="purpose" placeholder="예: A동 설치작업" required>
             </div>
             
+            <!-- 전자서명 -->
+            <div class="signature-section">
+                <div class="signature-pad">
+                    <h4>반출자 서명</h4>
+                    <canvas id="delivererSignature" class="signature-canvas" width="250" height="150"></canvas>
+                    <div class="signature-controls">
+                        <button type="button" class="btn btn-secondary" onclick="clearSignature('delivererSignature')">지우기</button>
+                    </div>
+                </div>
+                <div class="signature-pad">
+                    <h4>인수자 서명</h4>
+                    <canvas id="receiverSignature" class="signature-canvas" width="250" height="150"></canvas>
+                    <div class="signature-controls">
+                        <button type="button" class="btn btn-secondary" onclick="clearSignature('receiverSignature')">지우기</button>
+                    </div>
+                </div>
+            </div>
+            
             <div class="modal-buttons">
-                <button class="btn btn-success" onclick="createSimpleReceipt()">이미지 생성</button>
+                <button class="btn btn-info" onclick="previewReceipt()">미리보기</button>
+                <button class="btn btn-success" onclick="generateReceipt()">JPG 생성</button>
                 <button class="btn btn-secondary" onclick="closeReceiptModal()">취소</button>
             </div>
+            
+            <!-- 미리보기 영역 -->
+            <div id="receiptPreview" class="receipt-preview"></div>
         </div>
     </div>
 
@@ -492,6 +677,106 @@
         let currentItemId = null;
         let currentChangeType = null;
         let currentItemName = null;
+        let isDrawing = false;
+        let delivererSignaturePad, receiverSignaturePad;
+
+        // 인벤토리 데이터 (실제 데이터로 교체 필요)
+        const inventoryData = [
+            {% for item in inventory %}
+            {
+                id: {{ item[0] }},
+                name: "{{ item[2] }}",
+                quantity: {{ item[3] }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        // 페이지 로드 시 서명 패드 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initializeSignaturePads, 100);
+        });
+
+        function initializeSignaturePads() {
+            const delivererCanvas = document.getElementById('delivererSignature');
+            const receiverCanvas = document.getElementById('receiverSignature');
+            
+            if (delivererCanvas && receiverCanvas) {
+                setupSignaturePad(delivererCanvas);
+                setupSignaturePad(receiverCanvas);
+            }
+        }
+
+        function setupSignaturePad(canvas) {
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+
+            function getEventPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                if (e.touches) {
+                    return {
+                        x: (e.touches[0].clientX - rect.left) * scaleX,
+                        y: (e.touches[0].clientY - rect.top) * scaleY
+                    };
+                } else {
+                    return {
+                        x: (e.clientX - rect.left) * scaleX,
+                        y: (e.clientY - rect.top) * scaleY
+                    };
+                }
+            }
+
+            function startDrawing(e) {
+                e.preventDefault();
+                isDrawing = true;
+                const pos = getEventPos(e);
+                lastX = pos.x;
+                lastY = pos.y;
+            }
+
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                
+                const pos = getEventPos(e);
+                
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                
+                lastX = pos.x;
+                lastY = pos.y;
+            }
+
+            function stopDrawing() {
+                isDrawing = false;
+            }
+
+            // 마우스 이벤트
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            // 터치 이벤트
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function clearSignature(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
 
         // 수량 모달 함수들
         function showQuantityModal(itemId, changeType, itemName) {
@@ -512,7 +797,7 @@
             modal.style.display = 'block';
         }
 
-        function closeModal() {
+        function closeQuantityModal() {
             document.getElementById('quantityModal').style.display = 'none';
             currentItemId = null;
             currentChangeType = null;
@@ -528,7 +813,7 @@
             }
 
             updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
-            closeModal();
+            closeQuantityModal();
         }
 
         function updateQuantity(itemId, changeType, quantity) {
@@ -585,108 +870,259 @@
         function showReceiptModal() {
             document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('receiptModal').style.display = 'block';
+            
+            // 서명 패드 다시 초기화
+            setTimeout(initializeSignaturePads, 100);
+            
+            // 체크박스 이벤트 설정
+            setupCheckboxEvents();
         }
 
         function closeReceiptModal() {
             document.getElementById('receiptModal').style.display = 'none';
+            document.getElementById('receiptPreview').style.display = 'none';
         }
 
-        function createSimpleReceipt() {
+        function setupCheckboxEvents() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][data-part-id]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const qtyInput = document.getElementById('qty_' + this.dataset.partId);
+                    qtyInput.disabled = !this.checked;
+                    if (!this.checked) {
+                        qtyInput.value = 1;
+                    }
+                });
+            });
+        }
+
+        function updatePartsDisplay() {
+            // 구분 변경시 필요한 경우 추가 로직
+        }
+
+        function getSelectedParts() {
+            const selectedParts = [];
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][data-part-id]:checked');
+            
+            checkboxes.forEach(checkbox => {
+                const qtyInput = document.getElementById('qty_' + checkbox.dataset.partId);
+                const quantity = parseInt(qtyInput.value) || 1;
+                
+                selectedParts.push({
+                    id: checkbox.dataset.partId,
+                    name: checkbox.dataset.partName,
+                    currentQty: checkbox.dataset.currentQty,
+                    quantity: quantity
+                });
+            });
+            
+            return selectedParts;
+        }
+
+        function validateForm() {
             const date = document.getElementById('receiptDate').value;
-            const type = document.querySelector('input[name="receiptType"]:checked').value;
-            const deliverer = document.getElementById('delivererName').value;
-            const receiver = document.getElementById('receiverName').value;
+            const delivererDept = document.getElementById('delivererDept').value;
+            const delivererName = document.getElementById('delivererName').value;
+            const receiverDept = document.getElementById('receiverDept').value;
+            const receiverName = document.getElementById('receiverName').value;
             const purpose = document.getElementById('purpose').value;
-            
-            if (!date || !deliverer || !receiver || !purpose) {
+            const selectedParts = getSelectedParts();
+
+            if (!date || !delivererDept || !delivererName || !receiverDept || !receiverName || !purpose) {
                 alert('모든 필수 항목을 입력해주세요.');
-                return;
+                return false;
             }
-            
-            // 간단한 인수증 HTML 생성
+
+            if (selectedParts.length === 0) {
+                alert('최소 하나의 부품을 선택해주세요.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function previewReceipt() {
+            if (!validateForm()) return;
+
+            const selectedParts = getSelectedParts();
+            const date = document.getElementById('receiptDate').value;
+            const type = document.getElementById('receiptType').value;
+            const delivererDept = document.getElementById('delivererDept').value;
+            const delivererName = document.getElementById('delivererName').value;
+            const receiverDept = document.getElementById('receiverDept').value;
+            const receiverName = document.getElementById('receiverName').value;
+            const purpose = document.getElementById('purpose').value;
             const typeKorean = type === 'in' ? '입고' : '출고';
-            const currentTime = new Date().toLocaleString('ko-KR');
-            
+
+            // 서명 이미지 가져오기
+            const delivererCanvas = document.getElementById('delivererSignature');
+            const receiverCanvas = document.getElementById('receiverSignature');
+            const delivererSignatureData = delivererCanvas.toDataURL();
+            const receiverSignatureData = receiverCanvas.toDataURL();
+
             const receiptHTML = `
-                <div style="font-family: Arial; padding: 30px; background: white; max-width: 600px; margin: 0 auto; border: 2px solid #333;">
-                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-                        <h1 style="margin: 0; color: #333; font-size: 28px;">SK오앤에스</h1>
-                        <h2 style="margin: 10px 0 0 0; color: #666; font-size: 24px;">${typeKorean} 인수증</h2>
+                <div class="receipt-header">
+                    <h1 style="margin: 0; color: #333; font-size: 24px;">SK오앤에스</h1>
+                    <h2 style="margin: 10px 0 0 0; color: #666; font-size: 20px;">${typeKorean} 인수증</h2>
+                </div>
+                
+                <div class="receipt-info">
+                    <div><strong>일자:</strong> ${date}</div>
+                    <div><strong>창고:</strong> {{ warehouse_name }}</div>
+                    <div><strong>구분:</strong> ${typeKorean}</div>
+                    <div><strong>사유:</strong> ${purpose}</div>
+                </div>
+                
+                <div class="receipt-parts">
+                    <h3 style="margin: 0 0 10px 0;">부품 목록</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>부품명</th>
+                                <th>수량</th>
+                                <th>비고</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${selectedParts.map((part, index) => `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>${part.name}</td>
+                                    <td>${part.quantity}개</td>
+                                    <td>현재재고: ${part.currentQty}개</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="signature-area">
+                    <div class="signature-box">
+                        <h3 style="margin: 0 0 10px 0;">반출자</h3>
+                        <div style="font-size: 16px; margin-bottom: 10px;">${delivererDept}</div>
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">${delivererName}</div>
+                        <img src="${delivererSignatureData}" class="signature-image" alt="반출자 서명">
                     </div>
-                    
-                    <div style="margin-bottom: 30px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 18px;">
-                            <div><strong>일자:</strong> ${date}</div>
-                            <div><strong>창고:</strong> {{ warehouse_name }}</div>
-                            <div><strong>구분:</strong> ${typeKorean}</div>
-                            <div><strong>사유:</strong> ${purpose}</div>
-                        </div>
-                        
-                        <div style="border: 2px solid #333; padding: 30px; border-radius: 10px;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
-                                <div>
-                                    <h3 style="margin: 0 0 20px 0; font-size: 20px; text-align: center;">반출자</h3>
-                                    <div style="font-size: 18px; text-align: center; margin-bottom: 30px;">${deliverer}</div>
-                                    <div style="border: 2px solid #333; height: 100px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666;">
-                                        서명란
-                                    </div>
-                                </div>
-                                <div>
-                                    <h3 style="margin: 0 0 20px 0; font-size: 20px; text-align: center;">인수자</h3>
-                                    <div style="font-size: 18px; text-align: center; margin-bottom: 30px;">${receiver}</div>
-                                    <div style="border: 2px solid #333; height: 100px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666;">
-                                        서명란
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="text-align: center; color: #666; font-size: 14px; border-top: 1px solid #666; padding-top: 20px;">
-                        생성일시: ${currentTime}<br>
-                        본 인수증은 SK오앤에스 창고관리 시스템에서 생성되었습니다.
+                    <div class="signature-box">
+                        <h3 style="margin: 0 0 10px 0;">인수자</h3>
+                        <div style="font-size: 16px; margin-bottom: 10px;">${receiverDept}</div>
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">${receiverName}</div>
+                        <img src="${receiverSignatureData}" class="signature-image" alt="인수자 서명">
                     </div>
                 </div>
+                
+                <div style="text-align: center; color: #666; font-size: 12px; border-top: 1px solid #666; padding-top: 15px; margin-top: 20px;">
+                    생성일시: ${new Date().toLocaleString('ko-KR')}<br>
+                    본 인수증은 SK오앤에스 창고관리 시스템에서 생성되었습니다.
+                </div>
             `;
-            
-            // 임시 div에 HTML 추가하고 이미지 생성
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = receiptHTML;
-            document.body.appendChild(tempDiv);
-            
-            // html2canvas 라이브러리 로드 및 실행
+
+            const previewDiv = document.getElementById('receiptPreview');
+            previewDiv.innerHTML = receiptHTML;
+            previewDiv.style.display = 'block';
+        }
+
+        function generateReceipt() {
+            if (!validateForm()) return;
+
+            // 미리보기 먼저 생성
+            previewReceipt();
+
+            // html2canvas 라이브러리 로드
             if (!window.html2canvas) {
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
                 script.onload = function() {
-                    generateImage();
+                    createReceiptImage();
                 };
                 document.head.appendChild(script);
             } else {
-                generateImage();
+                createReceiptImage();
             }
+        }
+
+        function createReceiptImage() {
+            const previewDiv = document.getElementById('receiptPreview');
             
-            function generateImage() {
-                html2canvas(tempDiv.firstElementChild, {
-                    backgroundColor: '#ffffff',
-                    scale: 2
-                }).then(canvas => {
-                    // 다운로드
-                    const link = document.createElement('a');
-                    link.download = `SK오앤에스_${typeKorean}인수증_${date}.png`;
-                    link.href = canvas.toDataURL();
-                    link.click();
-                    
-                    // 정리
-                    document.body.removeChild(tempDiv);
-                    
-                    alert('✅ 인수증이 다운로드되었습니다!\n📁 다운로드 폴더를 확인하세요.');
-                    closeReceiptModal();
-                }).catch(error => {
-                    alert('이미지 생성 중 오류가 발생했습니다.');
-                    document.body.removeChild(tempDiv);
-                });
+            if (previewDiv.style.display === 'none' || !previewDiv.innerHTML) {
+                alert('미리보기를 먼저 생성해주세요.');
+                return;
             }
+
+            const date = document.getElementById('receiptDate').value;
+            const type = document.getElementById('receiptType').value;
+            const typeKorean = type === 'in' ? '입고' : '출고';
+
+            html2canvas(previewDiv, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                width: previewDiv.scrollWidth,
+                height: previewDiv.scrollHeight
+            }).then(canvas => {
+                // JPG로 변환
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                // 다운로드 링크 생성
+                const link = document.createElement('a');
+                link.download = `SK오앤에스_${typeKorean}인수증_${date}.jpg`;
+                link.href = imgData;
+                link.click();
+                
+                // 화면에 표시 (새 창)
+                const newWindow = window.open();
+                newWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>인수증 - ${date}</title>
+                            <style>
+                                body { 
+                                    margin: 0; 
+                                    padding: 20px; 
+                                    background: #f0f0f0; 
+                                    display: flex; 
+                                    justify-content: center; 
+                                    align-items: center; 
+                                    min-height: 100vh; 
+                                }
+                                img { 
+                                    max-width: 100%; 
+                                    height: auto; 
+                                    box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+                                    border-radius: 8px; 
+                                    background: white; 
+                                }
+                                .download-btn {
+                                    position: fixed;
+                                    top: 20px;
+                                    right: 20px;
+                                    background: #007bff;
+                                    color: white;
+                                    padding: 10px 20px;
+                                    border: none;
+                                    border-radius: 5px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                    text-decoration: none;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <img src="${imgData}" alt="인수증">
+                            <a href="${imgData}" download="SK오앤에스_${typeKorean}인수증_${date}.jpg" class="download-btn">📥 다운로드</a>
+                        </body>
+                    </html>
+                `);
+                
+                alert('✅ 인수증이 생성되었습니다!\n📁 다운로드되었으며, 새 창에서도 확인할 수 있습니다.');
+                closeReceiptModal();
+                
+            }).catch(error => {
+                console.error('이미지 생성 오류:', error);
+                alert('이미지 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+            });
         }
 
         // 모달 외부 클릭 시 닫기
@@ -694,7 +1130,7 @@
             const quantityModal = document.getElementById('quantityModal');
             const receiptModal = document.getElementById('receiptModal');
             if (event.target === quantityModal) {
-                closeModal();
+                closeQuantityModal();
             }
             if (event.target === receiptModal) {
                 closeReceiptModal();
