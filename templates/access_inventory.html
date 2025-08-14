@@ -302,7 +302,7 @@
                 <i class="fas fa-file-invoice" style="margin-right: 10px;"></i>
                 인수증 관리
             </h3>
-            <p style="margin: 0 0 15px 0; opacity: 0.9;">입고 및 출고 인수증을 생성하고 이메일로 발송할 수 있습니다.</p>
+            <p style="margin: 0 0 15px 0; opacity: 0.9;">입고 및 출고 인수증을 생성하고 이미지로 저장됩니다.</p>
             <button class="receipt-btn" onclick="openReceiptModal()">
                 <i class="fas fa-plus" style="margin-right: 8px;"></i>
                 인수증 보내기
@@ -499,9 +499,14 @@
             <!-- 단계 3: 전자서명 -->
             <div id="step3" class="receipt-step" style="display: none;">
                 <h4>전자서명</h4>
-                <canvas id="signatureCanvas" width="400" height="150" style="border: 1px solid #ddd; margin: 15px 0; max-width: 100%;"></canvas>
+                <p style="color: #666; font-size: 14px; margin-bottom: 10px;">아래 영역에 마우스나 손가락으로 서명해주세요</p>
+                <div style="text-align: center;">
+                    <canvas id="signatureCanvas" width="500" height="200" style="border: 2px solid #ddd; border-radius: 8px; cursor: crosshair; background: #fafafa; max-width: 100%; touch-action: none;"></canvas>
+                </div>
                 <div class="modal-buttons">
-                    <button class="btn btn-warning" onclick="clearSignature()">서명 지우기</button>
+                    <button class="btn btn-warning" onclick="clearSignature()">
+                        <i class="fas fa-eraser me-1"></i>서명 지우기
+                    </button>
                     <button class="btn btn-primary" onclick="showEmailStep()">다음</button>
                     <button class="btn btn-secondary" onclick="showStep(2)">이전</button>
                 </div>
@@ -717,67 +722,96 @@
 
         function initSignaturePad() {
             const canvas = document.getElementById('signatureCanvas');
+            if (!canvas) return;
+            
             const ctx = canvas.getContext('2d');
-            let drawing = false;
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
             
-            // 캔버스 크기 조정
+            // 캔버스 크기 설정 (고해상도)
             const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             
+            // 그리기 설정
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             
-            function startDrawing(e) {
-                drawing = true;
-                draw(e);
-            }
-            
-            function draw(e) {
-                if (!drawing) return;
-                
+            // 좌표 변환 함수
+            function getCoordinates(e) {
                 const rect = canvas.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
                 
-                ctx.lineTo(x, y);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x, y);
+                return {
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY
+                };
             }
             
-            function stopDrawing() {
-                drawing = false;
+            // 그리기 시작
+            function startDrawing(e) {
+                e.preventDefault();
+                isDrawing = true;
+                
+                const coords = getCoordinates(e);
+                lastX = coords.x;
+                lastY = coords.y;
+                
                 ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+            }
+            
+            // 그리기 중
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                
+                const coords = getCoordinates(e);
+                
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(coords.x, coords.y);
+                ctx.stroke();
+                
+                lastX = coords.x;
+                lastY = coords.y;
+            }
+            
+            // 그리기 종료
+            function stopDrawing(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                isDrawing = false;
             }
             
             // 마우스 이벤트
             canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
             canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
             
             // 터치 이벤트 (모바일)
-            canvas.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                startDrawing(e);
-            });
-            canvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                draw(e);
-            });
-            canvas.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                stopDrawing();
-            });
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing, { passive: false });
+            canvas.addEventListener('touchcancel', stopDrawing, { passive: false });
+            
+            // 컨텍스트 메뉴 방지
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
             
             signaturePad = { canvas, ctx };
+            console.log('서명 패드 초기화 완료');
         }
 
         function clearSignature() {
             if (signaturePad) {
                 const { canvas, ctx } = signaturePad;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                console.log('서명 지우기 완료');
             }
         }
 
