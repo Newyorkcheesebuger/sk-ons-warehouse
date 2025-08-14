@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ warehouse_name }} - 기타 부품 재고</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: #f5f5f5; 
+            font-size: 14px;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 { 
+            font-size: 1.5em; 
+            margin: 0; 
+            color: #333;
+        }
+        .btn { 
+            padding: 8px 12px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block; 
+            margin: 2px; 
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        
+        /* 인수증 보내기 버튼 */
+        .receipt-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .receipt-btn {
+            background: white;
+            color: #667eea;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .receipt-btn:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* 모바일용 카드 레이아웃 */
+        .mobile-inventory {
+            display: none;
+        }
+        
+        .inventory-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .part-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .quantity-display {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .quantity-positive { background: #d4edda; color: #155724; }
+        .quantity-zero { background: #f8d7da; color: #721c24; }
+        
+        .card-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        
+        .admin-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        /* 데스크톱용 테이블 */
+        .desktop-table {
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+        }
+        .desktop-table th, .desktop-table td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        .desktop-table th { 
+            background-color: #f8f9fa; 
+            font-weight: bold; 
+            font-size: 13px;
+        }
+        .desktop-table tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .quantity-controls { 
+            display: flex; 
+            gap: 5px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        .admin-controls { 
+            display: flex; 
+            gap: 5px; 
+            flex-wrap: wrap; 
+        }
+        
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+        }
+        .flash-error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+        }
+        
+        .add-item-form { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-bottom: 20px; 
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: bold; 
+        }
+        .form-group input { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+        }
+        
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .modal h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .modal input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.2em; }
+            .btn { padding: 6px 10px; font-size: 11px; }
+            .container { padding: 10px; }
+            
+            .desktop-table { display: none; }
+            .mobile-inventory { display: block; }
+            
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .header > div {
+                display: flex;
+                gap: 5px;
+                justify-content: center;
+            }
+            
+            .add-item-form {
+                padding: 10px;
+            }
+            
+            .action-buttons .btn {
+                flex: 1;
+                text-align: center;
+            }
+        }
+        @media (min-width: 769px) {
+            .mobile-inventory { display: none; }
+            .desktop-table { display: table; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ warehouse_name }} - 기타 부품 재고</h1>
+            <div>
+                {% if session.get('is_admin') %}
+                    <a href="/admin/warehouse" class="btn btn-secondary">← 창고 관리</a>
+                {% else %}
+                    <a href="/warehouse/{{ warehouse_name }}" class="btn btn-secondary">← 창고 메뉴</a>
+                {% endif %}
+                <a href="/logout" class="btn btn-danger">로그아웃</a>
+            </div>
+        </div>
+
+        <!-- 인수증 보내기 섹션 -->
+        <div class="receipt-section">
+            <h3 style="margin: 0 0 15px 0;">
+                <i class="fas fa-file-invoice" style="margin-right: 10px;"></i>
+                인수증 관리
+            </h3>
+            <p style="margin: 0 0 15px 0; opacity: 0.9;">입고 및 출고 인수증을 생성하고 이메일로 발송할 수 있습니다.</p>
+            <button class="receipt-btn" onclick="openReceiptModal()">
+                <i class="fas fa-plus" style="margin-right: 8px;"></i>
+                인수증 보내기
+            </button>
+        </div>
+
+        <!-- 플래시 메시지 -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash-success">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- 관리자용 새 물품 추가 폼 -->
+        {% if is_admin %}
+        <div class="add-item-form">
+            <h3>새 물품 추가</h3>
+            <form method="POST" action="/add_access_inventory_item">
+                <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
+                <input type="hidden" name="category" value="기타">
+                
+                <div class="form-group">
+                    <label for="part_name">부품명:</label>
+                    <input type="text" id="part_name" name="part_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quantity">초기 수량:</label>
+                    <input type="number" id="quantity" name="quantity" min="0" value="0" required>
+                </div>
+                
+                <button type="submit" class="btn btn-success">물품 추가</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- 모바일용 카드 레이아웃 -->
+        <div class="mobile-inventory">
+            {% for item in inventory %}
+            <div class="inventory-card">
+                <div class="card-header">
+                    <div class="part-name">{{ item[2] }}</div>
+                    <div class="quantity-display {% if item[3] > 0 %}quantity-positive{% else %}quantity-zero{% endif %}">
+                        {{ item[3] }}개
+                    </div>
+                </div>
+                
+                <div class="card-info">
+                    <div><strong>수정자:</strong> {{ item[4] or '미설정' }}</div>
+                    <div><strong>수정일:</strong> {{ item[5][:10] if item[5] else '미설정' }}</div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')">입고</button>
+                    <button class="btn btn-warning" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')">출고</button>
+                    <a href="/photos/{{ item[0] }}" class="btn btn-info">사진({{ item[6] }})</a>
+                </div>
+                
+                {% if is_admin %}
+                <div class="admin-buttons">
+                    <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="inventory-card" style="text-align: center; padding: 30px; color: #666;">
+                등록된 기타 부품이 없습니다.
+                {% if is_admin %}
+                <br><br>위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 데스크톱용 테이블 -->
+        <table class="desktop-table">
+            <thead>
+                <tr>
+                    <th>부품명</th>
+                    <th>현재 수량</th>
+                    <th>최종 수정자</th>
+                    <th>최종 수정일</th>
+                    <th>사진</th>
+                    <th>작업</th>
+                    {% if is_admin %}
+                    <th>관리자 기능</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inventory %}
+                <tr>
+                    <td><strong>{{ item[2] }}</strong></td>
+                    <td>
+                        <span id="quantity-{{ item[0] }}" style="font-size: 18px; font-weight: bold; color: {% if item[3] > 0 %}#28a745{% else %}#dc3545{% endif %};">
+                            {{ item[3] }}
+                        </span>
+                    </td>
+                    <td>{{ item[4] or '미설정' }}</td>
+                    <td>{{ item[5][:16] if item[5] else '미설정' }}</td>
+                    <td>
+                        <a href="/photos/{{ item[0] }}" class="btn btn-info">
+                            사진 보기 ({{ item[6] }}장)
+                        </a>
+                    </td>
+                    <td>
+                        <div class="quantity-controls">
+                            <button class="btn btn-success" onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')">입고</button>
+                            <button class="btn btn-warning" onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')">출고</button>
+                        </div>
+                    </td>
+                    {% if is_admin %}
+                    <td>
+                        <div class="admin-controls">
+                            <button class="btn btn-danger" onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')">삭제</button>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if is_admin %}7{% else %}6{% endif %}" style="text-align: center; padding: 30px; color: #666;">
+                        등록된 기타 부품이 없습니다.
+                        {% if is_admin %}
+                        <br><br>위의 "새 물품 추가" 폼을 사용하여 첫 번째 물품을 등록해보세요.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 수량 입력 모달 -->
+    <div id="quantityModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">수량 입력</h3>
+            <p id="modalMessage">수량을 입력하세요:</p>
+            <input type="number" id="modalQuantity" min="1" value="1" placeholder="수량">
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="confirmQuantityUpdate()">확인</button>
+                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 인수증 생성 모달 -->
+    <div id="receiptModal" class="modal">
+        <div class="modal-content" style="max-width: 600px; width: 95%;">
+            <h3>인수증 보내기</h3>
+            
+            <!-- 단계 1: 날짜 및 타입 선택 -->
+            <div id="step1" class="receipt-step">
+                <div class="form-group">
+                    <label for="receiptDate">날짜:</label>
+                    <input type="date" id="receiptDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>구분:</label>
+                    <div style="display: flex; gap: 15px; justify-content: center; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="receiptType" value="in" checked>
+                            입고
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="receiptType" value="out">
+                            출고
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-primary" onclick="loadReceiptItems()">다음</button>
+                    <button class="btn btn-secondary" onclick="closeReceiptModal()">취소</button>
+                </div>
+            </div>
+            
+            <!-- 단계 2: 품목 확인 -->
+            <div id="step2" class="receipt-step" style="display: none;">
+                <h4 id="itemsTitle">품목 목록</h4>
+                <div id="itemsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 15px 0;"></div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-primary" onclick="showSignatureStep()">다음</button>
+                    <button class="btn btn-secondary" onclick="showStep(1)">이전</button>
+                </div>
+            </div>
+            
+            <!-- 단계 3: 전자서명 -->
+            <div id="step3" class="receipt-step" style="display: none;">
+                <h4>전자서명</h4>
+                <canvas id="signatureCanvas" width="400" height="150" style="border: 1px solid #ddd; margin: 15px 0; max-width: 100%;"></canvas>
+                <div class="modal-buttons">
+                    <button class="btn btn-warning" onclick="clearSignature()">서명 지우기</button>
+                    <button class="btn btn-primary" onclick="showEmailStep()">다음</button>
+                    <button class="btn btn-secondary" onclick="showStep(2)">이전</button>
+                </div>
+            </div>
+            
+            <!-- 단계 4: 이메일 발송 -->
+            <div id="step4" class="receipt-step" style="display: none;">
+                <h4>이메일 발송</h4>
+                
+                <div class="form-group">
+                    <label for="myEmail">내 이메일:</label>
+                    <input type="email" id="myEmail" placeholder="your@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="recipientEmails">상대방 이메일 (여러 개는 쉼표로 구분):</label>
+                    <input type="text" id="recipientEmails" placeholder="recipient1@email.com, recipient2@email.com" required>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-success" onclick="sendReceipt()">발송</button>
+                    <button class="btn btn-secondary" onclick="showStep(3)">이전</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentItemId = null;
+        let currentChangeType = null;
+        let currentItemName = null;
+        let receiptData = {};
+        let signaturePad = null;
+
+        // 수량 모달 관련 함수들
+        function showQuantityModal(itemId, changeType, itemName) {
+            currentItemId = itemId;
+            currentChangeType = changeType;
+            currentItemName = itemName;
+            
+            const modal = document.getElementById('quantityModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const quantityInput = document.getElementById('modalQuantity');
+            
+            title.textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
+            message.textContent = `"${itemName}" ${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
+            quantityInput.value = '1';
+            quantityInput.focus();
+            
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('quantityModal').style.display = 'none';
+            currentItemId = null;
+            currentChangeType = null;
+            currentItemName = null;
+        }
+
+        function confirmQuantityUpdate() {
+            const quantity = document.getElementById('modalQuantity').value;
+            
+            if (!quantity || quantity < 1) {
+                alert('올바른 수량을 입력해주세요.');
+                return;
+            }
+
+            updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
+            closeModal();
+        }
+
+        function updateQuantity(itemId, changeType, quantity) {
+            fetch('/update_quantity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item_id: itemId,
+                    change_type: changeType,
+                    quantity: quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 수량 업데이트 (데스크톱 테이블)
+                    const quantitySpan = document.getElementById('quantity-' + itemId);
+                    if (quantitySpan) {
+                        quantitySpan.textContent = data.new_quantity;
+                        
+                        // 색상 업데이트
+                        if (data.new_quantity > 0) {
+                            quantitySpan.style.color = '#28a745';
+                        } else {
+                            quantitySpan.style.color = '#dc3545';
+                        }
+                    }
+                    
+                    // 성공 메시지
+                    const action = changeType === 'in' ? '입고' : '출고';
+                    alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
+                    
+                    // 페이지 새로고침으로 모바일 카드도 업데이트
+                    location.reload();
+                } else {
+                    alert('오류: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('처리 중 오류가 발생했습니다.');
+            });
+        }
+
+        function confirmDelete(itemId, itemName) {
+            if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
+                window.location.href = `/delete_inventory/${itemId}`;
+            }
+        }
+
+        // 인수증 관련 함수들
+        function openReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'block';
+            document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
+            showStep(1);
+            initSignaturePad();
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+            receiptData = {};
+        }
+
+        function showStep(stepNumber) {
+            // 모든 단계 숨기기
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`step${i}`).style.display = 'none';
+            }
+            // 선택된 단계 보이기
+            document.getElementById(`step${stepNumber}`).style.display = 'block';
+        }
+
+        function loadReceiptItems() {
+            const date = document.getElementById('receiptDate').value;
+            const type = document.querySelector('input[name="receiptType"]:checked').value;
+            
+            if (!date) {
+                alert('날짜를 선택해주세요.');
+                return;
+            }
+            
+            // 해당 날짜의 입고/출고 내역 조회
+            fetch('/get_inventory_changes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: date,
+                    type: type,
+                    warehouse: '{{ warehouse_name }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    receiptData.date = date;
+                    receiptData.type = type;
+                    receiptData.warehouse = '{{ warehouse_name }}';
+                    receiptData.items = data.changes;
+                    
+                    displayItems(data.changes, type);
+                    showStep(2);
+                } else {
+                    alert('데이터 조회 중 오류가 발생했습니다: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            });
+        }
+
+        function displayItems(items, type) {
+            const title = document.getElementById('itemsTitle');
+            const list = document.getElementById('itemsList');
+            const typeKorean = type === 'in' ? '입고' : '출고';
+            
+            title.textContent = `${typeKorean} 품목 목록 (${items.length}개)`;
+            
+            if (items.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #666;">해당 날짜에 ${typeKorean} 내역이 없습니다.</p>`;
+                return;
+            }
+            
+            let html = '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<thead><tr style="background: #f8f9fa;"><th style="border: 1px solid #ddd; padding: 8px;">부품명</th><th style="border: 1px solid #ddd; padding: 8px;">수량</th><th style="border: 1px solid #ddd; padding: 8px;">담당자</th></tr></thead>';
+            html += '<tbody>';
+            
+            items.forEach(item => {
+                html += `<tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.part_name}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.quantity}개</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.modifier}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        }
+
+        function initSignaturePad() {
+            const canvas = document.getElementById('signatureCanvas');
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+            
+            // 캔버스 크기 조정
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            function startDrawing(e) {
+                drawing = true;
+                draw(e);
+            }
+            
+            function draw(e) {
+                if (!drawing) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX || e.touches[0].clientX) - rect.left;
+                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+            
+            function stopDrawing() {
+                drawing = false;
+                ctx.beginPath();
+            }
+            
+            // 마우스 이벤트
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            
+            // 터치 이벤트 (모바일)
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startDrawing(e);
+            });
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                draw(e);
+            });
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stopDrawing();
+            });
+            
+            signaturePad = { canvas, ctx };
+        }
+
+        function clearSignature() {
+            if (signaturePad) {
+                const { canvas, ctx } = signaturePad;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function showSignatureStep() {
+            showStep(3);
+        }
+
+        function showEmailStep() {
+            // 서명 데이터 저장
+            const canvas = document.getElementById('signatureCanvas');
+            receiptData.signature = canvas.toDataURL();
+            showStep(4);
+        }
+
+        function sendReceipt() {
+            const myEmail = document.getElementById('myEmail').value;
+            const recipientEmails = document.getElementById('recipientEmails').value;
+            
+            if (!myEmail || !recipientEmails) {
+                alert('이메일 주소를 모두 입력해주세요.');
+                return;
+            }
+            
+            // 이메일 주소 배열로 변환
+            const emailList = [myEmail, ...recipientEmails.split(',').map(email => email.trim())];
+            
+            // 인수증 저장 및 이메일 발송
+            fetch('/send_delivery_receipt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    emails: emailList,
+                    receipt_data: receiptData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('인수증이 성공적으로 발송되었습니다.');
+                    closeReceiptModal();
+                } else {
+                    alert('발송 실패: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('발송 중 오류가 발생했습니다.');
+            });
+        }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const quantityModal = document.getElementById('quantityModal');
+            const receiptModal = document.getElementById('receiptModal');
+            if (event.target === quantityModal) {
+                closeModal();
+            }
+            if (event.target === receiptModal) {
+                closeReceiptModal();
+            }
+        }
+
+        // Enter 키로 확인
+        document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmQuantityUpdate();
+            }
+        });
+    </script>
+</body>
+</html>
