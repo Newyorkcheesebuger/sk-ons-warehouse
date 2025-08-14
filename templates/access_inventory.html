@@ -1,4 +1,445 @@
-<!DOCTYPE html>
+// 반출자 서명 패드 초기화
+        function initDelivererSignature() {
+            const canvas = document.getElementById('delivererSignCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            
+            // 기존 이벤트 리스너 제거
+            canvas.onmousedown = null;
+            canvas.onmousemove = null;
+            canvas.onmouseup = null;
+            canvas.ontouchstart = null;
+            canvas.ontouchmove = null;
+            canvas.ontouchend = null;
+            
+            // 캔버스 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            function startDrawing(e) {
+                e.preventDefault();
+                isDrawing = true;
+                const coords = getCoordinates(e, canvas);
+                lastX = coords.x;
+                lastY = coords.y;
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                const coords = getCoordinates(e, canvas);
+                ctx.lineTo(coords.x, coords.y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(coords.x, coords.y);
+                lastX = coords.x;
+                lastY = coords.y;
+            }
+            
+            function stopDrawing(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                isDrawing = false;
+                ctx.beginPath();
+            }
+            
+            // 이벤트 리스너 등록
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing, { passive: false });
+            canvas.addEventListener('touchcancel', stopDrawing, { passive: false });
+            
+            delivererSignaturePad = { canvas, ctx };
+            console.log('반출자 서명 패드 초기화 완료');
+        }
+
+        // 인수자 서명 패드 초기화
+        function initReceiverSignature() {
+            const canvas = document.getElementById('receiverSignCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            
+            // 기존 이벤트 리스너 제거
+            canvas.onmousedown = null;
+            canvas.onmousemove = null;
+            canvas.onmouseup = null;
+            canvas.ontouchstart = null;
+            canvas.ontouchmove = null;
+            canvas.ontouchend = null;
+            
+            // 캔버스 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            function startDrawing(e) {
+                e.preventDefault();
+                isDrawing = true;
+                const coords = getCoordinates(e, canvas);
+                lastX = coords.x;
+                lastY = coords.y;
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                const coords = getCoordinates(e, canvas);
+                ctx.lineTo(coords.x, coords.y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(coords.x, coords.y);
+                lastX = coords.x;
+                lastY = coords.y;
+            }
+            
+            function stopDrawing(e) {
+                if (!isDrawing) return;
+                e.preventDefault();
+                isDrawing = false;
+                ctx.beginPath();
+            }
+            
+            // 이벤트 리스너 등록
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing, { passive: false });
+            canvas.addEventListener('touchcancel', stopDrawing, { passive: false });
+            
+            receiverSignaturePad = { canvas, ctx };
+            console.log('인수자 서명 패드 초기화 완료');
+        }
+
+        // 좌표 계산 함수
+        function getCoordinates(e, canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+            
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        // 서명 지우기 함수들
+        function clearDelivererSignature() {
+            if (delivererSignaturePad) {
+                const { canvas, ctx } = delivererSignaturePad;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                console.log('반출자 서명 지우기 완료');
+            }
+        }
+
+        function clearReceiverSignature() {
+            if (receiverSignaturePad) {
+                const { canvas, ctx } = receiverSignaturePad;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                console.log('인수자 서명 지우기 완료');
+            }
+        }
+
+        // 서명 완료 확인 함수들
+        function confirmDelivererSignature() {
+            if (!isCanvasEmpty(delivererSignaturePad.canvas)) {
+                receiptData.delivererSignature = delivererSignaturePad.canvas.toDataURL();
+                
+                // 인수자 서명으로 전환
+                document.getElementById('delivererSignature').style.display = 'none';
+                document.getElementById('receiverSignature').style.display = 'block';
+                signatureStep = 'receiver';
+                
+                alert('반출자 서명이 완료되었습니다. 이제 인수자가 서명해주세요.');
+            } else {
+                alert('서명을 먼저 해주세요.');
+            }
+        }
+
+        function confirmReceiverSignature() {
+            if (!isCanvasEmpty(receiverSignaturePad.canvas)) {
+                receiptData.receiverSignature = receiverSignaturePad.canvas.toDataURL();
+                
+                // 인수증 미리보기 생성
+                generateReceiptPreview();
+                showStep(5);
+                
+                alert('인수자 서명이 완료되었습니다. 인수증을 확인하고 저장하세요.');
+            } else {
+                alert('서명을 먼저 해주세요.');
+            }
+        }
+
+        // 캔버스가 비어있는지 확인
+        function isCanvasEmpty(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] !== 0) { // 알파 채널이 0이 아니면 그림이 있음
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function generateReceiptPreview() {
+            const preview = document.getElementById('receiptPreview');
+            const typeKorean = receiptData.type === 'in' ? '입고' : '출고';
+            const currentDate = new Date().toLocaleString('ko-KR');
+            
+            let html = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h2 style="color: #333; margin-bottom: 10px;">SK오앤에스 창고관리 시스템</h2>
+                    <h3 style="color: #666; margin: 0; font-size: 24px;">${typeKorean} 인수증</h3>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div><strong>일자:</strong> ${receiptData.date}</div>
+                        <div><strong>창고:</strong> ${receiptData.warehouse}</div>
+                        <div><strong>구분:</strong> ${typeKorean}</div>
+                        <div><strong>사유:</strong> ${receiptData.purpose}</div>
+                    </div>`;
+            
+            // 반입 예정일 (출고시에만)
+            if (receiptData.type === 'out' && receiptData.returnDate) {
+                html += `<div><strong>반입 예정일:</strong> ${receiptData.returnDate}</div>`;
+            }
+            
+            html += `</div>`;
+            
+            // 담당자 정보
+            html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">`;
+            
+            if (receiptData.type === 'out') {
+                // 출고 인수증
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin: 0 0 10px 0; color: #007bff;">📤 반출자 (창고)</h4>
+                        <div><strong>이름:</strong> ${receiptData.deliverer.name}</div>
+                        ${receiptData.deliverer.dept ? `<div><strong>소속:</strong> ${receiptData.deliverer.dept}</div>` : ''}
+                        ${receiptData.deliverer.phone ? `<div><strong>연락처:</strong> ${receiptData.deliverer.phone}</div>` : ''}
+                    </div>
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin: 0 0 10px 0; color: #28a745;">📥 인수자 (현장)</h4>
+                        <div><strong>이름:</strong> ${receiptData.receiver.name}</div>
+                        ${receiptData.receiver.dept ? `<div><strong>소속:</strong> ${receiptData.receiver.dept}</div>` : ''}
+                        ${receiptData.receiver.phone ? `<div><strong>연락처:</strong> ${receiptData.receiver.phone}</div>` : ''}
+                    </div>`;
+            } else {
+                // 입고 인수증
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin: 0 0 10px 0; color: #007bff;">📤 반출자 (납품)</h4>
+                        <div><strong>이름:</strong> ${receiptData.supplier.name}</div>
+                        ${receiptData.supplier.company ? `<div><strong>업체:</strong> ${receiptData.supplier.company}</div>` : ''}
+                        ${receiptData.supplier.phone ? `<div><strong>연락처:</strong> ${receiptData.supplier.phone}</div>` : ''}
+                    </div>
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin: 0 0 10px 0; color: #28a745;">📥 인수자 (창고)</h4>
+                        <div><strong>이름:</strong> ${receiptData.warehouseReceiver.name}</div>
+                        ${receiptData.warehouseReceiver.dept ? `<div><strong>소속:</strong> ${receiptData.warehouseReceiver.dept}</div>` : ''}
+                        ${receiptData.warehouseReceiver.phone ? `<div><strong>연락처:</strong> ${receiptData.warehouseReceiver.phone}</div>` : ''}
+                    </div>`;
+            }
+            
+            html += `</div>`;
+            
+            // 품목 목록
+            html += `
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background: #e9ecef;">
+                            <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">번호</th>
+                            <th style="border: 1px solid #ddd; padding: 10px;">부품명</th>
+                            <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">수량</th>
+                            <th style="border: 1px solid #ddd; padding: 10px;">담당자</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            receiptData.items.forEach((item, index) => {
+                html += `
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">${item.part_name}</td>
+                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${item.quantity}개</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">${item.modifier}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table>`;
+            
+            // 서명란
+            html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">`;
+            
+            if (receiptData.delivererSignature) {
+                const delivererTitle = receiptData.type === 'out' ? '반출자 서명' : '반출자 서명';
+                const delivererName = receiptData.type === 'out' ? receiptData.deliverer.name : receiptData.supplier.name;
+                html += `
+                    <div style="text-align: center;">
+                        <p style="margin-bottom: 10px;"><strong>${delivererTitle}</strong></p>
+                        <img src="${receiptData.delivererSignature}" style="max-width: 200px; height: 80px; border: 1px solid #ddd; border-radius: 5px;">
+                        <p style="margin-top: 5px; font-size: 14px;">${delivererName}</p>
+                    </div>
+                `;
+            }
+            
+            if (receiptData.receiverSignature) {
+                const receiverTitle = receiptData.type === 'out' ? '인수자 서명' : '인수자 서명';
+                const receiverName = receiptData.type === 'out' ? receiptData.receiver.name : receiptData.warehouseReceiver.name;
+                html += `
+                    <div style="text-align: center;">
+                        <p style="margin-bottom: 10px;"><strong>${receiverTitle}</strong></p>
+                        <img src="${receiptData.receiverSignature}" style="max-width: 200px; height: 80px; border: 1px solid #ddd; border-radius: 5px;">
+                        <p style="margin-top: 5px; font-size: 14px;">${receiverName}</p>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            html += `
+                <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                    <p>생성일시: ${currentDate}</p>
+                    <p>본 인수증은 SK오앤에스 창고관리 시스템에서 자동으로 생성되었습니다.</p>
+                </div>
+            `;
+            
+            preview.innerHTML = html;
+        }
+
+        function downloadReceiptImage() {
+            const preview = document.getElementById('receiptPreview');
+            
+            // html2canvas 라이브러리 동적 로드
+            if (!window.html2canvas) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                script.onload = function() {
+                    captureAndDownload();
+                };
+                document.head.appendChild(script);
+            } else {
+                captureAndDownload();
+            }
+            
+            function captureAndDownload() {
+                html2canvas(preview, {
+                    backgroundColor: '#ffffff',
+                    scale: 2, // 고해상도
+                    logging: false,
+                    useCORS: true,
+                    width: preview.scrollWidth,
+                    height: preview.scrollHeight
+                }).then(canvas => {
+                    // 이미지 다운로드
+                    const link = document.createElement('a');
+                    const typeKorean = receiptData.type === 'in' ? '입고' : '출고';
+                    link.download = `SK오앤에스_${typeKorean}인수증_${receiptData.date}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    alert(`✅ 인수증 이미지가 다운로드되었습니다!\n\n📁 저장 위치: 다운로드 폴더\n📱 활용 방법:\n- 카카오톡, 문자에 첨부\n- 이메일에 첨부\n- 프린트 출력`);
+                    
+                    closeReceiptModal();
+                }).catch(error => {
+                    console.error('이미지 생성 오류:', error);
+                    alert('이미지 생성 중 오류가 발생했습니다.');
+                });
+            }
+        }
+
+        function shareReceipt() {
+            const preview = document.getElementById('receiptPreview');
+            
+            if (navigator.share) {
+                // 네이티브 공유 API (모바일)
+                html2canvas(preview, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false,
+                    useCORS: true
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const typeKorean = receiptData.type === 'in' ? '입고' : '출고';
+                        const file = new File([blob], `SK오앤에스_${typeKorean}인수증_${receiptData.date}.png`, { type: 'image/png' });
+                        
+                        navigator.share({
+                            title: 'SK오앤에스 인수증',
+                            text: `${typeKorean} 인수증 - ${receiptData.date}`,
+                            files: [file]
+                        }).catch(err => {
+                            console.log('공유 취소:', err);
+                        });
+                    });
+                });
+            } else {
+                // 데스크톱: 이미지 다운로드
+                downloadReceiptImage();
+            }
+        }
+
+        // 기존 함수들 (하위 호환성)
+        function showEmailStep() {
+            generateReceiptPreview();
+            showStep(5);
+        }
+
+        function sendReceipt() {
+            alert('이메일 발송 기능이 이미지 저장으로 변경되었습니다.');
+        }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const quantityModal = document.getElementById('quantityModal');
+            const receiptModal = document.getElementById('receiptModal');
+            if (event.target === quantityModal) {
+                closeModal();
+            }
+            if (event.target === receiptModal) {
+                closeReceiptModal();
+            }
+        }
+
+        // Enter 키로 확인
+        document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmQuantityUpdate();
+            }
+        });<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -496,28 +937,117 @@
                 </div>
             </div>
             
-            <!-- 단계 3: 전자서명 -->
+            <!-- 단계 3: 담당자 정보 입력 -->
             <div id="step3" class="receipt-step" style="display: none;">
-                <h4>전자서명</h4>
-                <p style="color: #666; font-size: 14px; margin-bottom: 10px;">아래 영역에 마우스나 손가락으로 서명해주세요</p>
-                <div style="text-align: center;">
-                    <canvas id="signatureCanvas" width="500" height="200" style="border: 2px solid #ddd; border-radius: 8px; cursor: crosshair; background: #fafafa; max-width: 100%; touch-action: none;"></canvas>
+                <h4>담당자 정보</h4>
+                
+                <div id="outgoingInfo" style="display: none;">
+                    <h5>📤 출고 인수증</h5>
+                    <div class="form-group">
+                        <label for="delivererName">반출자 정보 (창고 → 현장)</label>
+                        <input type="text" id="delivererName" placeholder="이름" value="{{ session.user_name }}" required>
+                        <input type="text" id="delivererDept" placeholder="소속" style="margin-top: 5px;">
+                        <input type="text" id="delivererPhone" placeholder="연락처" style="margin-top: 5px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="receiverName">인수자 정보 (받는 사람)</label>
+                        <input type="text" id="receiverName" placeholder="이름" required>
+                        <input type="text" id="receiverDept" placeholder="소속" style="margin-top: 5px;">
+                        <input type="text" id="receiverPhone" placeholder="연락처" style="margin-top: 5px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="purpose">사유/목적</label>
+                        <input type="text" id="purpose" placeholder="예: A동 전기차 충전기 설치" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="returnDate">반입 예정일 (선택)</label>
+                        <input type="date" id="returnDate">
+                    </div>
                 </div>
+                
+                <div id="incomingInfo" style="display: none;">
+                    <h5>📥 입고 인수증</h5>
+                    <div class="form-group">
+                        <label for="supplierName">반출자 정보 (납품업체/반납자)</label>
+                        <input type="text" id="supplierName" placeholder="이름" required>
+                        <input type="text" id="supplierCompany" placeholder="업체명/소속" style="margin-top: 5px;">
+                        <input type="text" id="supplierPhone" placeholder="연락처" style="margin-top: 5px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="warehouseReceiver">인수자 정보 (창고 담당)</label>
+                        <input type="text" id="warehouseReceiver" placeholder="이름" value="{{ session.user_name }}" required>
+                        <input type="text" id="warehouseReceiverDept" placeholder="소속" style="margin-top: 5px;">
+                        <input type="text" id="warehouseReceiverPhone" placeholder="연락처" style="margin-top: 5px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="incomingPurpose">사유/목적</label>
+                        <input type="text" id="incomingPurpose" placeholder="예: 정기 납품, 수리 완료 반납" required>
+                    </div>
+                </div>
+                
                 <div class="modal-buttons">
-                    <button class="btn btn-warning" onclick="clearSignature()">
-                        <i class="fas fa-eraser me-1"></i>서명 지우기
-                    </button>
-                    <button class="btn btn-primary" onclick="showEmailStep()">다음</button>
+                    <button class="btn btn-primary" onclick="showSignatureStep()">다음</button>
                     <button class="btn btn-secondary" onclick="showStep(2)">이전</button>
                 </div>
             </div>
             
-            <!-- 단계 4: 이미지 저장 및 공유 -->
+            <!-- 단계 4: 전자서명 -->
             <div id="step4" class="receipt-step" style="display: none;">
+                <div id="signatureSection">
+                    <!-- 반출자 서명 -->
+                    <div id="delivererSignature" class="signature-section">
+                        <h4 id="delivererSignTitle">반출자 서명</h4>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 10px;">반출자가 아래 영역에 서명해주세요</p>
+                        <div style="text-align: center;">
+                            <canvas id="delivererSignCanvas" width="450" height="150" style="border: 2px solid #007bff; border-radius: 8px; cursor: crosshair; background: #fafafa; max-width: 100%; touch-action: none;"></canvas>
+                        </div>
+                        <div style="text-align: center; margin: 10px 0;">
+                            <button class="btn btn-warning btn-sm" onclick="clearDelivererSignature()">
+                                <i class="fas fa-eraser me-1"></i>서명 지우기
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="confirmDelivererSignature()">
+                                <i class="fas fa-check me-1"></i>서명 완료
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 인수자 서명 -->
+                    <div id="receiverSignature" class="signature-section" style="display: none;">
+                        <h4 id="receiverSignTitle">인수자 서명</h4>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 10px;">인수자가 아래 영역에 서명해주세요</p>
+                        <div style="text-align: center;">
+                            <canvas id="receiverSignCanvas" width="450" height="150" style="border: 2px solid #28a745; border-radius: 8px; cursor: crosshair; background: #fafafa; max-width: 100%; touch-action: none;"></canvas>
+                        </div>
+                        <div style="text-align: center; margin: 10px 0;">
+                            <button class="btn btn-warning btn-sm" onclick="clearReceiverSignature()">
+                                <i class="fas fa-eraser me-1"></i>서명 지우기
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="confirmReceiverSignature()">
+                                <i class="fas fa-check me-1"></i>서명 완료
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons" id="signatureButtons">
+                    <button class="btn btn-secondary" onclick="showStep(3)">이전</button>
+                </div>
+            </div>
+            
+            <!-- 단계 5: 이미지 저장 및 공유 -->
+            <div id="step5" class="receipt-step" style="display: none;">
+            <!-- 단계 5: 이미지 저장 및 공유 -->
+            <div id="step5" class="receipt-step" style="display: none;">
                 <h4>인수증 저장 및 공유</h4>
+                <p style="color: #666; margin-bottom: 15px;">💾 이미지는 <strong>다운로드 폴더</strong>에 저장됩니다</p>
                 
                 <!-- 인수증 미리보기 -->
-                <div id="receiptPreview" style="background: white; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; font-family: Arial, sans-serif;">
+                <div id="receiptPreview" style="background: white; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; font-family: Arial, sans-serif; max-height: 400px; overflow-y: auto;">
                     <!-- 여기에 인수증 내용이 동적으로 생성됩니다 -->
                 </div>
                 
@@ -528,7 +1058,7 @@
                     <button class="btn btn-info" onclick="shareReceipt()">
                         <i class="fas fa-share me-1"></i>공유하기
                     </button>
-                    <button class="btn btn-secondary" onclick="showStep(3)">이전</button>
+                    <button class="btn btn-secondary" onclick="showStep(4)">이전</button>
                 </div>
             </div>
         </div>
@@ -539,7 +1069,308 @@
         let currentChangeType = null;
         let currentItemName = null;
         let receiptData = {};
-        let signaturePad = null;
+        let delivererSignaturePad = null;
+        let receiverSignaturePad = null;
+        let signatureStep = 'deliverer'; // 'deliverer' 또는 'receiver'
+
+        // 수량 모달 관련 함수들 (기존과 동일)
+        function showQuantityModal(itemId, changeType, itemName) {
+            currentItemId = itemId;
+            currentChangeType = changeType;
+            currentItemName = itemName;
+            
+            const modal = document.getElementById('quantityModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const quantityInput = document.getElementById('modalQuantity');
+            
+            title.textContent = changeType === 'in' ? '입고 처리' : '출고 처리';
+            message.textContent = `"${itemName}" ${changeType === 'in' ? '입고' : '출고'} 수량을 입력하세요:`;
+            quantityInput.value = '1';
+            quantityInput.focus();
+            
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('quantityModal').style.display = 'none';
+            currentItemId = null;
+            currentChangeType = null;
+            currentItemName = null;
+        }
+
+        function confirmQuantityUpdate() {
+            const quantity = document.getElementById('modalQuantity').value;
+            
+            if (!quantity || quantity < 1) {
+                alert('올바른 수량을 입력해주세요.');
+                return;
+            }
+
+            updateQuantity(currentItemId, currentChangeType, parseInt(quantity));
+            closeModal();
+        }
+
+        function updateQuantity(itemId, changeType, quantity) {
+            fetch('/update_quantity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item_id: itemId,
+                    change_type: changeType,
+                    quantity: quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 수량 업데이트 (데스크톱 테이블)
+                    const quantitySpan = document.getElementById('quantity-' + itemId);
+                    if (quantitySpan) {
+                        quantitySpan.textContent = data.new_quantity;
+                        
+                        // 색상 업데이트
+                        if (data.new_quantity > 0) {
+                            quantitySpan.style.color = '#28a745';
+                        } else {
+                            quantitySpan.style.color = '#dc3545';
+                        }
+                    }
+                    
+                    // 성공 메시지
+                    const action = changeType === 'in' ? '입고' : '출고';
+                    alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
+                    
+                    // 페이지 새로고침으로 모바일 카드도 업데이트
+                    location.reload();
+                } else {
+                    alert('오류: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('처리 중 오류가 발생했습니다.');
+            });
+        }
+
+        function confirmDelete(itemId, itemName) {
+            if (confirm(`정말로 "${itemName}" 물품을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없으며, 관련된 모든 사진과 이력도 함께 삭제됩니다.`)) {
+                window.location.href = `/delete_inventory/${itemId}`;
+            }
+        }
+
+        // 인수증 관련 함수들
+        function openReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'block';
+            document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
+            showStep(1);
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+            receiptData = {};
+            signatureStep = 'deliverer';
+        }
+
+        function showStep(stepNumber) {
+            // 모든 단계 숨기기
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`step${i}`).style.display = 'none';
+            }
+            // 선택된 단계 보이기
+            document.getElementById(`step${stepNumber}`).style.display = 'block';
+        }
+
+        function loadReceiptItems() {
+            const date = document.getElementById('receiptDate').value;
+            const type = document.querySelector('input[name="receiptType"]:checked').value;
+            
+            if (!date) {
+                alert('날짜를 선택해주세요.');
+                return;
+            }
+            
+            // 해당 날짜의 입고/출고 내역 조회
+            fetch('/get_inventory_changes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: date,
+                    type: type,
+                    warehouse: '{{ warehouse_name }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    receiptData.date = date;
+                    receiptData.type = type;
+                    receiptData.warehouse = '{{ warehouse_name }}';
+                    receiptData.items = data.changes;
+                    
+                    displayItems(data.changes, type);
+                    showStep(2);
+                } else {
+                    alert('데이터 조회 중 오류가 발생했습니다: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            });
+        }
+
+        function displayItems(items, type) {
+            const title = document.getElementById('itemsTitle');
+            const list = document.getElementById('itemsList');
+            const typeKorean = type === 'in' ? '입고' : '출고';
+            
+            title.textContent = `${typeKorean} 품목 목록 (${items.length}개)`;
+            
+            if (items.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #666;">해당 날짜에 ${typeKorean} 내역이 없습니다.</p>`;
+                return;
+            }
+            
+            let html = '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<thead><tr style="background: #f8f9fa;"><th style="border: 1px solid #ddd; padding: 8px;">부품명</th><th style="border: 1px solid #ddd; padding: 8px;">수량</th><th style="border: 1px solid #ddd; padding: 8px;">담당자</th></tr></thead>';
+            html += '<tbody>';
+            
+            items.forEach(item => {
+                html += `<tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.part_name}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.quantity}개</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.modifier}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        }
+
+        function showSignatureStep() {
+            // 담당자 정보 저장
+            const type = receiptData.type;
+            
+            if (type === 'out') {
+                // 출고 정보 저장
+                receiptData.deliverer = {
+                    name: document.getElementById('delivererName').value,
+                    dept: document.getElementById('delivererDept').value,
+                    phone: document.getElementById('delivererPhone').value
+                };
+                receiptData.receiver = {
+                    name: document.getElementById('receiverName').value,
+                    dept: document.getElementById('receiverDept').value,
+                    phone: document.getElementById('receiverPhone').value
+                };
+                receiptData.purpose = document.getElementById('purpose').value;
+                receiptData.returnDate = document.getElementById('returnDate').value;
+            } else {
+                // 입고 정보 저장
+                receiptData.supplier = {
+                    name: document.getElementById('supplierName').value,
+                    company: document.getElementById('supplierCompany').value,
+                    phone: document.getElementById('supplierPhone').value
+                };
+                receiptData.warehouseReceiver = {
+                    name: document.getElementById('warehouseReceiver').value,
+                    dept: document.getElementById('warehouseReceiverDept').value,
+                    phone: document.getElementById('warehouseReceiverPhone').value
+                };
+                receiptData.purpose = document.getElementById('incomingPurpose').value;
+            }
+            
+            // 필수 필드 체크
+            if (type === 'out') {
+                if (!receiptData.deliverer.name || !receiptData.receiver.name || !receiptData.purpose) {
+                    alert('반출자, 인수자 이름과 사유는 필수입니다.');
+                    return;
+                }
+            } else {
+                if (!receiptData.supplier.name || !receiptData.warehouseReceiver.name || !receiptData.purpose) {
+                    alert('반출자, 인수자 이름과 사유는 필수입니다.');
+                    return;
+                }
+            }
+            
+            // 서명 단계 초기화
+            signatureStep = 'deliverer';
+            document.getElementById('delivererSignature').style.display = 'block';
+            document.getElementById('receiverSignature').style.display = 'none';
+            
+            // 서명 제목 업데이트
+            if (type === 'out') {
+                document.getElementById('delivererSignTitle').textContent = `반출자 서명 (${receiptData.deliverer.name})`;
+                document.getElementById('receiverSignTitle').textContent = `인수자 서명 (${receiptData.receiver.name})`;
+            } else {
+                document.getElementById('delivererSignTitle').textContent = `반출자 서명 (${receiptData.supplier.name})`;
+                document.getElementById('receiverSignTitle').textContent = `인수자 서명 (${receiptData.warehouseReceiver.name})`;
+            }
+            
+            showStep(4);
+            
+            // 서명 패드 초기화
+            setTimeout(() => {
+                initDelivererSignature();
+                initReceiverSignature();
+            }, 100);
+        }
+
+        // 담당자 정보 표시 전환
+        function loadReceiptItems() {
+            const date = document.getElementById('receiptDate').value;
+            const type = document.querySelector('input[name="receiptType"]:checked').value;
+            
+            if (!date) {
+                alert('날짜를 선택해주세요.');
+                return;
+            }
+            
+            // 타입에 따라 정보 입력 폼 전환
+            if (type === 'out') {
+                document.getElementById('outgoingInfo').style.display = 'block';
+                document.getElementById('incomingInfo').style.display = 'none';
+            } else {
+                document.getElementById('outgoingInfo').style.display = 'none';
+                document.getElementById('incomingInfo').style.display = 'block';
+            }
+            
+            // 해당 날짜의 입고/출고 내역 조회
+            fetch('/get_inventory_changes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: date,
+                    type: type,
+                    warehouse: '{{ warehouse_name }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    receiptData.date = date;
+                    receiptData.type = type;
+                    receiptData.warehouse = '{{ warehouse_name }}';
+                    receiptData.items = data.changes;
+                    
+                    displayItems(data.changes, type);
+                    showStep(2);
+                } else {
+                    alert('데이터 조회 중 오류가 발생했습니다: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            });
+        }
 
         // 수량 모달 관련 함수들
         function showQuantityModal(itemId, changeType, itemName) {
