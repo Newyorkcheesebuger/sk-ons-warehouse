@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ warehouse_name }} - 인수증 이력</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: #f5f5f5; 
+            font-size: 14px;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
+        }
+        .header h1 { 
+            font-size: 1.5em; 
+            margin: 0; 
+            color: #333;
+        }
+        .btn { 
+            padding: 8px 12px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block; 
+            margin: 2px; 
+            font-size: 12px;
+        }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        
+        /* 테이블 스타일 - 엑셀 느낌 */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ccc;
+            margin: 20px 0;
+            background: white;
+        }
+        .history-table th {
+            background: #f8f9fa;
+            border: 1px solid #ccc;
+            padding: 10px 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        .history-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            vertical-align: middle;
+        }
+        .history-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .history-table tr:hover {
+            background: #f0f0f0;
+        }
+        
+        /* 페이징 */
+        .pagination {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .pagination a, .pagination span {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 0 2px;
+            border: 1px solid #ddd;
+            text-decoration: none;
+            color: #333;
+        }
+        .pagination a:hover {
+            background: #f0f0f0;
+        }
+        .pagination .current {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        /* 구분 표시 */
+        .type-in { color: #28a745; font-weight: bold; }
+        .type-out { color: #dc3545; font-weight: bold; }
+        
+        /* 빈 데이터 */
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 16px;
+        }
+        
+        /* 모바일 반응형 */
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .header { flex-direction: column; gap: 10px; }
+            .history-table { font-size: 11px; }
+            .history-table th, .history-table td { padding: 6px 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ warehouse_name }} - 인수증 이력</h1>
+            <div>
+                <a href="/warehouse/{{ warehouse_name }}/access" class="btn btn-secondary">← 재고 관리</a>
+                <a href="/logout" class="btn btn-danger">로그아웃</a>
+            </div>
+        </div>
+
+        {% if receipts %}
+        <div>
+            <p style="color: #666; margin-bottom: 15px;">
+                총 {{ total_count }}건의 인수증 이력 ({{ current_page }}/{{ total_pages }} 페이지)
+            </p>
+            
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>구분</th>
+                        <th>부품명</th>
+                        <th>수량</th>
+                        <th>반출자(소속)</th>
+                        <th>반출자(이름)</th>
+                        <th>인수자(소속)</th>
+                        <th>인수자(이름)</th>
+                        <th>사유</th>
+                        <th>작성자</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for receipt in receipts %}
+                        {% for item in receipt.items %}
+                        <tr>
+                            <td>{{ receipt.date }}</td>
+                            <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
+                                {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
+                            </td>
+                            <td>{{ item.part_name }}</td>
+                            <td>{{ item.quantity }}개</td>
+                            <td>{{ item.deliverer_dept or '-' }}</td>
+                            <td>{{ item.deliverer_name or '-' }}</td>
+                            <td>{{ item.receiver_dept or '-' }}</td>
+                            <td>{{ item.receiver_name or '-' }}</td>
+                            <td>{{ item.purpose or '-' }}</td>
+                            <td>{{ receipt.created_by }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 페이징 -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if current_page > 1 %}
+                <a href="?page=1">&laquo; 처음</a>
+                <a href="?page={{ current_page - 1 }}">&lsaquo; 이전</a>
+            {% endif %}
+            
+            {% for page_num in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3)) %}
+                {% if page_num == current_page %}
+                    <span class="current">{{ page_num }}</span>
+                {% else %}
+                    <a href="?page={{ page_num }}">{{ page_num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if current_page < total_pages %}
+                <a href="?page={{ current_page + 1 }}">다음 &rsaquo;</a>
+                <a href="?page={{ total_pages }}">마지막 &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="no-data">
+            📋 아직 생성된 인수증 이력이 없습니다.
+            <br><br>
+            <a href="/warehouse/{{ warehouse_name }}/access" class="btn btn-secondary">재고 관리로 돌아가기</a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
