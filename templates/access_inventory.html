@@ -471,10 +471,10 @@
         <!-- 모바일용 카드 레이아웃 -->
         <div class="mobile-inventory">
             {% for item in inventory %}
-            <div class="inventory-card">
+            <div class="inventory-card" id="mobile-card-{{ item[0] }}">
                 <div class="card-header">
                     <div class="part-name">{{ item[2] }}</div>
-                    <div class="quantity-display {% if item[3] > 0 %}quantity-positive{% else %}quantity-zero{% endif %}">
+                    <div class="quantity-display {% if item[3] > 0 %}quantity-positive{% else %}quantity-zero{% endif %}" id="mobile-qty-{{ item[0] }}">
                         {{ item[3] }}개
                     </div>
                 </div>
@@ -521,17 +521,17 @@
                     {% endif %}
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="inventory-table-body">
                 {% for item in inventory %}
-                <tr>
+                <tr id="row-{{ item[0] }}">
                     <td><strong>{{ item[2] }}</strong></td>
                     <td>
                         <span id="quantity-{{ item[0] }}" style="font-size: 18px; font-weight: bold; color: {% if item[3] > 0 %}#28a745{% else %}#dc3545{% endif %};">
                             {{ item[3] }}
                         </span>
                     </td>
-                    <td>{{ item[4] or '미설정' }}</td>
-                    <td>{{ item[5][:16] if item[5] else '미설정' }}</td>
+                    <td id="modifier-{{ item[0] }}">{{ item[4] or '미설정' }}</td>
+                    <td id="modified-{{ item[0] }}">{{ item[5][:16] if item[5] else '미설정' }}</td>
                     <td>
                         <a href="/photos/{{ item[0] }}" class="btn btn-info">
                             사진 보기 ({{ item[6] }}장)
@@ -591,7 +591,7 @@
                 </div>
                 <div>
                     <label><strong>구분:</strong></label>
-                    <select id="receiptType" onchange="updatePartsDisplay()">
+                    <select id="receiptType" onchange="updateUserInfo()">
                         <option value="in">입고</option>
                         <option value="out">출고</option>
                     </select>
@@ -663,8 +663,8 @@
             </div>
             
             <div class="modal-buttons">
-                <button class="btn btn-info" onclick="previewReceipt()">미리보기</button>
-                <button class="btn btn-success" onclick="generateReceipt()">JPG 생성</button>
+                <button class="btn btn-success" onclick="applyInventoryChanges()">적용</button>
+                <button class="btn btn-info" onclick="generateReceipt()">JPG 생성</button>
                 <button class="btn btn-secondary" onclick="closeReceiptModal()">취소</button>
             </div>
             
@@ -680,7 +680,13 @@
         let isDrawing = false;
         let delivererSignaturePad, receiverSignaturePad;
 
-        // 인벤토리 데이터 (실제 데이터로 교체 필요)
+        // 현재 사용자 정보 (서버에서 전달받아야 함)
+        const currentUser = {
+            name: "{{ session.get('user_name', '') }}",
+            company: "SK오앤에스"
+        };
+
+        // 인벤토리 데이터
         const inventoryData = [
             {% for item in inventory %}
             {
@@ -844,12 +850,22 @@
                         }
                     }
                     
+                    // 모바일 카드 수량 업데이트
+                    const mobileQty = document.getElementById('mobile-qty-' + itemId);
+                    if (mobileQty) {
+                        mobileQty.textContent = data.new_quantity + '개';
+                        mobileQty.className = data.new_quantity > 0 ? 'quantity-display quantity-positive' : 'quantity-display quantity-zero';
+                    }
+                    
+                    // 수정자와 수정일 업데이트
+                    const modifier = document.getElementById('modifier-' + itemId);
+                    const modified = document.getElementById('modified-' + itemId);
+                    if (modifier) modifier.textContent = currentUser.name;
+                    if (modified) modified.textContent = new Date().toLocaleString('ko-KR').slice(0, 16);
+                    
                     // 성공 메시지
                     const action = changeType === 'in' ? '입고' : '출고';
                     alert(`${action} 처리가 완료되었습니다. 현재 수량: ${data.new_quantity}`);
-                    
-                    // 페이지 새로고침으로 모바일 카드도 업데이트
-                    location.reload();
                 } else {
                     alert('오류: ' + data.message);
                 }
@@ -871,6 +887,9 @@
             document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('receiptModal').style.display = 'block';
             
+            // 초기값으로 입고 선택되므로 사용자 정보 설정
+            updateUserInfo();
+            
             // 서명 패드 다시 초기화
             setTimeout(initializeSignaturePads, 100);
             
@@ -881,6 +900,24 @@
         function closeReceiptModal() {
             document.getElementById('receiptModal').style.display = 'none';
             document.getElementById('receiptPreview').style.display = 'none';
+        }
+
+        function updateUserInfo() {
+            const receiptType = document.getElementById('receiptType').value;
+            
+            if (receiptType === 'in') {
+                // 입고시: 인수자가 현재 사용자
+                document.getElementById('receiverDept').value = currentUser.company;
+                document.getElementById('receiverName').value = currentUser.name;
+                document.getElementById('delivererDept').value = '';
+                document.getElementById('delivererName').value = '';
+            } else {
+                // 출고시: 반출자가 현재 사용자
+                document.getElementById('delivererDept').value = currentUser.company;
+                document.getElementById('delivererName').value = currentUser.name;
+                document.getElementById('receiverDept').value = '';
+                document.getElementById('receiverName').value = '';
+            }
         }
 
         function setupCheckboxEvents() {
@@ -894,10 +931,6 @@
                     }
                 });
             });
-        }
-
-        function updatePartsDisplay() {
-            // 구분 변경시 필요한 경우 추가 로직
         }
 
         function getSelectedParts() {
@@ -1021,6 +1054,35 @@
             const previewDiv = document.getElementById('receiptPreview');
             previewDiv.innerHTML = receiptHTML;
             previewDiv.style.display = 'block';
+        }
+
+        // 새로운 함수: 재고 변경사항 적용
+        function applyInventoryChanges() {
+            if (!validateForm()) return;
+
+            const selectedParts = getSelectedParts();
+            const type = document.getElementById('receiptType').value;
+            
+            // 재고 변경 작업들을 순차적으로 처리
+            let completed = 0;
+            let hasError = false;
+            
+            selectedParts.forEach((part, index) => {
+                updateQuantity(parseInt(part.id), type, part.quantity);
+                completed++;
+                
+                // 모든 작업 완료 후 미리보기 생성
+                if (completed === selectedParts.length && !hasError) {
+                    setTimeout(() => {
+                        previewReceipt();
+                        alert('✅ 재고 변경사항이 적용되었습니다!');
+                    }, 500);
+                }
+            });
+            
+            if (selectedParts.length === 0) {
+                alert('선택된 부품이 없습니다.');
+            }
         }
 
         function generateReceipt() {
