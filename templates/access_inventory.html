@@ -1024,14 +1024,30 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${selectedParts.map((part, index) => `
-                                <tr>
-                                    <td>${index + 1}</td>
-                                    <td>${part.name}</td>
-                                    <td>${part.quantity}개</td>
-                                    <td>현재재고: ${part.currentQty}개</td>
-                                </tr>
-                            `).join('')}
+                            ${selectedParts.map((part, index) => {
+                                const currentQty = parseInt(part.currentQty);
+                                const quantity = parseInt(part.quantity);
+                                let remark = '';
+                                
+                                if (type === 'in') {
+                                    const beforeQty = Math.max(0, currentQty - quantity);
+                                    const afterQty = currentQty;
+                                    remark = `입고전 ${beforeQty}개 → 입고후 ${afterQty}개`;
+                                } else {
+                                    const beforeQty = currentQty + quantity;
+                                    const afterQty = currentQty;
+                                    remark = `출고전 ${beforeQty}개 → 출고후 ${afterQty}개`;
+                                }
+                                
+                                return `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${part.name}</td>
+                                        <td>${part.quantity}개</td>
+                                        <td style="font-family: 'Courier New', monospace; font-size: 12px; color: #495057;">${remark}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
