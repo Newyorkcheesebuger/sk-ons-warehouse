@@ -159,8 +159,8 @@
                 </thead>
                 <tbody>
                     {% for receipt in receipts %}
-                            {% if receipt.items and receipt.items|length > 0 %}
-                                {% for item in receipt.items %}        
+                        {% if receipt.receipt_items and receipt.receipt_items|length > 0 %}
+                            {% for item in receipt.receipt_items %}
                             <tr>
                                 <td>{{ receipt.date }}</td>
                                 <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
@@ -182,7 +182,7 @@
                                 <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
                                     {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
                                 </td>
-                                <td colspan="7">데이터 파싱 오류 - 상세 정보 없음</td>
+                                <td colspan="7">데이터 없음</td>
                                 <td>{{ receipt.created_by }}</td>
                             </tr>
                         {% endif %}
