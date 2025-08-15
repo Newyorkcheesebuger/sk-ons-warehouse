@@ -14,7 +14,7 @@
             font-size: 14px;
         }
         .container { 
-            max-width: 1200px; 
+            max-width: 1400px; 
             margin: 0 auto; 
             background: white; 
             padding: 15px; 
@@ -29,7 +29,7 @@
             flex-wrap: wrap;
         }
         .header h1 { 
-            font-size: 1.5em; 
+            font-size: 1.8em; 
             margin: 0; 
             color: #333;
         }
@@ -42,34 +42,60 @@
             display: inline-block; 
             margin: 2px; 
             font-size: 12px;
+            transition: all 0.3s ease;
         }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
         
-        /* 테이블 스타일 - 엑셀 느낌 */
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* 테이블 스타일 - 엑셀 느낌 개선 */
         .history-table {
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #ccc;
             margin: 20px 0;
             background: white;
+            font-size: 13px;
         }
         .history-table th {
             background: #f8f9fa;
             border: 1px solid #ccc;
-            padding: 10px 8px;
+            padding: 12px 8px;
             text-align: center;
             font-weight: bold;
-            font-size: 13px;
+            font-size: 14px;
             color: #333;
         }
         .history-table td {
             border: 1px solid #ccc;
-            padding: 8px;
+            padding: 10px 8px;
             text-align: center;
-            font-size: 12px;
+            font-size: 13px;
             vertical-align: middle;
         }
+        
+        /* 특정 컬럼 글씨 크기 조정 */
+        .history-table td.date-col {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .history-table td.type-col {
+            font-size: 15px;
+            font-weight: bold;
+        }
+        
+        .history-table td.created-by-col {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
         .history-table tr:nth-child(even) {
             background: #f9f9f9;
         }
@@ -100,8 +126,16 @@
         }
         
         /* 구분 표시 */
-        .type-in { color: #28a745; font-weight: bold; }
-        .type-out { color: #dc3545; font-weight: bold; }
+        .type-in { color: #28a745; }
+        .type-out { color: #dc3545; }
+        
+        /* 비고 스타일 */
+        .remark-col {
+            font-size: 12px;
+            background-color: #f8f9fa;
+            color: #495057;
+            font-family: 'Courier New', monospace;
+        }
         
         /* 빈 데이터 */
         .no-data {
@@ -117,12 +151,33 @@
             color: #856404;
         }
         
+        /* 삭제 버튼 */
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+        
         /* 모바일 반응형 */
         @media (max-width: 768px) {
-            .container { padding: 10px; }
+            .container { padding: 10px; max-width: 100%; }
             .header { flex-direction: column; gap: 10px; }
+            .header h1 { font-size: 1.4em; }
             .history-table { font-size: 11px; }
             .history-table th, .history-table td { padding: 6px 4px; }
+            .history-table td.date-col { font-size: 13px; }
+            .history-table td.type-col { font-size: 13px; }
+            .history-table td.created-by-col { font-size: 12px; }
         }
     </style>
 </head>
@@ -138,8 +193,12 @@
         
         {% if receipts %}
         <div>
-            <p style="color: #666; margin-bottom: 15px;">
-                총 {{ total_count }}건의 인수증 이력 ({{ current_page }}/{{ total_pages }} 페이지)
+            <p style="color: #666; margin-bottom: 15px; font-size: 15px;">
+                📋 총 <strong>{{ total_count }}</strong>건의 인수증 이력 
+                ({{ current_page }}/{{ total_pages }} 페이지)
+                {% if is_admin %}
+                <span style="color: #007bff; margin-left: 10px;">🔧 관리자 모드</span>
+                {% endif %}
             </p>
             
             <table class="history-table">
@@ -154,7 +213,11 @@
                         <th>인수자(소속)</th>
                         <th>인수자(이름)</th>
                         <th>사유</th>
+                        <th>비고</th>
                         <th>작성자</th>
+                        {% if is_admin %}
+                        <th>관리</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -162,18 +225,18 @@
                         {% if receipt.receipt_items and receipt.receipt_items|length > 0 %}
                             {% for item in receipt.receipt_items %}
                             <tr>
-                                <td>{{ receipt.date }}</td>
-                                <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
-                                    {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
+                                <td class="date-col">{{ receipt.date }}</td>
+                                <td class="type-col {% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
+                                    {% if receipt.type == 'in' %}📥 입고{% else %}📤 출고{% endif %}
                                 </td>
-                                <td>
+                                <td style="text-align: left; font-weight: 500;">
                                     {% if item is mapping %}
                                         {{ item.part_name or '부품명 없음' }}
                                     {% else %}
                                         {{ item or '부품명 없음' }}
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td style="font-weight: bold; color: {% if receipt.type == 'in' %}#28a745{% else %}#dc3545{% endif %};">
                                     {% if item is mapping %}
                                         {{ item.quantity or 0 }}개
                                     {% else %}
@@ -208,24 +271,47 @@
                                         -
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td style="text-align: left;">
                                     {% if item is mapping %}
                                         {{ item.purpose or '-' }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
-                                <td>{{ receipt.created_by }}</td>
+                                <td class="remark-col">
+                                    {% if item is mapping %}
+                                        {{ item.remark or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="created-by-col">{{ receipt.created_by }}</td>
+                                {% if is_admin %}
+                                <td>
+                                    {% if loop.first %}
+                                    <button class="delete-btn" onclick="confirmDeleteReceipt({{ receipt.id }}, '{{ receipt.date }}')">
+                                        🗑️ 삭제
+                                    </button>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr class="error-row">
-                                <td>{{ receipt.date }}</td>
-                                <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
-                                    {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
+                                <td class="date-col">{{ receipt.date }}</td>
+                                <td class="type-col {% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
+                                    {% if receipt.type == 'in' %}📥 입고{% else %}📤 출고{% endif %}
                                 </td>
-                                <td colspan="7">데이터 없음</td>
-                                <td>{{ receipt.created_by }}</td>
+                                <td colspan="{% if is_admin %}9{% else %}8{% endif %}">데이터 없음</td>
+                                <td class="created-by-col">{{ receipt.created_by }}</td>
+                                {% if is_admin %}
+                                <td>
+                                    <button class="delete-btn" onclick="confirmDeleteReceipt({{ receipt.id }}, '{{ receipt.date }}')">
+                                        🗑️ 삭제
+                                    </button>
+                                </td>
+                                {% endif %}
                             </tr>
                         {% endif %}
                     {% endfor %}
@@ -267,9 +353,20 @@
         <!-- 디버깅 정보 (개발용) -->
         {% if receipts %}
         <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px; color: #666;">
-            <strong>디버깅 정보:</strong> {{ receipts|length }}개의 인수증 데이터가 로드되었습니다.
+            <strong>시스템 정보:</strong> {{ receipts|length }}개의 인수증 데이터가 로드되었습니다.
+            {% if is_admin %}
+            | 관리자 권한으로 삭제 기능이 활성화되었습니다.
+            {% endif %}
         </div>
         {% endif %}
     </div>
+
+    <script>
+        function confirmDeleteReceipt(receiptId, receiptDate) {
+            if (confirm(`정말로 "${receiptDate}" 인수증을 삭제하시겠습니까?\n\n⚠️ 주의: 이 작업은 되돌릴 수 없습니다.`)) {
+                window.location.href = `/delete_receipt/${receiptId}`;
+            }
+        }
+    </script>
 </body>
 </html>
