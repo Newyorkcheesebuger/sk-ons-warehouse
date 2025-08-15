@@ -663,9 +663,72 @@ def access_inventory(warehouse_name):
         else:
             return redirect('/dashboard')
 
+# app.py의 수정된 부분들만 표시
+
+@app.route('/save_receipt_with_details', methods=['POST'])
+def save_receipt_with_details():
+    """인수증 저장 (상세 정보 포함) - 수정된 버전"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'})
+    
+    try:
+        data = request.get_json()
+        receipt_date = data.get('date')
+        receipt_type = data.get('type')
+        warehouse_name = data.get('warehouse')
+        deliverer_dept = data.get('deliverer_dept')
+        deliverer_name = data.get('deliverer_name')
+        receiver_dept = data.get('receiver_dept')
+        receiver_name = data.get('receiver_name')
+        purpose = data.get('purpose')
+        items = data.get('items', [])
+        
+        print(f"📋 인수증 저장 시도 - 창고: {warehouse_name}, 타입: {receipt_type}, 아이템 수: {len(items)}")
+        
+        # 상세 정보를 포함한 데이터 구조
+        detailed_data = {
+            'warehouse': warehouse_name,
+            'deliverer': {'dept': deliverer_dept, 'name': deliverer_name},
+            'receiver': {'dept': receiver_dept, 'name': receiver_name},
+            'purpose': purpose,
+            'items': items
+        }
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # JSON 형태로 저장 (문자열 변환 시 따옴표 처리 개선)
+        items_data_json = json.dumps(detailed_data, ensure_ascii=False)
+        
+        cursor.execute('''
+            INSERT INTO delivery_receipts 
+            (receipt_date, receipt_type, items_data, created_by) 
+            VALUES (%s, %s, %s, %s)
+        ''', (receipt_date, receipt_type, items_data_json, session['user_name']))
+        
+        conn.commit()
+        
+        # 저장된 ID 가져오기
+        cursor.execute('SELECT LASTVAL()')
+        receipt_id = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        print(f"✅ 인수증 저장 완료 - ID: {receipt_id}")
+        
+        return jsonify({
+            'success': True,
+            'receipt_id': receipt_id,
+            'message': '인수증이 저장되었습니다.'
+        })
+        
+    except Exception as e:
+        print(f"❌ 인수증 저장 오류: {e}")
+        return jsonify({'success': False, 'message': f'인수증 저장 중 오류가 발생했습니다: {str(e)}'})
+
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지"""
+    """인수증 이력 관리 페이지 - 수정된 버전"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -680,37 +743,47 @@ def receipt_history(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 전체 개수 조회
+        print(f"🔍 인수증 이력 조회 - 창고: {warehouse_name}")
+        
+        # 전체 개수 조회 (검색 조건 개선)
         cursor.execute('''
             SELECT COUNT(*)
             FROM delivery_receipts
-            WHERE items_data LIKE %s
-        ''', (f'%{warehouse_name}%',))
+            WHERE items_data::text LIKE %s
+        ''', (f'%"warehouse": "{warehouse_name}"%',))
         
         total_count = cursor.fetchone()[0]
         total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
         
-        # 인수증 이력 조회 (페이징)
+        print(f"📊 찾은 인수증 개수: {total_count}")
+        
+        # 인수증 이력 조회 (페이징) - 최신순 정렬 개선
         cursor.execute('''
             SELECT id, receipt_date, receipt_type, items_data, created_by, created_at
             FROM delivery_receipts
-            WHERE items_data LIKE %s
+            WHERE items_data::text LIKE %s
             ORDER BY receipt_date DESC, created_at DESC
             LIMIT %s OFFSET %s
-        ''', (f'%{warehouse_name}%', per_page, offset))
+        ''', (f'%"warehouse": "{warehouse_name}"%', per_page, offset))
         
         receipts = cursor.fetchall()
         conn.close()
         
-        # items_data 파싱
+        print(f"📋 조회된 인수증: {len(receipts)}개")
+        
+        # items_data 파싱 개선
         parsed_receipts = []
         for receipt in receipts:
             try:
                 items_str = receipt[3]
                 if items_str:
                     try:
-                        # JSON 형태로 파싱 시도
-                        items_data = json.loads(items_str.replace("'", '"'))
+                        # JSON 파싱
+                        if isinstance(items_str, str):
+                            items_data = json.loads(items_str)
+                        else:
+                            items_data = items_str
+                        
                         if isinstance(items_data, dict) and 'items' in items_data:
                             items = items_data['items']
                             deliverer_dept = items_data.get('deliverer', {}).get('dept', '')
@@ -727,25 +800,49 @@ def receipt_history(warehouse_name):
                                 item['receiver_name'] = receiver_name
                                 item['purpose'] = purpose
                         else:
-                            items = []
-                    except:
-                        # 기존 형태 파싱 시도
-                        items_data = eval(items_str)
-                        items = items_data if isinstance(items_data, list) else []
+                            # 레거시 형태 처리
+                            items = items_data if isinstance(items_data, list) else []
+                            for item in items:
+                                if isinstance(item, dict):
+                                    item.setdefault('deliverer_dept', '')
+                                    item.setdefault('deliverer_name', '')
+                                    item.setdefault('receiver_dept', '')
+                                    item.setdefault('receiver_name', '')
+                                    item.setdefault('purpose', '')
+                    except json.JSONDecodeError:
+                        # JSON 파싱 실패 시 문자열로 처리
+                        print(f"⚠️ JSON 파싱 실패: {items_str[:100]}...")
+                        items = []
                 else:
                     items = []
                 
+                # 날짜 형식 처리
+                receipt_date = receipt[1]
+                if hasattr(receipt_date, 'strftime'):
+                    formatted_date = receipt_date.strftime('%Y-%m-%d')
+                else:
+                    formatted_date = str(receipt_date)
+                
+                created_at = receipt[5]
+                if hasattr(created_at, 'strftime'):
+                    formatted_created_at = created_at.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    formatted_created_at = str(created_at)
+                
                 parsed_receipts.append({
                     'id': receipt[0],
-                    'date': receipt[1],
+                    'date': formatted_date,
                     'type': receipt[2],
                     'items': items,
                     'created_by': receipt[4],
-                    'created_at': receipt[5]
+                    'created_at': formatted_created_at
                 })
+                
             except Exception as e:
-                print(f"파싱 오류: {e}")
+                print(f"❌ 인수증 파싱 오류 (ID: {receipt[0]}): {e}")
                 continue
+        
+        print(f"✅ 파싱된 인수증: {len(parsed_receipts)}개")
         
         return render_template('receipt_history.html',
                              warehouse_name=warehouse_name,
@@ -759,53 +856,88 @@ def receipt_history(warehouse_name):
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
 
-@app.route('/save_receipt_with_details', methods=['POST'])
-def save_receipt_with_details():
-    """인수증 저장 (상세 정보 포함)"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': '로그인이 필요합니다.'})
+# 디버깅용 라우트 추가
+@app.route('/debug_receipts/<warehouse_name>')
+def debug_receipts(warehouse_name):
+    """인수증 디버깅 페이지 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
     
     try:
-        data = request.get_json()
-        receipt_date = data.get('date')
-        receipt_type = data.get('type')
-        warehouse_name = data.get('warehouse')
-        deliverer_dept = data.get('deliverer_dept')
-        deliverer_name = data.get('deliverer_name')
-        receiver_dept = data.get('receiver_dept')
-        receiver_name = data.get('receiver_name')
-        purpose = data.get('purpose')
-        items = data.get('items', [])
-        
-        # 상세 정보를 포함한 데이터 구조
-        detailed_data = {
-            'warehouse': warehouse_name,
-            'deliverer': {'dept': deliverer_dept, 'name': deliverer_name},
-            'receiver': {'dept': receiver_dept, 'name': receiver_name},
-            'purpose': purpose,
-            'items': items
-        }
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('''
-            INSERT INTO delivery_receipts 
-            (receipt_date, receipt_type, items_data, created_by) 
-            VALUES (%s, %s, %s, %s)
-        ''', (receipt_date, receipt_type, json.dumps(detailed_data), session['user_name']))
+        # 모든 인수증 조회
+        cursor.execute('SELECT id, receipt_date, receipt_type, items_data, created_by, created_at FROM delivery_receipts ORDER BY created_at DESC LIMIT 50')
+        all_receipts = cursor.fetchall()
         
-        conn.commit()
+        # 특정 창고 인수증 조회
+        cursor.execute('''
+            SELECT id, receipt_date, receipt_type, items_data, created_by, created_at 
+            FROM delivery_receipts 
+            WHERE items_data::text LIKE %s 
+            ORDER BY created_at DESC LIMIT 20
+        ''', (f'%"warehouse": "{warehouse_name}"%',))
+        warehouse_receipts = cursor.fetchall()
+        
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'message': '인수증이 저장되었습니다.'
-        })
+        debug_info = {
+            'warehouse_name': warehouse_name,
+            'total_receipts': len(all_receipts),
+            'warehouse_receipts': len(warehouse_receipts),
+            'all_receipts': all_receipts,
+            'filtered_receipts': warehouse_receipts
+        }
+        
+        return f"""
+        <html>
+        <head><title>인수증 디버깅 - {warehouse_name}</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1>인수증 디버깅 정보</h1>
+            <h2>창고: {warehouse_name}</h2>
+            
+            <h3>📊 통계</h3>
+            <ul>
+                <li>전체 인수증 개수: {debug_info['total_receipts']}</li>
+                <li>{warehouse_name} 창고 인수증: {debug_info['warehouse_receipts']}</li>
+            </ul>
+            
+            <h3>🔍 최근 {warehouse_name} 인수증들</h3>
+            <table border="1" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>ID</th>
+                    <th>날짜</th>
+                    <th>타입</th>
+                    <th>생성자</th>
+                    <th>생성시간</th>
+                    <th>데이터 미리보기</th>
+                </tr>
+                {''.join([f"<tr><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[4]}</td><td>{r[5]}</td><td>{str(r[3])[:100]}...</td></tr>" for r in warehouse_receipts])}
+            </table>
+            
+            <h3>🗂️ 전체 인수증들 (최근 50개)</h3>
+            <table border="1" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>ID</th>
+                    <th>날짜</th>
+                    <th>타입</th>
+                    <th>생성자</th>
+                    <th>생성시간</th>
+                    <th>데이터 미리보기</th>
+                </tr>
+                {''.join([f"<tr><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[4]}</td><td>{r[5]}</td><td>{str(r[3])[:100]}...</td></tr>" for r in all_receipts])}
+            </table>
+            
+            <br><br>
+            <a href="/warehouse/{warehouse_name}/access">← 재고 관리로 돌아가기</a>
+        </body>
+        </html>
+        """
         
     except Exception as e:
-        print(f"❌ 인수증 저장 오류: {e}")
-        return jsonify({'success': False, 'message': '인수증 저장 중 오류가 발생했습니다.'})
+        return f"디버깅 오류: {str(e)}"
 @app.route('/add_access_inventory_item', methods=['POST'])
 def add_access_inventory_item():
     """Access 관리 - 재고 아이템 추가 (관리자 전용)"""
@@ -1749,4 +1881,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
