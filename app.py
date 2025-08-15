@@ -732,7 +732,7 @@ def save_receipt_with_details():
 
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지 - 삭제 기능 및 비고 개선"""
+    """인수증 이력 관리 페이지 - 오류 수정 버전"""
     
     print("현재 세션 키들:", list(session.keys()))
     if 'user_name' not in session and 'user_id' not in session:
@@ -775,6 +775,8 @@ def receipt_history(warehouse_name):
                 else:
                     formatted_date = str(receipt_date) if receipt_date else ''
                 
+                print(f"🔍 처리 중인 인수증: {receipt_id}, 날짜: {formatted_date}, 타입: {receipt_type}")
+                
                 # items_data 안전하게 파싱
                 items_list = []
                 
@@ -785,17 +787,25 @@ def receipt_history(warehouse_name):
                         else:
                             parsed_data = items_data
                         
+                        print(f"📊 파싱된 데이터 타입: {type(parsed_data)}")
+                        
                         # parsed_data가 딕셔너리이고 'items' 키가 있는 경우
                         if isinstance(parsed_data, dict) and 'items' in parsed_data:
                             items_raw = parsed_data['items']
+                            print(f"📦 아이템 개수: {len(items_raw) if isinstance(items_raw, list) else 0}")
+                            
                             if isinstance(items_raw, list):
                                 for item in items_raw:
                                     if isinstance(item, dict):
                                         part_name = item.get('part_name', item.get('name', '알 수 없음'))
                                         quantity = item.get('quantity', item.get('qty', 0))
                                         
-                                        # 비고 생성 (입고/출고 전후 수량)
-                                        remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
+                                        # 비고 생성 (수정된 함수 호출)
+                                        try:
+                                            remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type)
+                                        except Exception as remark_error:
+                                            print(f"비고 생성 실패: {remark_error}")
+                                            remark = f"{receipt_type} {quantity}개"
                                         
                                         items_list.append({
                                             'part_name': part_name,
@@ -821,12 +831,17 @@ def receipt_history(warehouse_name):
                         
                         # parsed_data가 리스트인 경우 (구 형식)
                         elif isinstance(parsed_data, list):
+                            print("📦 구 형식 리스트 데이터 처리")
                             for item in parsed_data:
                                 if isinstance(item, dict):
                                     part_name = item.get('part_name', item.get('name', '알 수 없음'))
                                     quantity = item.get('quantity', item.get('qty', 0))
                                     
-                                    remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
+                                    try:
+                                        remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type)
+                                    except Exception as remark_error:
+                                        print(f"비고 생성 실패: {remark_error}")
+                                        remark = f"{receipt_type} {quantity}개"
                                     
                                     items_list.append({
                                         'part_name': part_name,
@@ -849,19 +864,43 @@ def receipt_history(warehouse_name):
                                         'purpose': '-',
                                         'remark': '-'
                                     })
+                        else:
+                            print(f"⚠️ 알 수 없는 데이터 형식: {type(parsed_data)}")
+                            items_list = [{
+                                'part_name': '알 수 없는 형식',
+                                'quantity': 0,
+                                'deliverer_dept': '-',
+                                'deliverer_name': '-',
+                                'receiver_dept': '-',
+                                'receiver_name': '-',
+                                'purpose': '-',
+                                'remark': '데이터 형식 오류'
+                            }]
                         
                     except (json.JSONDecodeError, TypeError, AttributeError) as e:
-                        print(f"⚠️ items_data 파싱 오류: {e}")
+                        print(f"⚠️ items_data JSON 파싱 오류: {e}")
                         items_list = [{
-                            'part_name': '파싱 오류',
+                            'part_name': 'JSON 파싱 오류',
                             'quantity': 0,
                             'deliverer_dept': '-',
                             'deliverer_name': '-',
                             'receiver_dept': '-',
                             'receiver_name': '-',
                             'purpose': '-',
-                            'remark': '파싱 오류'
+                            'remark': 'JSON 오류'
                         }]
+                else:
+                    print("⚠️ items_data가 비어있음")
+                    items_list = [{
+                        'part_name': '데이터 없음',
+                        'quantity': 0,
+                        'deliverer_dept': '-',
+                        'deliverer_name': '-',
+                        'receiver_dept': '-',
+                        'receiver_name': '-',
+                        'purpose': '-',
+                        'remark': '데이터 없음'
+                    }]
                 
                 receipt_dict = {
                     'id': receipt_id,
@@ -872,28 +911,32 @@ def receipt_history(warehouse_name):
                 }
                 
                 parsed_receipts.append(receipt_dict)
+                print(f"✅ 인수증 {receipt_id} 파싱 완료: {len(items_list)}개 아이템")
                 
             except Exception as e:
-                print(f"⚠️ 인수증 파싱 오류: {e}")
+                print(f"⚠️ 인수증 전체 파싱 오류: {e}")
+                import traceback
+                print(f"상세 오류: {traceback.format_exc()}")
+                
                 parsed_receipts.append({
                     'id': receipt[0] if len(receipt) > 0 else 0,
                     'date': '날짜 오류',
                     'type': 'unknown',
                     'receipt_items': [{
-                        'part_name': '오류 발생',
+                        'part_name': '전체 오류 발생',
                         'quantity': 0,
                         'deliverer_dept': '-',
                         'deliverer_name': '-',
                         'receiver_dept': '-',
                         'receiver_name': '-',
                         'purpose': '-',
-                        'remark': '오류 발생'
+                        'remark': '전체 오류'
                     }],
                     'created_by': '미설정'
                 })
                 continue
         
-        print(f"✅ 파싱 완료: {len(parsed_receipts)}개")
+        print(f"✅ 전체 파싱 완료: {len(parsed_receipts)}개")
         
         template_vars = {
             'warehouse_name': warehouse_name,
@@ -907,7 +950,7 @@ def receipt_history(warehouse_name):
         return render_template('receipt_history.html', **template_vars)
         
     except Exception as e:
-        print(f"❌ 인수증 이력 조회 오류: {e}")
+        print(f"❌ 인수증 이력 조회 전체 오류: {e}")
         import traceback
         print(f"상세 오류: {traceback.format_exc()}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
@@ -943,7 +986,11 @@ def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, 
             
     except Exception as e:
         print(f"비고 생성 오류: {e}")
-        return f"{receipt_type} {quantity}개"
+        if receipt_type == 'in':
+            return f"입고 {quantity}개"
+        else:
+            return f"출고 {quantity}개"
+
         
 def generate_quantity_remark(self, warehouse_name, part_name, quantity, receipt_type, receipt_date):
     """수량 변화 비고 생성 함수"""
@@ -1829,6 +1876,53 @@ def delete_inventory(item_id):
     else:
         return redirect('/dashboard')
 
+
+@app.route('/delete_receipt/<int:receipt_id>')
+def delete_receipt(receipt_id):
+    """인수증 삭제 (관리자 전용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 인수증 정보 조회 (창고명 확인용)
+        cursor.execute('SELECT items_data FROM delivery_receipts WHERE id = %s', (receipt_id,))
+        receipt_info = cursor.fetchone()
+        
+        if receipt_info:
+            # 창고명 추출
+            warehouse_name = "보라매창고"  # 기본값
+            try:
+                items_data = receipt_info[0]
+                if isinstance(items_data, str):
+                    parsed_data = json.loads(items_data)
+                    if isinstance(parsed_data, dict) and 'warehouse' in parsed_data:
+                        warehouse_name = parsed_data['warehouse']
+            except:
+                pass
+            
+            # 인수증 삭제
+            cursor.execute('DELETE FROM delivery_receipts WHERE id = %s', (receipt_id,))
+            conn.commit()
+            flash('인수증이 삭제되었습니다.')
+            
+            conn.close()
+            return redirect(f'/receipt_history/{warehouse_name}')
+        else:
+            flash('삭제할 인수증을 찾을 수 없습니다.')
+            conn.close()
+        
+    except Exception as e:
+        print(f"인수증 삭제 오류: {e}")
+        flash('인수증 삭제 중 오류가 발생했습니다.')
+    
+    return redirect('/admin/dashboard')
+
+
+
 @app.route('/logout')
 def logout():
     """로그아웃"""
@@ -2047,6 +2141,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
