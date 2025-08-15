@@ -730,133 +730,90 @@ def save_receipt_with_details():
 
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지 - 수정된 버전"""
-    if 'user_id' not in session:
+    """인수증 이력 관리 페이지 - 단순화된 버전"""
+    
+    # 세션 체크 개선
+    print("현재 세션 키들:", list(session.keys()))
+    if 'user_name' not in session and 'user_id' not in session:
+        print("❌ 세션 없음 - 로그인 페이지로 리다이렉트")
         return redirect('/')
-
-    if warehouse_name not in WAREHOUSES:
-        return render_template('preparing.html', warehouse_name=warehouse_name)
-
+    
+    print(f"🔍 인수증 이력 조회 시작 - 창고: {warehouse_name}")
+    
     try:
-        page = request.args.get('page', 1, type=int)
-        per_page = 20  # 페이지당 20개씩
-        offset = (page - 1) * per_page
-
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        print(f"🔍 인수증 이력 조회 - 창고: {warehouse_name}")
-        
-        # 전체 개수 조회 (검색 조건 개선)
+        # MySQL 호환 쿼리로 단순화
         cursor.execute('''
-            SELECT COUNT(*)
+            SELECT receipt_date, receipt_type, items_data, created_by, created_at
             FROM delivery_receipts
-            WHERE items_data::text LIKE %s
-        ''', (f'%"warehouse": "{warehouse_name}"%',))
-        
-        total_count = cursor.fetchone()[0]
-        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
-        
-        print(f"📊 찾은 인수증 개수: {total_count}")
-        
-        # 인수증 이력 조회 (페이징) - 최신순 정렬 개선
-        cursor.execute('''
-            SELECT id, receipt_date, receipt_type, items_data, created_by, created_at
-            FROM delivery_receipts
-            WHERE items_data::text LIKE %s
+            WHERE items_data LIKE %s
             ORDER BY receipt_date DESC, created_at DESC
-            LIMIT %s OFFSET %s
-        ''', (f'%"warehouse": "{warehouse_name}"%', per_page, offset))
+            LIMIT 50
+        ''', (f'%{warehouse_name}%',))
         
         receipts = cursor.fetchall()
         conn.close()
         
         print(f"📋 조회된 인수증: {len(receipts)}개")
         
-        # items_data 파싱 개선
+        # 단순한 파싱
         parsed_receipts = []
         for receipt in receipts:
             try:
-                items_str = receipt[3]
-                if items_str:
+                # items_data 파싱 시도
+                items_data = receipt[2]
+                if items_data:
                     try:
-                        # JSON 파싱
-                        if isinstance(items_str, str):
-                            items_data = json.loads(items_str)
+                        if isinstance(items_data, str):
+                            items = json.loads(items_data)
                         else:
-                            items_data = items_str
+                            items = items_data
                         
-                        if isinstance(items_data, dict) and 'items' in items_data:
-                            items = items_data['items']
-                            deliverer_dept = items_data.get('deliverer', {}).get('dept', '')
-                            deliverer_name = items_data.get('deliverer', {}).get('name', '')
-                            receiver_dept = items_data.get('receiver', {}).get('dept', '')
-                            receiver_name = items_data.get('receiver', {}).get('name', '')
-                            purpose = items_data.get('purpose', '')
+                        # 리스트가 아닌 경우 빈 리스트로 처리
+                        if not isinstance(items, list):
+                            items = []
                             
-                            # 각 아이템에 공통 정보 추가
-                            for item in items:
-                                item['deliverer_dept'] = deliverer_dept
-                                item['deliverer_name'] = deliverer_name
-                                item['receiver_dept'] = receiver_dept
-                                item['receiver_name'] = receiver_name
-                                item['purpose'] = purpose
-                        else:
-                            # 레거시 형태 처리
-                            items = items_data if isinstance(items_data, list) else []
-                            for item in items:
-                                if isinstance(item, dict):
-                                    item.setdefault('deliverer_dept', '')
-                                    item.setdefault('deliverer_name', '')
-                                    item.setdefault('receiver_dept', '')
-                                    item.setdefault('receiver_name', '')
-                                    item.setdefault('purpose', '')
                     except json.JSONDecodeError:
-                        # JSON 파싱 실패 시 문자열로 처리
-                        print(f"⚠️ JSON 파싱 실패: {items_str[:100]}...")
+                        print(f"⚠️ JSON 파싱 실패, 빈 리스트로 처리")
                         items = []
                 else:
                     items = []
                 
                 # 날짜 형식 처리
-                receipt_date = receipt[1]
+                receipt_date = receipt[0]
                 if hasattr(receipt_date, 'strftime'):
                     formatted_date = receipt_date.strftime('%Y-%m-%d')
                 else:
-                    formatted_date = str(receipt_date)
+                    formatted_date = str(receipt_date) if receipt_date else ''
                 
-                created_at = receipt[5]
-                if hasattr(created_at, 'strftime'):
-                    formatted_created_at = created_at.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    formatted_created_at = str(created_at)
-                
+                # 단순한 구조로 저장
                 parsed_receipts.append({
-                    'id': receipt[0],
                     'date': formatted_date,
-                    'type': receipt[2],
+                    'type': receipt[1],
                     'items': items,
-                    'created_by': receipt[4],
-                    'created_at': formatted_created_at
+                    'created_by': receipt[3] or '미설정'
                 })
                 
             except Exception as e:
-                print(f"❌ 인수증 파싱 오류 (ID: {receipt[0]}): {e}")
+                print(f"⚠️ 인수증 파싱 오류 건너뛰기: {e}")
                 continue
         
-        print(f"✅ 파싱된 인수증: {len(parsed_receipts)}개")
+        print(f"✅ 파싱 완료: {len(parsed_receipts)}개")
         
         return render_template('receipt_history.html',
                              warehouse_name=warehouse_name,
                              receipts=parsed_receipts,
-                             current_page=page,
-                             total_pages=total_pages,
-                             total_count=total_count)
+                             current_page=1,
+                             total_pages=1,
+                             total_count=len(parsed_receipts))
         
     except Exception as e:
         print(f"❌ 인수증 이력 조회 오류: {e}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
+
 
 # 디버깅용 라우트 추가
 @app.route('/debug_receipts/<warehouse_name>')
@@ -1883,6 +1840,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
