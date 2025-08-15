@@ -71,6 +71,7 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 14px;
+            margin: 0 5px;
         }
         
         .receipt-btn:hover {
@@ -429,9 +430,14 @@
                 📋 인수증 관리
             </h3>
             <p style="margin: 0 0 15px 0; opacity: 0.9;">부품별 인수증을 생성하고 JPG 이미지로 저장됩니다.</p>
-            <button class="receipt-btn" onclick="showReceiptModal()">
-                ➕ 인수증 만들기
-            </button>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="receipt-btn" onclick="showReceiptModal()">
+                    ➕ 인수증 만들기
+                </button>
+                <a href="/receipt_history/{{ warehouse_name }}" class="receipt-btn" style="text-decoration: none;">
+                    📋 이력 관리
+                </a>
+            </div>
         </div>
 
         <!-- 플래시 메시지 -->
@@ -1062,6 +1068,12 @@
 
             const selectedParts = getSelectedParts();
             const type = document.getElementById('receiptType').value;
+            const receiptDate = document.getElementById('receiptDate').value;
+            const delivererDept = document.getElementById('delivererDept').value;
+            const delivererName = document.getElementById('delivererName').value;
+            const receiverDept = document.getElementById('receiverDept').value;
+            const receiverName = document.getElementById('receiverName').value;
+            const purpose = document.getElementById('purpose').value;
             
             // 재고 변경 작업들을 순차적으로 처리
             let completed = 0;
@@ -1071,11 +1083,50 @@
                 updateQuantity(parseInt(part.id), type, part.quantity);
                 completed++;
                 
-                // 모든 작업 완료 후 미리보기 생성
+                // 모든 작업 완료 후 인수증 저장 및 미리보기 생성
                 if (completed === selectedParts.length && !hasError) {
                     setTimeout(() => {
+                        // 인수증 상세 정보 저장
+                        const receiptData = {
+                            date: receiptDate,
+                            type: type,
+                            warehouse: '{{ warehouse_name }}',
+                            deliverer_dept: delivererDept,
+                            deliverer_name: delivererName,
+                            receiver_dept: receiverDept,
+                            receiver_name: receiverName,
+                            purpose: purpose,
+                            items: selectedParts.map(part => ({
+                                part_name: part.name,
+                                quantity: part.quantity,
+                                deliverer_dept: delivererDept,
+                                deliverer_name: delivererName,
+                                receiver_dept: receiverDept,
+                                receiver_name: receiverName,
+                                purpose: purpose
+                            }))
+                        };
+                        
+                        // 서버에 인수증 저장
+                        fetch('/save_receipt_with_details', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(receiptData)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                console.log('인수증 저장 완료');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('인수증 저장 오류:', error);
+                        });
+                        
                         previewReceipt();
-                        alert('✅ 재고 변경사항이 적용되었습니다!');
+                        alert('✅ 재고 변경사항이 적용되고 인수증 이력에 저장되었습니다!');
                     }, 500);
                 }
             });
