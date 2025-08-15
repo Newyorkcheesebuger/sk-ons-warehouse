@@ -111,6 +111,12 @@
             font-size: 16px;
         }
         
+        /* 오류 행 스타일 */
+        .error-row {
+            background-color: #fff3cd !important;
+            color: #856404;
+        }
+        
         /* 모바일 반응형 */
         @media (max-width: 768px) {
             .container { padding: 10px; }
@@ -153,28 +159,39 @@
                 </thead>
                 <tbody>
                     {% for receipt in receipts %}
-                        {% for item in receipt.items %}
-                        <tr>
-                            <td>{{ receipt.date }}</td>
-                            <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
-                                {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
-                            </td>
-                            <td>{{ item.part_name }}</td>
-                            <td>{{ item.quantity }}개</td>
-                            <td>{{ item.deliverer_dept or '-' }}</td>
-                            <td>{{ item.deliverer_name or '-' }}</td>
-                            <td>{{ item.receiver_dept or '-' }}</td>
-                            <td>{{ item.receiver_name or '-' }}</td>
-                            <td>{{ item.purpose or '-' }}</td>
-                            <td>{{ receipt.created_by }}</td>
-                        </tr>
-                        {% endfor %}
+                        {% if receipt.items %}
+                            {% for item in receipt.items %}
+                            <tr>
+                                <td>{{ receipt.date }}</td>
+                                <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
+                                    {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
+                                </td>
+                                <td>{{ item.part_name if item.part_name else item.get('name', '부품명 없음') }}</td>
+                                <td>{{ item.quantity if item.quantity else item.get('qty', 0) }}개</td>
+                                <td>{{ item.get('deliverer_dept', '-') }}</td>
+                                <td>{{ item.get('deliverer_name', '-') }}</td>
+                                <td>{{ item.get('receiver_dept', '-') }}</td>
+                                <td>{{ item.get('receiver_name', '-') }}</td>
+                                <td>{{ item.get('purpose', '-') }}</td>
+                                <td>{{ receipt.created_by }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr class="error-row">
+                                <td>{{ receipt.date }}</td>
+                                <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
+                                    {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
+                                </td>
+                                <td colspan="7">데이터 파싱 오류 - 상세 정보 없음</td>
+                                <td>{{ receipt.created_by }}</td>
+                            </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         
-        <!-- 페이징 -->
+        <!-- 페이징 (단순화된 버전) -->
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if current_page > 1 %}
@@ -202,6 +219,13 @@
             📋 아직 생성된 인수증 이력이 없습니다.
             <br><br>
             <a href="/warehouse/{{ warehouse_name }}/access" class="btn btn-secondary">재고 관리로 돌아가기</a>
+        </div>
+        {% endif %}
+        
+        <!-- 디버깅 정보 (개발용) -->
+        {% if receipts %}
+        <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px; color: #666;">
+            <strong>디버깅 정보:</strong> {{ receipts|length }}개의 인수증 데이터가 로드되었습니다.
         </div>
         {% endif %}
     </div>
