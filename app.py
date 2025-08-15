@@ -744,6 +744,7 @@ def receipt_history(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # ID 포함하여 조회 (삭제 기능용)
         cursor.execute('''
             SELECT id, receipt_date, receipt_type, items_data, created_by, created_at
             FROM delivery_receipts
@@ -762,15 +763,19 @@ def receipt_history(warehouse_name):
         
         for receipt in receipts:
             try:
+                receipt_id = receipt[0]
+                receipt_date = receipt[1]
+                receipt_type = receipt[2]
+                items_data = receipt[3]
+                created_by = receipt[4]
+                
                 # 날짜 처리
-                receipt_date = receipt[1]  # id가 추가되어 인덱스 변경
                 if hasattr(receipt_date, 'strftime'):
                     formatted_date = receipt_date.strftime('%Y-%m-%d')
                 else:
                     formatted_date = str(receipt_date) if receipt_date else ''
                 
                 # items_data 안전하게 파싱
-                items_data = receipt[3]  # 인덱스 변경
                 items_list = []
                 
                 if items_data:
@@ -786,13 +791,11 @@ def receipt_history(warehouse_name):
                             if isinstance(items_raw, list):
                                 for item in items_raw:
                                     if isinstance(item, dict):
-                                        # 현재 재고량 조회하여 비고 생성
                                         part_name = item.get('part_name', item.get('name', '알 수 없음'))
                                         quantity = item.get('quantity', item.get('qty', 0))
-                                        receipt_type = receipt[2]  # 인덱스 변경
                                         
                                         # 비고 생성 (입고/출고 전후 수량)
-                                        remark = self.generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
+                                        remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
                                         
                                         items_list.append({
                                             'part_name': part_name,
@@ -802,7 +805,7 @@ def receipt_history(warehouse_name):
                                             'receiver_dept': item.get('receiver_dept', '-'),
                                             'receiver_name': item.get('receiver_name', '-'),
                                             'purpose': item.get('purpose', '-'),
-                                            'remark': remark  # 새로운 비고 필드
+                                            'remark': remark
                                         })
                                     else:
                                         items_list.append({
@@ -815,15 +818,15 @@ def receipt_history(warehouse_name):
                                             'purpose': '-',
                                             'remark': '-'
                                         })
+                        
                         # parsed_data가 리스트인 경우 (구 형식)
                         elif isinstance(parsed_data, list):
                             for item in parsed_data:
                                 if isinstance(item, dict):
                                     part_name = item.get('part_name', item.get('name', '알 수 없음'))
                                     quantity = item.get('quantity', item.get('qty', 0))
-                                    receipt_type = receipt[2]
                                     
-                                    remark = self.generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
+                                    remark = generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, formatted_date)
                                     
                                     items_list.append({
                                         'part_name': part_name,
@@ -861,11 +864,11 @@ def receipt_history(warehouse_name):
                         }]
                 
                 receipt_dict = {
-                    'id': receipt[0],  # 삭제용 ID 추가
+                    'id': receipt_id,
                     'date': formatted_date,
-                    'type': receipt[2] or 'unknown',
+                    'type': receipt_type or 'unknown',
                     'receipt_items': items_list,
-                    'created_by': receipt[4] or '미설정'  # 인덱스 변경
+                    'created_by': created_by or '미설정'
                 }
                 
                 parsed_receipts.append(receipt_dict)
@@ -898,7 +901,7 @@ def receipt_history(warehouse_name):
             'current_page': 1,
             'total_pages': 1,
             'total_count': len(parsed_receipts),
-            'is_admin': session.get('is_admin', False)  # 관리자 권한 추가
+            'is_admin': session.get('is_admin', False)
         }
         
         return render_template('receipt_history.html', **template_vars)
@@ -909,7 +912,39 @@ def receipt_history(warehouse_name):
         print(f"상세 오류: {traceback.format_exc()}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
-
+        
+def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, receipt_date):
+    """수량 변화 비고 생성 함수"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 현재 재고량 조회
+        cursor.execute('''
+            SELECT quantity FROM inventory 
+            WHERE warehouse = %s AND part_name = %s AND category = %s
+        ''', (warehouse_name, part_name, "기타"))
+        
+        result = cursor.fetchone()
+        current_qty = result[0] if result else 0
+        
+        conn.close()
+        
+        if receipt_type == 'in':
+            # 입고: 현재 수량에서 입고량을 뺀 것이 입고 전 수량
+            before_qty = max(0, current_qty - quantity)
+            after_qty = current_qty
+            return f"입고전 {before_qty}개 → 입고후 {after_qty}개"
+        else:
+            # 출고: 현재 수량에 출고량을 더한 것이 출고 전 수량
+            before_qty = current_qty + quantity
+            after_qty = current_qty
+            return f"출고전 {before_qty}개 → 출고후 {after_qty}개"
+            
+    except Exception as e:
+        print(f"비고 생성 오류: {e}")
+        return f"{receipt_type} {quantity}개"
+        
 def generate_quantity_remark(self, warehouse_name, part_name, quantity, receipt_type, receipt_date):
     """수량 변화 비고 생성 함수"""
     try:
@@ -942,6 +977,7 @@ def generate_quantity_remark(self, warehouse_name, part_name, quantity, receipt_
         print(f"비고 생성 오류: {e}")
         return f"{receipt_type} {quantity}개"
 
+# 3. 새로운 삭제 라우트 추가
 @app.route('/delete_receipt/<int:receipt_id>')
 def delete_receipt(receipt_id):
     """인수증 삭제 (관리자 전용)"""
@@ -2011,6 +2047,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
