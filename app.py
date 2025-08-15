@@ -1005,7 +1005,7 @@ def debug_receipts(warehouse_name):
         cursor = conn.cursor()
         
         # 모든 인수증 조회
-        cursor.execute('SELECT id, receipt_date, receipt_type, items_data, created_by, created_at FROM delivery_receipts ORDER BY created_at DESC LIMIT 50')
+        cursor.execute('SELECT id, receipt_date, receipt_type, items_data, created_by, created_at FROM delivery_receipts ORDER BY created_at DESC LIMIT 20')
         all_receipts = cursor.fetchall()
         
         # 특정 창고 인수증 조회
@@ -2064,6 +2064,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
