@@ -730,9 +730,9 @@ def save_receipt_with_details():
 
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지 - 단순화된 버전"""
+    """인수증 이력 관리 페이지 - 오류 수정 버전"""
     
-    # 세션 체크 개선
+    # 세션 체크
     print("현재 세션 키들:", list(session.keys()))
     if 'user_name' not in session and 'user_id' not in session:
         print("❌ 세션 없음 - 로그인 페이지로 리다이렉트")
@@ -744,7 +744,7 @@ def receipt_history(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # MySQL 호환 쿼리로 단순화
+        # MySQL 호환 쿼리
         cursor.execute('''
             SELECT receipt_date, receipt_type, items_data, created_by, created_at
             FROM delivery_receipts
@@ -758,12 +758,14 @@ def receipt_history(warehouse_name):
         
         print(f"📋 조회된 인수증: {len(receipts)}개")
         
-        # 단순한 파싱
+        # 안전한 파싱
         parsed_receipts = []
         for receipt in receipts:
             try:
-                # items_data 파싱 시도
+                # items_data 파싱
                 items_data = receipt[2]
+                items = []
+                
                 if items_data:
                     try:
                         if isinstance(items_data, str):
@@ -771,30 +773,30 @@ def receipt_history(warehouse_name):
                         else:
                             items = items_data
                         
-                        # 리스트가 아닌 경우 빈 리스트로 처리
+                        # 리스트 타입 확인
                         if not isinstance(items, list):
                             items = []
                             
-                    except json.JSONDecodeError:
-                        print(f"⚠️ JSON 파싱 실패, 빈 리스트로 처리")
+                    except (json.JSONDecodeError, TypeError):
+                        print(f"⚠️ JSON 파싱 실패")
                         items = []
-                else:
-                    items = []
                 
-                # 날짜 형식 처리
+                # 날짜 처리
                 receipt_date = receipt[0]
                 if hasattr(receipt_date, 'strftime'):
                     formatted_date = receipt_date.strftime('%Y-%m-%d')
                 else:
                     formatted_date = str(receipt_date) if receipt_date else ''
                 
-                # 단순한 구조로 저장
-                parsed_receipts.append({
+                # 안전한 딕셔너리 생성
+                receipt_dict = {
                     'date': formatted_date,
-                    'type': receipt[1],
+                    'type': receipt[1] or 'unknown',
                     'items': items,
                     'created_by': receipt[3] or '미설정'
-                })
+                }
+                
+                parsed_receipts.append(receipt_dict)
                 
             except Exception as e:
                 print(f"⚠️ 인수증 파싱 오류 건너뛰기: {e}")
@@ -802,17 +804,31 @@ def receipt_history(warehouse_name):
         
         print(f"✅ 파싱 완료: {len(parsed_receipts)}개")
         
-        return render_template('receipt_history.html',
-                             warehouse_name=warehouse_name,
-                             receipts=parsed_receipts,
-                             current_page=1,
-                             total_pages=1,
-                             total_count=len(parsed_receipts))
+        # 안전한 변수 설정
+        total_count = len(parsed_receipts)
+        current_page = 1
+        total_pages = 1
+        
+        # 템플릿 변수 안전 확인
+        template_vars = {
+            'warehouse_name': warehouse_name,
+            'receipts': parsed_receipts,
+            'current_page': current_page,
+            'total_pages': total_pages,
+            'total_count': total_count
+        }
+        
+        print(f"🎯 템플릿 변수 준비 완료: {total_count}개 데이터")
+        
+        return render_template('receipt_history.html', **template_vars)
         
     except Exception as e:
         print(f"❌ 인수증 이력 조회 오류: {e}")
+        import traceback
+        print(f"상세 오류: {traceback.format_exc()}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
+
 
 
 # 디버깅용 라우트 추가
@@ -1840,6 +1856,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
