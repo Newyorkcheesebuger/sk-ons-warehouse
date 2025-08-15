@@ -750,7 +750,7 @@ def receipt_history(warehouse_name):
             FROM delivery_receipts
             WHERE items_data LIKE %s
             ORDER BY receipt_date DESC, created_at DESC
-            LIMIT 50
+            LIMIT 20
         ''', (f'%{warehouse_name}%',))
         
         receipts = cursor.fetchall()
@@ -2064,6 +2064,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
