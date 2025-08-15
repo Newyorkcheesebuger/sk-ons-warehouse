@@ -730,12 +730,10 @@ def save_receipt_with_details():
 
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지 - 오류 수정 버전"""
+    """인수증 이력 관리 페이지 - 오류 완전 수정 버전"""
     
-    # 세션 체크
     print("현재 세션 키들:", list(session.keys()))
     if 'user_name' not in session and 'user_id' not in session:
-        print("❌ 세션 없음 - 로그인 페이지로 리다이렉트")
         return redirect('/')
     
     print(f"🔍 인수증 이력 조회 시작 - 창고: {warehouse_name}")
@@ -744,7 +742,6 @@ def receipt_history(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # MySQL 호환 쿼리
         cursor.execute('''
             SELECT receipt_date, receipt_type, items_data, created_by, created_at
             FROM delivery_receipts
@@ -758,29 +755,34 @@ def receipt_history(warehouse_name):
         
         print(f"📋 조회된 인수증: {len(receipts)}개")
         
-        # 안전한 파싱
+        # 안전한 파싱 - items 함수 충돌 방지
         parsed_receipts = []
+        
+        def safe_get_items(items_data):
+            """items 데이터를 안전하게 추출하는 함수"""
+            if not items_data:
+                return []
+            
+            try:
+                if isinstance(items_data, str):
+                    parsed = json.loads(items_data)
+                else:
+                    parsed = items_data
+                
+                # 함수가 아닌 iterable한 객체만 반환
+                if callable(parsed):
+                    return []
+                
+                if hasattr(parsed, '__iter__') and not isinstance(parsed, str):
+                    return list(parsed)  # 리스트로 변환하여 안전하게 반환
+                
+                return []
+                
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
         for receipt in receipts:
             try:
-                # items_data 파싱
-                items_data = receipt[2]
-                items = []
-                
-                if items_data:
-                    try:
-                        if isinstance(items_data, str):
-                            items = json.loads(items_data)
-                        else:
-                            items = items_data
-                        
-                        # 리스트 타입 확인
-                        if not isinstance(items, list):
-                            items = []
-                            
-                    except (json.JSONDecodeError, TypeError):
-                        print(f"⚠️ JSON 파싱 실패")
-                        items = []
-                
                 # 날짜 처리
                 receipt_date = receipt[0]
                 if hasattr(receipt_date, 'strftime'):
@@ -788,37 +790,32 @@ def receipt_history(warehouse_name):
                 else:
                     formatted_date = str(receipt_date) if receipt_date else ''
                 
-                # 안전한 딕셔너리 생성
+                # 안전한 items 데이터 추출
+                items_list = safe_get_items(receipt[2])
+                
+                # 딕셔너리 키 이름을 'receipt_items'로 변경하여 dict.items와 충돌 방지
                 receipt_dict = {
                     'date': formatted_date,
                     'type': receipt[1] or 'unknown',
-                    'items': items,
+                    'receipt_items': items_list,  # 'items' 대신 'receipt_items' 사용
                     'created_by': receipt[3] or '미설정'
                 }
                 
                 parsed_receipts.append(receipt_dict)
                 
             except Exception as e:
-                print(f"⚠️ 인수증 파싱 오류 건너뛰기: {e}")
+                print(f"⚠️ 인수증 파싱 오류: {e}")
                 continue
         
         print(f"✅ 파싱 완료: {len(parsed_receipts)}개")
         
-        # 안전한 변수 설정
-        total_count = len(parsed_receipts)
-        current_page = 1
-        total_pages = 1
-        
-        # 템플릿 변수 안전 확인
         template_vars = {
             'warehouse_name': warehouse_name,
             'receipts': parsed_receipts,
-            'current_page': current_page,
-            'total_pages': total_pages,
-            'total_count': total_count
+            'current_page': 1,
+            'total_pages': 1,
+            'total_count': len(parsed_receipts)
         }
-        
-        print(f"🎯 템플릿 변수 준비 완료: {total_count}개 데이터")
         
         return render_template('receipt_history.html', **template_vars)
         
@@ -1856,6 +1853,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
