@@ -730,7 +730,7 @@ def save_receipt_with_details():
 
 @app.route('/receipt_history/<warehouse_name>')
 def receipt_history(warehouse_name):
-    """인수증 이력 관리 페이지 - 오류 완전 수정 버전"""
+    """인수증 이력 관리 페이지 - 완전히 수정된 버전"""
     
     print("현재 세션 키들:", list(session.keys()))
     if 'user_name' not in session and 'user_id' not in session:
@@ -755,31 +755,8 @@ def receipt_history(warehouse_name):
         
         print(f"📋 조회된 인수증: {len(receipts)}개")
         
-        # 안전한 파싱 - items 함수 충돌 방지
+        # 안전한 파싱 - 완전히 새로 작성
         parsed_receipts = []
-        
-        def safe_get_items(items_data):
-            """items 데이터를 안전하게 추출하는 함수"""
-            if not items_data:
-                return []
-            
-            try:
-                if isinstance(items_data, str):
-                    parsed = json.loads(items_data)
-                else:
-                    parsed = items_data
-                
-                # 함수가 아닌 iterable한 객체만 반환
-                if callable(parsed):
-                    return []
-                
-                if hasattr(parsed, '__iter__') and not isinstance(parsed, str):
-                    return list(parsed)  # 리스트로 변환하여 안전하게 반환
-                
-                return []
-                
-            except (json.JSONDecodeError, TypeError):
-                return []
         
         for receipt in receipts:
             try:
@@ -790,14 +767,85 @@ def receipt_history(warehouse_name):
                 else:
                     formatted_date = str(receipt_date) if receipt_date else ''
                 
-                # 안전한 items 데이터 추출
-                items_list = safe_get_items(receipt[2])
+                # items_data 안전하게 파싱
+                items_data = receipt[2]
+                items_list = []
                 
-                # 딕셔너리 키 이름을 'receipt_items'로 변경하여 dict.items와 충돌 방지
+                if items_data:
+                    try:
+                        if isinstance(items_data, str):
+                            parsed_data = json.loads(items_data)
+                        else:
+                            parsed_data = items_data
+                        
+                        # parsed_data가 딕셔너리이고 'items' 키가 있는 경우
+                        if isinstance(parsed_data, dict) and 'items' in parsed_data:
+                            items_raw = parsed_data['items']
+                            if isinstance(items_raw, list):
+                                for item in items_raw:
+                                    if isinstance(item, dict):
+                                        # 딕셔너리 형태의 아이템
+                                        items_list.append({
+                                            'part_name': item.get('part_name', item.get('name', '알 수 없음')),
+                                            'quantity': item.get('quantity', item.get('qty', 0)),
+                                            'deliverer_dept': item.get('deliverer_dept', '-'),
+                                            'deliverer_name': item.get('deliverer_name', '-'),
+                                            'receiver_dept': item.get('receiver_dept', '-'),
+                                            'receiver_name': item.get('receiver_name', '-'),
+                                            'purpose': item.get('purpose', '-')
+                                        })
+                                    else:
+                                        # 문자열이나 다른 형태의 아이템
+                                        items_list.append({
+                                            'part_name': str(item),
+                                            'quantity': 0,
+                                            'deliverer_dept': '-',
+                                            'deliverer_name': '-',
+                                            'receiver_dept': '-',
+                                            'receiver_name': '-',
+                                            'purpose': '-'
+                                        })
+                        # parsed_data가 리스트인 경우 (구 형식)
+                        elif isinstance(parsed_data, list):
+                            for item in parsed_data:
+                                if isinstance(item, dict):
+                                    items_list.append({
+                                        'part_name': item.get('part_name', item.get('name', '알 수 없음')),
+                                        'quantity': item.get('quantity', item.get('qty', 0)),
+                                        'deliverer_dept': item.get('deliverer_dept', '-'),
+                                        'deliverer_name': item.get('deliverer_name', '-'),
+                                        'receiver_dept': item.get('receiver_dept', '-'),
+                                        'receiver_name': item.get('receiver_name', '-'),
+                                        'purpose': item.get('purpose', '-')
+                                    })
+                                else:
+                                    items_list.append({
+                                        'part_name': str(item),
+                                        'quantity': 0,
+                                        'deliverer_dept': '-',
+                                        'deliverer_name': '-',
+                                        'receiver_dept': '-',
+                                        'receiver_name': '-',
+                                        'purpose': '-'
+                                    })
+                        
+                    except (json.JSONDecodeError, TypeError, AttributeError) as e:
+                        print(f"⚠️ items_data 파싱 오류: {e}")
+                        # 파싱 실패 시 기본값
+                        items_list = [{
+                            'part_name': '파싱 오류',
+                            'quantity': 0,
+                            'deliverer_dept': '-',
+                            'deliverer_name': '-',
+                            'receiver_dept': '-',
+                            'receiver_name': '-',
+                            'purpose': '-'
+                        }]
+                
                 receipt_dict = {
                     'date': formatted_date,
                     'type': receipt[1] or 'unknown',
-                    'receipt_items': items_list,  # 'items' 대신 'receipt_items' 사용
+                    'receipt_items': items_list,  # 안전하게 파싱된 아이템들
                     'created_by': receipt[3] or '미설정'
                 }
                 
@@ -805,6 +853,21 @@ def receipt_history(warehouse_name):
                 
             except Exception as e:
                 print(f"⚠️ 인수증 파싱 오류: {e}")
+                # 오류 발생 시에도 기본 구조 유지
+                parsed_receipts.append({
+                    'date': '날짜 오류',
+                    'type': 'unknown',
+                    'receipt_items': [{
+                        'part_name': '오류 발생',
+                        'quantity': 0,
+                        'deliverer_dept': '-',
+                        'deliverer_name': '-',
+                        'receiver_dept': '-',
+                        'receiver_name': '-',
+                        'purpose': '-'
+                    }],
+                    'created_by': '미설정'
+                })
                 continue
         
         print(f"✅ 파싱 완료: {len(parsed_receipts)}개")
@@ -825,7 +888,6 @@ def receipt_history(warehouse_name):
         print(f"상세 오류: {traceback.format_exc()}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
-
 
 
 # 디버깅용 라우트 추가
@@ -1853,6 +1915,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
