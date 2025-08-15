@@ -956,8 +956,8 @@ def receipt_history(warehouse_name):
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
         return redirect(f'/warehouse/{warehouse_name}/access')
         
-def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, receipt_date):
-    """수량 변화 비고 생성 함수"""
+def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type):
+    """수량 변화 비고 생성 함수 - 올바른 버전"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -990,40 +990,7 @@ def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type, 
             return f"입고 {quantity}개"
         else:
             return f"출고 {quantity}개"
-
         
-def generate_quantity_remark(self, warehouse_name, part_name, quantity, receipt_type, receipt_date):
-    """수량 변화 비고 생성 함수"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 현재 재고량 조회
-        cursor.execute('''
-            SELECT quantity FROM inventory 
-            WHERE warehouse = %s AND part_name = %s AND category = %s
-        ''', (warehouse_name, part_name, "기타"))
-        
-        result = cursor.fetchone()
-        current_qty = result[0] if result else 0
-        
-        conn.close()
-        
-        if receipt_type == 'in':
-            # 입고: 현재 수량에서 입고량을 뺀 것이 입고 전 수량
-            before_qty = current_qty - quantity
-            after_qty = current_qty
-            return f"입고전 {before_qty}개 → 입고후 {after_qty}개"
-        else:
-            # 출고: 현재 수량에 출고량을 더한 것이 출고 전 수량
-            before_qty = current_qty + quantity
-            after_qty = current_qty
-            return f"출고전 {before_qty}개 → 출고후 {after_qty}개"
-            
-    except Exception as e:
-        print(f"비고 생성 오류: {e}")
-        return f"{receipt_type} {quantity}개"
-
 # 3. 새로운 삭제 라우트 추가
 @app.route('/delete_receipt/<int:receipt_id>')
 def delete_receipt(receipt_id):
@@ -2141,6 +2108,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
