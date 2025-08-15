@@ -166,13 +166,55 @@
                                 <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
                                     {% if receipt.type == 'in' %}입고{% else %}출고{% endif %}
                                 </td>
-                                <td>{{ item.part_name if item.part_name else item.get('name', '부품명 없음') }}</td>
-                                <td>{{ item.quantity if item.quantity else item.get('qty', 0) }}개</td>
-                                <td>{{ item.get('deliverer_dept', '-') }}</td>
-                                <td>{{ item.get('deliverer_name', '-') }}</td>
-                                <td>{{ item.get('receiver_dept', '-') }}</td>
-                                <td>{{ item.get('receiver_name', '-') }}</td>
-                                <td>{{ item.get('purpose', '-') }}</td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.part_name or '부품명 없음' }}
+                                    {% else %}
+                                        {{ item or '부품명 없음' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.quantity or 0 }}개
+                                    {% else %}
+                                        0개
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.deliverer_dept or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.deliverer_name or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.receiver_dept or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.receiver_name or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item is mapping %}
+                                        {{ item.purpose or '-' }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
                                 <td>{{ receipt.created_by }}</td>
                             </tr>
                             {% endfor %}
