@@ -159,8 +159,8 @@
                 </thead>
                 <tbody>
                     {% for receipt in receipts %}
-                        {% if receipt.items %}
-                            {% for item in receipt.items %}
+                            {% if receipt.items and receipt.items|length > 0 %}
+                                {% for item in receipt.items %}        
                             <tr>
                                 <td>{{ receipt.date }}</td>
                                 <td class="{% if receipt.type == 'in' %}type-in{% else %}type-out{% endif %}">
