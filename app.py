@@ -991,50 +991,6 @@ def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type):
         else:
             return f"출고 {quantity}개"
         
-# 3. 새로운 삭제 라우트 추가
-@app.route('/delete_receipt/<int:receipt_id>')
-def delete_receipt(receipt_id):
-    """인수증 삭제 (관리자 전용)"""
-    if 'user_id' not in session or not session.get('is_admin'):
-        flash('관리자 권한이 필요합니다.')
-        return redirect('/')
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 인수증 정보 조회 (창고명 확인용)
-        cursor.execute('SELECT items_data FROM delivery_receipts WHERE id = %s', (receipt_id,))
-        receipt_info = cursor.fetchone()
-        
-        if receipt_info:
-            # 창고명 추출
-            warehouse_name = "보라매창고"  # 기본값
-            try:
-                items_data = receipt_info[0]
-                if isinstance(items_data, str):
-                    parsed_data = json.loads(items_data)
-                    if isinstance(parsed_data, dict) and 'warehouse' in parsed_data:
-                        warehouse_name = parsed_data['warehouse']
-            except:
-                pass
-            
-            # 인수증 삭제
-            cursor.execute('DELETE FROM delivery_receipts WHERE id = %s', (receipt_id,))
-            conn.commit()
-            flash('인수증이 삭제되었습니다.')
-            
-            conn.close()
-            return redirect(f'/receipt_history/{warehouse_name}')
-        else:
-            flash('삭제할 인수증을 찾을 수 없습니다.')
-            conn.close()
-        
-    except Exception as e:
-        print(f"인수증 삭제 오류: {e}")
-        flash('인수증 삭제 중 오류가 발생했습니다.')
-    
-    return redirect('/admin/dashboard')
 
 # 디버깅용 라우트 추가
 @app.route('/debug_receipts/<warehouse_name>')
@@ -2108,6 +2064,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
