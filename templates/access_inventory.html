@@ -48,6 +48,7 @@
         .btn-success { background: #28a745; color: white; }
         .btn-danger { background: #dc3545; color: white; }
         .btn-warning { background: #ffc107; color: #212529; }
+        .btn-info { background: #17a2b8; color: white; }
         
         /* 테이블 스타일 */
         .inventory-table {
@@ -72,6 +73,37 @@
         }
         .inventory-table tr:hover {
             background: #f0f0f0;
+        }
+        
+        /* 사진 썸네일 스타일 */
+        .photo-thumbnail {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+        }
+
+        /* 사진 모달 스타일 */
+        .photo-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            cursor: pointer;
+        }
+        .photo-modal img {
+            display: block;
+            margin: auto;
+            max-width: 90%;
+            max-height: 90%;
+            margin-top: 5%;
+            border-radius: 8px;
         }
         
         /* 모달 스타일 */
@@ -227,7 +259,7 @@
             <h1>{{ warehouse_name }} - 부품 재고</h1>
             <div>
                 <button onclick="showReceiptModal()" class="btn btn-primary">📋 인수증 만들기</button>
-                <a href="/receipt_history/{{ warehouse_name }}" class="btn btn-secondary">📊 이력 관리</a>
+                <a href="/receipt_history/{{ warehouse_name }}" class="btn btn-info">📊 이력 관리</a>
                 <a href="/warehouse/{{ warehouse_name }}" class="btn btn-secondary">← 메인으로</a>
                 <a href="/logout" class="btn btn-danger">로그아웃</a>
             </div>
@@ -246,6 +278,7 @@
                     <th>부품명</th>
                     <th>현재 수량</th>
                     <th>위치</th>
+                    <th>사진</th>
                     <th>수정자</th>
                     <th>수정일</th>
                     <th>관리</th>
@@ -263,12 +296,21 @@
                         </span>개
                     </td>
                     <td>{{ item[4] or '-' }}</td>
+                    <td>
+                        {% if item[5] %}
+                            <img src="{{ item[5] }}" alt="부품 사진" class="photo-thumbnail" onclick="showPhotoModal('{{ item[5] }}')">
+                        {% else %}
+                            <span style="color: #999;">사진 없음</span>
+                        {% endif %}
+                    </td>
                     <td id="modifier-{{ item[0] }}">{{ item[6] or '-' }}</td>
                     <td id="modified-{{ item[0] }}">{{ item[7].strftime('%m-%d %H:%M') if item[7] else '-' }}</td>
                     <td>
                         <button onclick="showQuantityModal({{ item[0] }}, 'in', '{{ item[2] }}')" class="btn btn-success">입고</button>
                         <button onclick="showQuantityModal({{ item[0] }}, 'out', '{{ item[2] }}')" class="btn btn-warning">출고</button>
+                        {% if session.get('user_role') == 'admin' %}
                         <button onclick="confirmDelete({{ item[0] }}, '{{ item[2] }}')" class="btn btn-danger">삭제</button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -281,6 +323,11 @@
             <a href="/warehouse/{{ warehouse_name }}" class="btn btn-primary">새 부품 추가하기</a>
         </div>
         {% endif %}
+    </div>
+
+    <!-- 사진 확대 모달 -->
+    <div id="photoModal" class="photo-modal" onclick="closePhotoModal()">
+        <img id="modalImage" src="" alt="확대된 사진">
     </div>
 
     <!-- 수량 변경 모달 -->
@@ -406,25 +453,22 @@
         let currentItemId = null;
         let currentChangeType = null;
         let currentItemName = null;
-        let isDrawing = false;
-        let delivererSignaturePad, receiverSignaturePad;
 
-        // 현재 사용자 정보 (서버에서 전달받아야 함)
+        // 현재 사용자 정보
         const currentUser = {
             name: "{{ session.get('user_name', '') }}",
             company: "SK오앤에스"
         };
 
-        // 인벤토리 데이터
-        const inventoryData = [
-            {% for item in inventory %}
-            {
-                id: {{ item[0] }},
-                name: "{{ item[2] }}",
-                quantity: {{ item[3] }}
-            }{% if not loop.last %},{% endif %}
-            {% endfor %}
-        ];
+        // 사진 모달 함수들
+        function showPhotoModal(imageSrc) {
+            document.getElementById('modalImage').src = imageSrc;
+            document.getElementById('photoModal').style.display = 'block';
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photoModal').style.display = 'none';
+        }
 
         // 페이지 로드 시 서명 패드 초기화
         document.addEventListener('DOMContentLoaded', function() {
@@ -495,13 +539,10 @@
                 isDrawing = false;
             }
 
-            // 마우스 이벤트
             canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
             canvas.addEventListener('mouseup', stopDrawing);
             canvas.addEventListener('mouseout', stopDrawing);
-
-            // 터치 이벤트
             canvas.addEventListener('touchstart', startDrawing);
             canvas.addEventListener('touchmove', draw);
             canvas.addEventListener('touchend', stopDrawing);
@@ -589,14 +630,8 @@
         function showReceiptModal() {
             document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('receiptModal').style.display = 'block';
-            
-            // 초기값으로 입고 선택되므로 사용자 정보 설정
             updateUserInfo();
-            
-            // 서명 패드 다시 초기화
             setTimeout(initializeSignaturePads, 100);
-            
-            // 체크박스 이벤트 설정
             setupCheckboxEvents();
         }
 
@@ -609,13 +644,11 @@
             const receiptType = document.getElementById('receiptType').value;
             
             if (receiptType === 'in') {
-                // 입고시: 인수자가 현재 사용자
                 document.getElementById('receiverDept').value = currentUser.company;
                 document.getElementById('receiverName').value = currentUser.name;
                 document.getElementById('delivererDept').value = '';
                 document.getElementById('delivererName').value = '';
             } else {
-                // 출고시: 반출자가 현재 사용자
                 document.getElementById('delivererDept').value = currentUser.company;
                 document.getElementById('delivererName').value = currentUser.name;
                 document.getElementById('receiverDept').value = '';
@@ -636,7 +669,6 @@
             });
         }
 
-        // 선택된 부품 정보 가져오기 (개선된 버전)
         function getSelectedParts() {
             const selectedParts = [];
             const checkboxes = document.querySelectorAll('input[type="checkbox"][data-part-id]:checked');
@@ -656,7 +688,6 @@
             return selectedParts;
         }
 
-        // 폼 검증 함수 개선
         function validateForm() {
             const date = document.getElementById('receiptDate').value;
             const delivererDept = document.getElementById('delivererDept').value.trim();
@@ -670,35 +701,29 @@
                 alert('날짜를 선택해주세요.');
                 return false;
             }
-            
             if (!delivererDept || !delivererName) {
                 alert('반출자 정보를 모두 입력해주세요.');
                 return false;
             }
-            
             if (!receiverDept || !receiverName) {
                 alert('인수자 정보를 모두 입력해주세요.');
                 return false;
             }
-            
             if (!purpose) {
                 alert('사유를 입력해주세요.');
                 return false;
             }
-
             if (selectedParts.length === 0) {
                 alert('최소 하나의 부품을 선택해주세요.');
                 return false;
             }
             
-            // 수량 검증
             for (let part of selectedParts) {
                 if (part.quantity <= 0) {
                     alert(`"${part.name}" 부품의 수량을 올바르게 입력해주세요.`);
                     return false;
                 }
                 
-                // 출고시 재고 부족 검증
                 const receiptType = document.getElementById('receiptType').value;
                 if (receiptType === 'out' && part.quantity > parseInt(part.currentQty)) {
                     alert(`"${part.name}" 부품의 출고 수량(${part.quantity})이 현재 재고(${part.currentQty})보다 많습니다.`);
@@ -709,22 +734,18 @@
             return true;
         }
 
-        // UI 업데이트 함수
         function updateInventoryUI(itemId, newQuantity) {
-            // 데스크톱 테이블 수량 업데이트
             const quantitySpan = document.getElementById('quantity-' + itemId);
             if (quantitySpan) {
                 quantitySpan.textContent = newQuantity;
                 quantitySpan.className = newQuantity > 0 ? 'quantity-positive' : 'quantity-zero';
             }
             
-            // 수정자와 수정일 업데이트
             const modifier = document.getElementById('modifier-' + itemId);
             const modified = document.getElementById('modified-' + itemId);
             if (modifier) modifier.textContent = currentUser.name;
             if (modified) modified.textContent = new Date().toLocaleString('ko-KR').slice(0, 16);
             
-            // 부품 선택 테이블의 현재 재고도 업데이트
             const checkbox = document.querySelector(`input[data-part-id="${itemId}"]`);
             if (checkbox) {
                 checkbox.dataset.currentQty = newQuantity;
@@ -751,7 +772,6 @@
             const purpose = document.getElementById('purpose').value;
             const typeKorean = type === 'in' ? '입고' : '출고';
 
-            // 서명 이미지 가져오기
             const delivererCanvas = document.getElementById('delivererSignature');
             const receiverCanvas = document.getElementById('receiverSignature');
             const delivererSignatureData = delivererCanvas.toDataURL();
@@ -762,24 +782,17 @@
                     <h1 style="margin: 0; color: #333; font-size: 24px;">SK오앤에스</h1>
                     <h2 style="margin: 10px 0 0 0; color: #666; font-size: 20px;">${typeKorean} 인수증</h2>
                 </div>
-                
                 <div class="receipt-info">
                     <div><strong>일자:</strong> ${date}</div>
                     <div><strong>창고:</strong> {{ warehouse_name }}</div>
                     <div><strong>구분:</strong> ${typeKorean}</div>
                     <div><strong>사유:</strong> ${purpose}</div>
                 </div>
-                
                 <div class="receipt-parts">
                     <h3 style="margin: 0 0 10px 0;">부품 목록</h3>
                     <table>
                         <thead>
-                            <tr>
-                                <th>번호</th>
-                                <th>부품명</th>
-                                <th>수량</th>
-                                <th>비고</th>
-                            </tr>
+                            <tr><th>번호</th><th>부품명</th><th>수량</th><th>비고</th></tr>
                         </thead>
                         <tbody>
                             ${selectedParts.map((part, index) => `
@@ -793,7 +806,6 @@
                         </tbody>
                     </table>
                 </div>
-                
                 <div class="signature-area">
                     <div class="signature-box">
                         <h3 style="margin: 0 0 10px 0;">반출자</h3>
@@ -808,7 +820,6 @@
                         <img src="${receiverSignatureData}" class="signature-image" alt="인수자 서명">
                     </div>
                 </div>
-                
                 <div style="text-align: center; color: #666; font-size: 12px; border-top: 1px solid #666; padding-top: 15px; margin-top: 20px;">
                     생성일시: ${new Date().toLocaleString('ko-KR')}<br>
                     본 인수증은 SK오앤에스 창고관리 시스템에서 생성되었습니다.
@@ -820,7 +831,7 @@
             previewDiv.style.display = 'block';
         }
 
-        // 새로운 함수: 재고 변경사항 적용 (개선된 버전)
+        // 수정된 적용 함수 - 인수증 저장 포함
         function applyInventoryChanges() {
             if (!validateForm()) return;
 
@@ -833,24 +844,13 @@
             const receiverName = document.getElementById('receiverName').value;
             const purpose = document.getElementById('purpose').value;
             
-            console.log('🔍 적용할 부품들:', selectedParts);
-            console.log('📋 인수증 정보:', {
-                date: receiptDate,
-                type: type,
-                warehouse: '{{ warehouse_name }}',
-                parts_count: selectedParts.length
-            });
-            
-            // 재고 변경 작업들을 순차적으로 처리
-            let hasError = false;
             const promises = [];
+            let hasError = false;
             
             selectedParts.forEach((part) => {
                 const promise = fetch('/update_quantity', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         item_id: parseInt(part.id),
                         change_type: type,
@@ -860,11 +860,8 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        console.log(`✅ 부품 ${part.name} 재고 업데이트 성공`);
-                        // UI 업데이트
                         updateInventoryUI(part.id, data.new_quantity);
                     } else {
-                        console.error(`❌ 부품 ${part.name} 재고 업데이트 실패:`, data.message);
                         hasError = true;
                         throw new Error(data.message);
                     }
@@ -873,42 +870,29 @@
                 promises.push(promise);
             });
             
-            // 모든 재고 변경 완료 후 인수증 저장
             Promise.all(promises)
                 .then(() => {
                     if (!hasError) {
-                        console.log('📝 인수증 저장 시작');
-                        
-                        // 인수증 상세 정보 저장
-                        const receiptData = {
-                            date: receiptDate,
-                            type: type,
-                            warehouse: '{{ warehouse_name }}',
+                        // 인수증 저장을 위한 데이터 준비
+                        const itemsData = selectedParts.map(part => ({
+                            part_name: part.name,
+                            quantity: part.quantity,
                             deliverer_dept: delivererDept,
                             deliverer_name: delivererName,
                             receiver_dept: receiverDept,
                             receiver_name: receiverName,
-                            purpose: purpose,
-                            items: selectedParts.map(part => ({
-                                part_name: part.name,
-                                quantity: part.quantity,
-                                deliverer_dept: delivererDept,
-                                deliverer_name: delivererName,
-                                receiver_dept: receiverDept,
-                                receiver_name: receiverName,
-                                purpose: purpose
-                            }))
-                        };
+                            purpose: purpose
+                        }));
                         
-                        console.log('📤 서버로 전송할 인수증 데이터:', receiptData);
-                        
-                        // 서버에 인수증 저장
-                        return fetch('/save_receipt_with_details', {
+                        // 인수증 저장
+                        return fetch('/save_receipt', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(receiptData)
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                receipt_date: receiptDate,
+                                receipt_type: type,
+                                items_data: JSON.stringify(itemsData)
+                            })
                         });
                     }
                 })
@@ -919,33 +903,25 @@
                 })
                 .then(data => {
                     if (data && data.success) {
-                        console.log('✅ 인수증 저장 완료:', data);
                         previewReceipt();
-                        alert(`✅ 성공!\n\n• 재고 변경사항이 적용되었습니다\n• 인수증이 이력에 저장되었습니다\n• 이력 관리에서 확인할 수 있습니다`);
+                        alert('✅ 성공!\n\n• 재고 변경사항이 적용되었습니다\n• 인수증이 이력에 저장되었습니다\n• 이력 관리에서 확인할 수 있습니다');
                     } else if (data) {
-                        console.error('❌ 인수증 저장 실패:', data.message);
-                        alert(`⚠️ 재고는 변경되었지만 인수증 저장에 실패했습니다:\n${data.message}`);
+                        alert(`⚠️ 재고는 변경되었지만 인수증 저장에 실패했습니다: ${data.message}`);
                     }
                 })
                 .catch(error => {
-                    console.error('❌ 전체 처리 오류:', error);
-                    alert(`❌ 처리 중 오류가 발생했습니다:\n${error.message}`);
+                    alert(`❌ 처리 중 오류가 발생했습니다: ${error.message}`);
                 });
         }
 
         function generateReceipt() {
             if (!validateForm()) return;
-
-            // 미리보기 먼저 생성
             previewReceipt();
 
-            // html2canvas 라이브러리 로드
             if (!window.html2canvas) {
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                script.onload = function() {
-                    createReceiptImage();
-                };
+                script.onload = createReceiptImage;
                 document.head.appendChild(script);
             } else {
                 createReceiptImage();
@@ -968,57 +944,24 @@
                 backgroundColor: '#ffffff',
                 scale: 2,
                 useCORS: true,
-                allowTaint: true,
-                width: previewDiv.scrollWidth,
-                height: previewDiv.scrollHeight
+                allowTaint: true
             }).then(canvas => {
-                // JPG로 변환
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 
-                // 다운로드 링크 생성
                 const link = document.createElement('a');
                 link.download = `SK오앤에스_${typeKorean}인수증_${date}.jpg`;
                 link.href = imgData;
                 link.click();
                 
-                // 화면에 표시 (새 창)
                 const newWindow = window.open();
                 newWindow.document.write(`
                     <html>
-                        <head>
-                            <title>인수증 - ${date}</title>
-                            <style>
-                                body { 
-                                    margin: 0; 
-                                    padding: 20px; 
-                                    background: #f0f0f0; 
-                                    display: flex; 
-                                    justify-content: center; 
-                                    align-items: center; 
-                                    min-height: 100vh; 
-                                }
-                                img { 
-                                    max-width: 100%; 
-                                    height: auto; 
-                                    box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
-                                    border-radius: 8px; 
-                                    background: white; 
-                                }
-                                .download-btn {
-                                    position: fixed;
-                                    top: 20px;
-                                    right: 20px;
-                                    background: #007bff;
-                                    color: white;
-                                    padding: 10px 20px;
-                                    border: none;
-                                    border-radius: 5px;
-                                    cursor: pointer;
-                                    font-size: 14px;
-                                    text-decoration: none;
-                                }
-                            </style>
-                        </head>
+                        <head><title>인수증 - ${date}</title>
+                        <style>
+                            body { margin: 0; padding: 20px; background: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                            img { max-width: 100%; height: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 8px; background: white; }
+                            .download-btn { position: fixed; top: 20px; right: 20px; background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; text-decoration: none; }
+                        </style></head>
                         <body>
                             <img src="${imgData}" alt="인수증">
                             <a href="${imgData}" download="SK오앤에스_${typeKorean}인수증_${date}.jpg" class="download-btn">📥 다운로드</a>
@@ -1047,7 +990,6 @@
             }
         }
 
-        // Enter 키로 확인
         document.getElementById('modalQuantity').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 confirmQuantityUpdate();
