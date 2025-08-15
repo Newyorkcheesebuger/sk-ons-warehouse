@@ -1030,12 +1030,12 @@
                                 let remark = '';
                                 
                                 if (type === 'in') {
-                                    const beforeQty = Math.max(0, currentQty - quantity);
-                                    const afterQty = currentQty;
+                                    const beforeQty = currentQty;
+                                    const afterQty = currentQty + quantity;
                                     remark = `입고전 ${beforeQty}개 → 입고후 ${afterQty}개`;
                                 } else {
-                                    const beforeQty = currentQty + quantity;
-                                    const afterQty = currentQty;
+                                    const beforeQty = currentQty;
+                                    const afterQty = Math.max(0, currentQty - quantity);
                                     remark = `출고전 ${beforeQty}개 → 출고후 ${afterQty}개`;
                                 }
                                 
