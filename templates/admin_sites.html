@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}국사명 관리 - SK오앤에스 DIY System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h3 class="mb-1">국사명 관리</h3>
+            <div class="text-muted">{{ warehouse_name }}</div>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>관리자 대시보드
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <strong>국사명 추가</strong>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="row g-2">
+                <input type="hidden" name="action" value="add">
+                <div class="col-md-9">
+                    <input type="text" class="form-control" name="site_name" placeholder="추가할 국사명을 입력하세요" required>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong>국사명 목록</strong>
+            <span class="badge bg-secondary">{{ site_rows|length }}개</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width: 90px;">번호</th>
+                            <th>국사명</th>
+                            <th style="min-width: 140px;">최종 수정자</th>
+                            <th style="min-width: 180px;">최종 수정일</th>
+                            <th style="min-width: 200px;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in site_rows %}
+                        <tr>
+                            <td>{{ row.id }}</td>
+                            <td>
+                                <form method="POST" class="d-flex gap-2">
+                                    <input type="hidden" name="action" value="update">
+                                    <input type="hidden" name="site_id" value="{{ row.id }}">
+                                    <input type="text" class="form-control" name="site_name" value="{{ row.site_name }}" required>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">수정</button>
+                                </form>
+                            </td>
+                            <td>{{ row.last_modifier }}</td>
+                            <td>{{ row.last_modified }}</td>
+                            <td>
+                                <form method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="site_id" value="{{ row.id }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">등록된 국사명이 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

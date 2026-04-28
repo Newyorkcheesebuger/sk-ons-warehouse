@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}점검하기 - {{ warehouse_name }}{% endblock %}
+{% block title %}점검 상세 - {{ warehouse_name }}{% endblock %}
 
 {% block content %}
 <div class="container py-3">
@@ -14,8 +14,85 @@
         </a>
     </div>
 
+    {% if not editable and latest_record %}
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">국사명</label>
+                    <input type="text" class="form-control" value="{{ latest_record.site_name }}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">작업자</label>
+                    <input type="text" class="form-control" value="{{ latest_record.inspector_name or '-' }}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">작업일시</label>
+                    <input type="text" class="form-control" value="{{ latest_record.inspected_at or '-' }}" readonly>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width: 210px;">점검 항목</th>
+                            <th style="min-width: 120px;">결과</th>
+                            <th style="min-width: 180px;">작업전 사진</th>
+                            <th style="min-width: 180px;">작업후 사진</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item_no, item_name in inspection_items %}
+                        {% set before_photo = latest_photos.get(item_no, {}).get('before') %}
+                        {% set after_photo = latest_photos.get(item_no, {}).get('after') %}
+                        <tr>
+                            <td><strong>{{ item_no }}. {{ item_name }}</strong></td>
+                            <td>
+                                {% set result_value = latest_checklist_by_no.get(item_no, 'ok') %}
+                                <span class="badge {{ 'bg-success' if result_value == 'ok' else 'bg-warning text-dark' }}">
+                                    {{ '정상' if result_value == 'ok' else '조치필요' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if before_photo %}
+                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">보기</a>
+                                {% else %}
+                                <span class="text-muted">없음</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if after_photo %}
+                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">보기</a>
+                                {% else %}
+                                <span class="text-muted">없음</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <label class="form-label">메모</label>
+                <textarea class="form-control" rows="4" readonly>{{ latest_record.memo }}</textarea>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end">
+            <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=item_id) }}?mode=edit" class="btn btn-primary px-4">
+                수정하기
+            </a>
+        </div>
+    </div>
+    {% else %}
     <form method="POST" enctype="multipart/form-data" class="card shadow-sm">
         <div class="card-body">
+            {% if latest_record %}
+            <input type="hidden" name="edit_mode" value="1">
+            <input type="hidden" name="record_id" value="{{ latest_record.id }}">
+            {% endif %}
+
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label">국사명</label>
@@ -28,28 +105,29 @@
             </div>
 
             <div class="alert alert-info">
-                각 항목별로 <strong>작업전</strong>, <strong>작업후</strong> 사진을 모두 첨부해주세요.
-                업로드 시 서버에서 1MB 이하로 자동 압축됩니다.
+                각 항목별 작업전/작업후 사진을 등록하세요. 업로드 시 1MB 이하로 자동 압축됩니다.
             </div>
 
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="min-width: 230px;">점검 항목</th>
-                            <th style="min-width: 130px;">결과</th>
+                            <th style="min-width: 210px;">점검 항목</th>
+                            <th style="min-width: 120px;">결과</th>
                             <th style="min-width: 220px;">작업전 사진</th>
                             <th style="min-width: 220px;">작업후 사진</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item_no, item_name in inspection_items %}
+                        {% set before_photo = latest_photos.get(item_no, {}).get('before') %}
+                        {% set after_photo = latest_photos.get(item_no, {}).get('after') %}
                         <tr>
                             <td><strong>{{ item_no }}. {{ item_name }}</strong></td>
                             <td>
                                 <select class="form-select" name="result_{{ item_no }}">
-                                    <option value="ok">정상</option>
-                                    <option value="need">조치필요</option>
+                                    <option value="ok" {% if latest_checklist_by_no.get(item_no, 'ok') == 'ok' %}selected{% endif %}>정상</option>
+                                    <option value="need" {% if latest_checklist_by_no.get(item_no, 'ok') == 'need' %}selected{% endif %}>조치필요</option>
                                 </select>
                             </td>
                             <td>
@@ -57,14 +135,22 @@
                                        class="form-control"
                                        name="before_{{ item_no }}"
                                        accept="image/*"
-                                       required>
+                                       {% if not latest_record %}required{% endif %}>
+                                {% if before_photo %}
+                                <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
+                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>
+                                {% endif %}
                             </td>
                             <td>
                                 <input type="file"
                                        class="form-control"
                                        name="after_{{ item_no }}"
                                        accept="image/*"
-                                       required>
+                                       {% if not latest_record %}required{% endif %}>
+                                {% if after_photo %}
+                                <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
+                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -74,12 +160,13 @@
 
             <div class="mt-3">
                 <label class="form-label">메모</label>
-                <textarea class="form-control" name="memo" rows="4" placeholder="특이사항을 입력하세요"></textarea>
+                <textarea class="form-control" name="memo" rows="4" placeholder="특이사항을 입력하세요">{{ latest_record.memo if latest_record else '' }}</textarea>
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end">
             <button type="submit" class="btn btn-primary px-4">저장</button>
         </div>
     </form>
+    {% endif %}
 </div>
 {% endblock %}

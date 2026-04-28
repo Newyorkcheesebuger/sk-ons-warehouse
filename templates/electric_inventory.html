@@ -10,6 +10,11 @@
             <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
                 <i class="fas fa-image me-1"></i>점검 방법
             </a>
+            {% if is_admin %}
+            <a href="{{ url_for('admin_sites') }}" class="btn btn-outline-success">
+                <i class="fas fa-list-check me-1"></i>국사명 관리
+            </a>
+            {% endif %}
             <a href="{{ url_for('warehouse', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i>뒤로가기
             </a>
@@ -26,7 +31,7 @@
                             <th>작업자</th>
                             <th>작업일시</th>
                             <th>현황</th>
-                            <th>점검하기</th>
+                            <th>작업</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -45,7 +50,7 @@
                             <td>
                                 <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=target.id) }}"
                                    class="btn btn-primary btn-sm">
-                                    점검하기
+                                    {{ '보기' if target.is_completed else '점검하기' }}
                                 </a>
                             </td>
                         </tr>
@@ -74,7 +79,7 @@
                             {% endif %}
                         </div>
                         <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=target.id) }}"
-                           class="btn btn-primary w-100">점검하기</a>
+                           class="btn btn-primary w-100">{{ '보기' if target.is_completed else '점검하기' }}</a>
                     </div>
                 </div>
                 {% else %}

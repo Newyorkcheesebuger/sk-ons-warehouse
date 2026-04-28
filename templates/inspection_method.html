@@ -14,16 +14,31 @@
     <div class="card shadow-sm">
         <div class="card-body text-center">
             {% if has_image %}
-            <img src="{{ url_for('static', filename='inspection/inspection_method.png') }}"
+            <img src="{{ url_for('static', filename=image_file) }}"
                  alt="점검 방법"
                  class="img-fluid rounded border">
             {% else %}
             <div class="alert alert-warning mb-0">
                 점검 방법 이미지가 아직 등록되지 않았습니다.<br>
-                <code>static/inspection/inspection_method.png</code> 경로에 파일을 추가해주세요.
+                <code>static/inspection/inspection_method.png</code> (또는 <code>.jpg/.jpeg/.webp</code>) 파일을 추가해주세요.
             </div>
             {% endif %}
         </div>
     </div>
+
+    {% if is_admin %}
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('upload_inspection_method') }}" enctype="multipart/form-data" class="row g-2">
+                <div class="col-md-9">
+                    <input type="file" class="form-control" name="inspection_method_image" accept="image/png,image/jpeg,image/webp" required>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">이미지 등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

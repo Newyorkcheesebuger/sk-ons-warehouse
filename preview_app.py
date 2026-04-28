@@ -11,6 +11,7 @@ DIY_ACTIVE_SLUG = "cooling-maintenance"
 DIY_ACTIVE_LABEL = "냉방기 예방점검"
 DIY_PREPARING_LABEL = "준비중"
 DB_ACTIVE_WAREHOUSE = "보라매창고"
+DIY_CHECKLIST_CATEGORY = "DIY점검"
 INSPECTION_ITEMS = [
     (1, "고무패킹교체"),
     (2, "실내기 Reset"),
@@ -36,8 +37,8 @@ SAMPLE_USERS = [
 ]
 
 SAMPLE_ELECTRIC = [
-    [101, "전기차", "충전케이블", 12, "김관리", "2026-04-28 10:12:00", 2],
-    [102, "전기차", "인버터", 3, "홍작업", "2026-04-28 09:01:00", 0],
+    [101, DIY_CHECKLIST_CATEGORY, "(HK)수서역LDT1.51.LTE.DU30(내)", 0, "김관리", "2026-04-28 10:12:00", 2],
+    [102, DIY_CHECKLIST_CATEGORY, "(RM)천호2LDB.51.LTE.ENB(내)", 0, "", "", 0],
 ]
 
 SAMPLE_ACCESS = [
@@ -139,9 +140,9 @@ def admin_dashboard():
     return render_template(
         "admin_dashboard.html",
         users=deepcopy(SAMPLE_USERS),
-        total_items=len(INVENTORY_BY_ID),
-        total_quantity=sum(item[3] for item in INVENTORY_BY_ID.values()),
-        warehouse_stats={DIY_ACTIVE_LABEL: 2, "준비중": 3},
+        total_items=len(SAMPLE_ELECTRIC),
+        total_quantity=sum(item[3] for item in SAMPLE_ELECTRIC),
+        warehouse_stats={DIY_ACTIVE_LABEL: len(SAMPLE_ELECTRIC)},
     )
 
 
@@ -149,6 +150,46 @@ def admin_dashboard():
 def admin_warehouse():
     session["is_admin"] = True
     return render_template("user_dashboard.html", warehouses=[DIY_ACTIVE_SLUG])
+
+@app.route("/admin/sites", methods=["GET", "POST"])
+def admin_sites():
+    session["is_admin"] = True
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        site_name = (request.form.get("site_name") or "").strip()
+        site_id = int(request.form.get("site_id", "0") or 0)
+
+        if action == "add" and site_name:
+            next_id = (max([row[0] for row in SAMPLE_ELECTRIC]) + 1) if SAMPLE_ELECTRIC else 1001
+            SAMPLE_ELECTRIC.append([next_id, DIY_CHECKLIST_CATEGORY, site_name, 0, session.get("user_name", "관리자"), now_str(), 0])
+            INVENTORY_BY_ID[next_id] = SAMPLE_ELECTRIC[-1]
+        elif action == "update" and site_id and site_name:
+            for row in SAMPLE_ELECTRIC:
+                if row[0] == site_id:
+                    row[2] = site_name
+                    row[4] = session.get("user_name", "관리자")
+                    row[5] = now_str()
+                    break
+        elif action == "delete" and site_id:
+            for idx, row in enumerate(SAMPLE_ELECTRIC):
+                if row[0] == site_id:
+                    del SAMPLE_ELECTRIC[idx]
+                    INVENTORY_BY_ID.pop(site_id, None)
+                    break
+
+    site_rows = []
+    for row in SAMPLE_ELECTRIC:
+        site_rows.append(
+            {
+                "id": row[0],
+                "site_name": row[2],
+                "last_modifier": row[4] or "-",
+                "last_modified": row[5] or "-",
+            }
+        )
+
+    return render_template("admin_sites.html", site_rows=site_rows, warehouse_name=DIY_ACTIVE_LABEL)
 
 
 @app.route("/warehouse/<warehouse_name>")
@@ -171,6 +212,8 @@ def electric_inventory(warehouse_name):
                 "inspector_name": item[4] or "",
                 "inspected_at": item[5] or "",
                 "status": "작업 완료" if item[5] else "작업 미완료",
+                "is_completed": bool(item[5]),
+                "latest_record_id": item[0] if item[5] else None,
             }
         )
     return render_template(
@@ -194,9 +237,24 @@ def inspection_detail(warehouse_name, item_id):
         return redirect(url_for("electric_inventory", warehouse_name=DIY_ACTIVE_SLUG))
 
     if request.method == "POST":
+        item[2] = request.form.get("site_name") or item[2]
         item[4] = session.get("user_name", "프리뷰사용자")
         item[5] = now_str()
         return redirect(url_for("electric_inventory", warehouse_name=DIY_ACTIVE_SLUG))
+
+    latest_record = None
+    latest_checklist_by_no = {}
+    editable = True
+    if item[5]:
+        latest_record = {
+            "id": item[0],
+            "site_name": item[2],
+            "inspector_name": item[4],
+            "inspected_at": item[5],
+            "memo": "프리뷰 저장 데이터",
+        }
+        latest_checklist_by_no = {no: "ok" for no, _ in INSPECTION_ITEMS}
+        editable = request.args.get("mode") == "edit"
 
     return render_template(
         "inspection_detail.html",
@@ -206,6 +264,10 @@ def inspection_detail(warehouse_name, item_id):
         site_name=item[2],
         inspector_name=session.get("user_name", "프리뷰사용자"),
         inspection_items=INSPECTION_ITEMS,
+        editable=editable,
+        latest_record=latest_record,
+        latest_checklist_by_no=latest_checklist_by_no,
+        latest_photos={},
     )
 
 
@@ -370,7 +432,16 @@ def preparing():
 
 @app.route("/inspection-method")
 def inspection_method():
-    return render_template("inspection_method.html", has_image=False)
+    return render_template(
+        "inspection_method.html",
+        has_image=False,
+        image_file=None,
+        is_admin=session.get("is_admin", False),
+    )
+
+@app.route("/inspection-method/upload", methods=["POST"])
+def upload_inspection_method():
+    return redirect(url_for("inspection_method"))
 
 
 if __name__ == "__main__":

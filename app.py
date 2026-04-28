@@ -48,7 +48,7 @@ SMTP_USERNAME = os.environ.get('SMTP_USERNAME')
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')
 
 print("=" * 60)
-print("🚀 SK오앤에스 창고관리 시스템 시작")
+print("🚀 SK오앤에스 DIY System 시작")
 print("=" * 60)
 
 # Supabase 연결 필수 체크
@@ -73,6 +73,7 @@ DIY_ACTIVE_SLUG = 'cooling-maintenance'
 DIY_ACTIVE_LABEL = '냉방기 예방점검'
 DIY_PREPARING_LABEL = '준비중'
 DB_ACTIVE_WAREHOUSE = '보라매창고'
+DIY_CHECKLIST_CATEGORY = 'DIY점검'
 WAREHOUSES = [DIY_ACTIVE_SLUG]
 
 
@@ -499,24 +500,45 @@ def init_db():
         # 점검 대상(국사명) 시드 데이터 추가
         try:
             inserted_count = 0
+            migrated_count = 0
             for site_name in INSPECTION_SITE_NAMES:
                 cursor.execute(
                     '''SELECT id
                        FROM inventory
                        WHERE warehouse = %s AND category = %s AND part_name = %s''',
-                    (DB_ACTIVE_WAREHOUSE, "전기차", site_name)
+                    (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name)
                 )
                 if cursor.fetchone():
                     continue
+
+                cursor.execute(
+                    '''SELECT id
+                       FROM inventory
+                       WHERE warehouse = %s AND category = %s AND part_name = %s
+                       ORDER BY id
+                       LIMIT 1''',
+                    (DB_ACTIVE_WAREHOUSE, '전기차', site_name)
+                )
+                legacy_row = cursor.fetchone()
+                if legacy_row:
+                    cursor.execute(
+                        '''UPDATE inventory
+                           SET category = %s
+                           WHERE id = %s''',
+                        (DIY_CHECKLIST_CATEGORY, legacy_row[0])
+                    )
+                    migrated_count += 1
+                    continue
+
                 cursor.execute(
                     '''INSERT INTO inventory
                        (warehouse, category, part_name, quantity, last_modifier)
                        VALUES (%s, %s, %s, %s, %s)''',
-                    (DB_ACTIVE_WAREHOUSE, "전기차", site_name, 0, "system-seed")
+                    (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name, 0, "system-seed")
                 )
                 inserted_count += 1
             conn.commit()
-            print(f"✅ 점검 대상 시드 반영 완료 (신규 {inserted_count}건)")
+            print(f"✅ 점검 대상 시드 반영 완료 (신규 {inserted_count}건, 전환 {migrated_count}건)")
         except Exception as seed_error:
             conn.rollback()
             print(f"⚠️ 점검 대상 시드 반영 중 오류: {seed_error}")
@@ -706,24 +728,37 @@ def admin_dashboard():
         users = cursor.fetchall()
         
         # 재고 통계 - 단순화
-        cursor.execute("SELECT COUNT(*) FROM inventory")
+        cursor.execute(
+            '''SELECT COUNT(*)
+               FROM inventory
+               WHERE warehouse = %s AND category = %s''',
+            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+        )
         result = cursor.fetchone()
         total_items = result[0] if result else 0
         
-        cursor.execute("SELECT SUM(quantity) FROM inventory")
+        cursor.execute(
+            '''SELECT SUM(quantity)
+               FROM inventory
+               WHERE warehouse = %s AND category = %s''',
+            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+        )
         result = cursor.fetchone() 
         total_quantity = result[0] if result and result[0] else 0
         
-        cursor.execute("SELECT warehouse, COUNT(*) FROM inventory GROUP BY warehouse")
-        warehouse_stats = cursor.fetchall()
+        cursor.execute(
+            '''SELECT COUNT(*)
+               FROM inventory
+               WHERE warehouse = %s AND category = %s''',
+            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+        )
+        diy_count_result = cursor.fetchone()
+        diy_count = diy_count_result[0] if diy_count_result else 0
         
         conn.close()
         
         # 안전한 데이터 구조
-        warehouse_dict = {}
-        if warehouse_stats:
-            for stat in warehouse_stats:
-                warehouse_dict[stat[0]] = stat[1]
+        warehouse_dict = {DIY_ACTIVE_LABEL: diy_count}
         
         return render_template('admin_dashboard.html', 
                              users=users or [],
@@ -1428,7 +1463,7 @@ def send_delivery_receipt():
         </head>
         <body>
             <div class="header">
-                <h2>SK오앤에스 창고관리 시스템</h2>
+                <h2>SK오앤에스 DIY System</h2>
                 <h3>{receipt_type_korean} 인수증</h3>
             </div>
             
@@ -1477,7 +1512,7 @@ def send_delivery_receipt():
         
         html_content += """
             <p style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-                본 인수증은 SK오앤에스 창고관리 시스템에서 자동으로 생성되었습니다.
+                본 인수증은 SK오앤에스 DIY System에서 자동으로 생성되었습니다.
             </p>
         </body>
         </html>
@@ -1578,11 +1613,13 @@ def electric_inventory(warehouse_name):
         cursor.execute('''
             SELECT i.id,
                    i.part_name,
+                   r.id,
                    r.inspector_name,
                    r.inspected_at
             FROM inventory i
             LEFT JOIN (
                 SELECT DISTINCT ON (inventory_id)
+                       id,
                        inventory_id,
                        inspector_name,
                        inspected_at
@@ -1591,7 +1628,7 @@ def electric_inventory(warehouse_name):
             ) r ON i.id = r.inventory_id
             WHERE i.warehouse = %s AND i.category = %s
             ORDER BY i.id
-        ''', (db_warehouse_name, "전기차"))
+        ''', (db_warehouse_name, DIY_CHECKLIST_CATEGORY))
         
         raw_inventory = cursor.fetchall()
         conn.close()
@@ -1600,8 +1637,9 @@ def electric_inventory(warehouse_name):
         for row in raw_inventory:
             target_id = row[0]
             site_name = row[1] or '미입력'
-            inspector_name = row[2] or ''
-            inspected_at = row[3]
+            latest_record_id = row[2]
+            inspector_name = row[3] or ''
+            inspected_at = row[4]
             if inspected_at and not isinstance(inspected_at, str):
                 inspected_at = inspected_at.strftime('%Y-%m-%d %H:%M:%S')
             checklist_targets.append({
@@ -1609,7 +1647,9 @@ def electric_inventory(warehouse_name):
                 'site_name': site_name,
                 'inspector_name': inspector_name,
                 'inspected_at': inspected_at or '',
-                'status': '작업 완료' if inspected_at else '작업 미완료'
+                'status': '작업 완료' if inspected_at else '작업 미완료',
+                'is_completed': bool(inspected_at),
+                'latest_record_id': latest_record_id
             })
         
         print(f"✅ 점검 대상 조회 성공: {len(checklist_targets)}개 항목")
@@ -1635,7 +1675,7 @@ def electric_inventory(warehouse_name):
 
 @app.route('/warehouse/<warehouse_name>/inspection/<int:item_id>', methods=['GET', 'POST'])
 def inspection_detail(warehouse_name, item_id):
-    """점검 상세 페이지 및 저장"""
+    """점검 상세 페이지(보기/수정) 및 저장"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -1651,7 +1691,7 @@ def inspection_detail(warehouse_name, item_id):
             '''SELECT id, part_name
                FROM inventory
                WHERE id = %s AND warehouse = %s AND category = %s''',
-            (item_id, db_warehouse_name, "전기차")
+            (item_id, db_warehouse_name, DIY_CHECKLIST_CATEGORY)
         )
         item = cursor.fetchone()
         if not item:
@@ -1659,11 +1699,57 @@ def inspection_detail(warehouse_name, item_id):
             flash('점검 대상을 찾을 수 없습니다.')
             return redirect(f'/warehouse/{warehouse_name}/electric')
 
+        cursor.execute(
+            '''SELECT id, site_name, inspector_name, inspected_at, checklist_data, memo
+               FROM inspection_records
+               WHERE inventory_id = %s
+               ORDER BY inspected_at DESC
+               LIMIT 1''',
+            (item_id,)
+        )
+        latest_record = cursor.fetchone()
+
+        latest_checklist_by_no = {}
+        latest_photos = {}
+        if latest_record and latest_record[4]:
+            try:
+                checklist_raw = latest_record[4]
+                checklist_data = checklist_raw if isinstance(checklist_raw, list) else json.loads(checklist_raw)
+                for row in checklist_data:
+                    checkpoint_no = int(row.get('checkpoint_no', 0))
+                    latest_checklist_by_no[checkpoint_no] = row.get('result', 'ok')
+            except Exception:
+                latest_checklist_by_no = {}
+
+            cursor.execute(
+                '''SELECT checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url
+                   FROM inspection_photos
+                   WHERE record_id = %s''',
+                (latest_record[0],)
+            )
+            for checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url in cursor.fetchall():
+                if checkpoint_no not in latest_photos:
+                    latest_photos[checkpoint_no] = {}
+                latest_photos[checkpoint_no][phase] = {
+                    'checkpoint_name': checkpoint_name,
+                    'filename': filename,
+                    'file_size': file_size,
+                    'supabase_url': supabase_url
+                }
+
         if request.method == 'POST':
             korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
             inspector_name = session.get('user_name', '미설정')
             site_name = request.form.get('site_name', '').strip() or (item[1] or '미입력')
             memo = request.form.get('memo', '').strip()
+            edit_mode = request.form.get('edit_mode') == '1'
+            record_id = request.form.get('record_id', '').strip()
+            update_existing = (
+                edit_mode and
+                record_id.isdigit() and
+                latest_record and
+                int(record_id) == latest_record[0]
+            )
 
             checklist_data = []
             photo_rows = []
@@ -1672,9 +1758,26 @@ def inspection_detail(warehouse_name, item_id):
                 result_value = request.form.get(f'result_{checkpoint_no}', 'ok')
                 before_file = request.files.get(f'before_{checkpoint_no}')
                 after_file = request.files.get(f'after_{checkpoint_no}')
+                existing_before = latest_photos.get(checkpoint_no, {}).get('before') if update_existing else None
+                existing_after = latest_photos.get(checkpoint_no, {}).get('after') if update_existing else None
 
-                before_name, before_size, before_url = save_inspection_photo(before_file, item_id, checkpoint_no, 'before')
-                after_name, after_size, after_url = save_inspection_photo(after_file, item_id, checkpoint_no, 'after')
+                if before_file and before_file.filename:
+                    before_name, before_size, before_url = save_inspection_photo(before_file, item_id, checkpoint_no, 'before')
+                elif existing_before:
+                    before_name = existing_before['filename']
+                    before_size = existing_before['file_size']
+                    before_url = existing_before['supabase_url']
+                else:
+                    raise Exception(f"{checkpoint_no}번 작업전 사진이 필요합니다.")
+
+                if after_file and after_file.filename:
+                    after_name, after_size, after_url = save_inspection_photo(after_file, item_id, checkpoint_no, 'after')
+                elif existing_after:
+                    after_name = existing_after['filename']
+                    after_size = existing_after['file_size']
+                    after_url = existing_after['supabase_url']
+                else:
+                    raise Exception(f"{checkpoint_no}번 작업후 사진이 필요합니다.")
 
                 checklist_data.append({
                     'checkpoint_no': checkpoint_no,
@@ -1685,22 +1788,39 @@ def inspection_detail(warehouse_name, item_id):
                 photo_rows.append((checkpoint_no, checkpoint_name, 'before', before_name, before_size, before_url))
                 photo_rows.append((checkpoint_no, checkpoint_name, 'after', after_name, after_size, after_url))
 
-            cursor.execute(
-                '''INSERT INTO inspection_records
-                   (inventory_id, warehouse, site_name, inspector_name, inspected_at, status, checklist_data, memo)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                   RETURNING id''',
-                (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료',
-                 json.dumps(checklist_data, ensure_ascii=False), memo)
-            )
-            record_id = cursor.fetchone()[0]
+            if update_existing:
+                record_id_int = int(record_id)
+                cursor.execute(
+                    '''UPDATE inspection_records
+                       SET site_name = %s,
+                           inspector_name = %s,
+                           inspected_at = %s,
+                           status = %s,
+                           checklist_data = %s,
+                           memo = %s
+                       WHERE id = %s AND inventory_id = %s''',
+                    (site_name, inspector_name, korea_time, '작업 완료',
+                     json.dumps(checklist_data, ensure_ascii=False), memo, record_id_int, item_id)
+                )
+                cursor.execute('DELETE FROM inspection_photos WHERE record_id = %s', (record_id_int,))
+                target_record_id = record_id_int
+            else:
+                cursor.execute(
+                    '''INSERT INTO inspection_records
+                       (inventory_id, warehouse, site_name, inspector_name, inspected_at, status, checklist_data, memo)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                       RETURNING id''',
+                    (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료',
+                     json.dumps(checklist_data, ensure_ascii=False), memo)
+                )
+                target_record_id = cursor.fetchone()[0]
 
             for checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url in photo_rows:
                 cursor.execute(
                     '''INSERT INTO inspection_photos
                        (record_id, checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url)
                        VALUES (%s, %s, %s, %s, %s, %s, %s)''',
-                    (record_id, checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url)
+                    (target_record_id, checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url)
                 )
 
             cursor.execute(
@@ -1719,15 +1839,37 @@ def inspection_detail(warehouse_name, item_id):
             flash('점검 내용이 저장되었습니다.')
             return redirect(f'/warehouse/{warehouse_name}/electric')
 
+        editable = (request.args.get('mode') == 'edit') or (latest_record is None)
+        latest_record_dict = None
+        inspected_at_str = ''
+        if latest_record:
+            inspected_at_value = latest_record[3]
+            if inspected_at_value and not isinstance(inspected_at_value, str):
+                inspected_at_str = inspected_at_value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                inspected_at_str = inspected_at_value or ''
+
+            latest_record_dict = {
+                'id': latest_record[0],
+                'site_name': latest_record[1] or item[1] or '미입력',
+                'inspector_name': latest_record[2] or '',
+                'inspected_at': inspected_at_str,
+                'memo': latest_record[5] or ''
+            }
+
         conn.close()
         return render_template(
             'inspection_detail.html',
             warehouse_name=DIY_ACTIVE_LABEL,
             warehouse_slug=warehouse_name,
             item_id=item[0],
-            site_name=item[1] or '미입력',
+            site_name=(latest_record_dict['site_name'] if latest_record_dict else (item[1] or '미입력')),
             inspector_name=session.get('user_name', '미설정'),
-            inspection_items=INSPECTION_ITEMS
+            inspection_items=INSPECTION_ITEMS,
+            editable=editable,
+            latest_record=latest_record_dict,
+            latest_checklist_by_no=latest_checklist_by_no,
+            latest_photos=latest_photos
         )
     except Exception as e:
         try:
@@ -1744,9 +1886,198 @@ def inspection_detail(warehouse_name, item_id):
 def inspection_method():
     if 'user_id' not in session:
         return redirect('/')
-    image_path = os.path.join('static', 'inspection', 'inspection_method.png')
-    has_image = os.path.exists(image_path)
-    return render_template('inspection_method.html', has_image=has_image)
+
+    inspection_dir = os.path.join('static', 'inspection')
+    os.makedirs(inspection_dir, exist_ok=True)
+
+    candidate_files = [
+        'inspection_method.png',
+        'inspection_method.jpg',
+        'inspection_method.jpeg',
+        'inspection_method.webp',
+        'inspection-method.png',
+        'inspection-method.jpg',
+        'inspection-method.jpeg',
+        'inspection-method.webp'
+    ]
+
+    found_file = None
+    for filename in candidate_files:
+        path = os.path.join(inspection_dir, filename)
+        if os.path.exists(path):
+            found_file = f'inspection/{filename}'
+            break
+
+    if not found_file:
+        for filename in os.listdir(inspection_dir):
+            lower_name = filename.lower()
+            if lower_name.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                found_file = f'inspection/{filename}'
+                break
+
+    return render_template(
+        'inspection_method.html',
+        has_image=bool(found_file),
+        image_file=found_file,
+        is_admin=session.get('is_admin', False)
+    )
+
+@app.route('/inspection-method/upload', methods=['POST'])
+def upload_inspection_method():
+    if 'user_id' not in session:
+        return redirect('/')
+    if not session.get('is_admin'):
+        flash('관리자만 점검 방법 이미지를 등록할 수 있습니다.')
+        return redirect(url_for('inspection_method'))
+
+    file_obj = request.files.get('inspection_method_image')
+    if not file_obj or file_obj.filename == '':
+        flash('업로드할 이미지 파일을 선택해주세요.')
+        return redirect(url_for('inspection_method'))
+    if not allowed_file(file_obj.filename):
+        flash('png/jpg/jpeg/webp 형식만 등록할 수 있습니다.')
+        return redirect(url_for('inspection_method'))
+
+    inspection_dir = os.path.join('static', 'inspection')
+    os.makedirs(inspection_dir, exist_ok=True)
+
+    candidate_files = [
+        'inspection_method.png',
+        'inspection_method.jpg',
+        'inspection_method.jpeg',
+        'inspection_method.webp',
+        'inspection-method.png',
+        'inspection-method.jpg',
+        'inspection-method.jpeg',
+        'inspection-method.webp'
+    ]
+
+    ext = file_obj.filename.rsplit('.', 1)[1].lower()
+    target_filename = f'inspection_method.{ext}'
+    target_path = os.path.join(inspection_dir, target_filename)
+
+    for filename in candidate_files:
+        old_path = os.path.join(inspection_dir, filename)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass
+
+    file_obj.save(target_path)
+    flash('점검 방법 이미지가 등록되었습니다.')
+    return redirect(url_for('inspection_method'))
+
+@app.route('/admin/sites', methods=['GET', 'POST'])
+def admin_sites():
+    """관리자용 국사명 관리"""
+    if 'user_id' not in session:
+        flash('로그인이 필요합니다.')
+        return redirect('/')
+
+    if not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.')
+        return redirect('/dashboard')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        if request.method == 'POST':
+            action = request.form.get('action', '').strip()
+            site_name = request.form.get('site_name', '').strip()
+            site_id = request.form.get('site_id', '').strip()
+            korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+            admin_name = session.get('user_name', '관리자')
+
+            if action == 'add':
+                if not site_name:
+                    flash('국사명을 입력해주세요.')
+                else:
+                    cursor.execute(
+                        '''SELECT id
+                           FROM inventory
+                           WHERE warehouse = %s AND category = %s AND part_name = %s''',
+                        (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name)
+                    )
+                    if cursor.fetchone():
+                        flash('이미 등록된 국사명입니다.')
+                    else:
+                        cursor.execute(
+                            '''INSERT INTO inventory
+                               (warehouse, category, part_name, quantity, last_modifier, last_modified)
+                               VALUES (%s, %s, %s, %s, %s, %s)''',
+                            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name, 0, admin_name, korea_time)
+                        )
+                        conn.commit()
+                        flash('국사명이 추가되었습니다.')
+
+            elif action == 'update':
+                if not (site_id.isdigit() and site_name):
+                    flash('수정할 국사명을 확인해주세요.')
+                else:
+                    cursor.execute(
+                        '''UPDATE inventory
+                           SET part_name = %s, last_modifier = %s, last_modified = %s
+                           WHERE id = %s AND warehouse = %s AND category = %s''',
+                        (site_name, admin_name, korea_time, int(site_id), DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+                    )
+                    conn.commit()
+                    flash('국사명이 수정되었습니다.')
+
+            elif action == 'delete':
+                if not site_id.isdigit():
+                    flash('삭제할 대상을 확인해주세요.')
+                else:
+                    cursor.execute(
+                        'SELECT COUNT(*) FROM inspection_records WHERE inventory_id = %s',
+                        (int(site_id),)
+                    )
+                    used_count = cursor.fetchone()[0]
+                    if used_count > 0:
+                        flash('점검 이력이 있는 국사명은 삭제할 수 없습니다. 이름 수정을 이용해주세요.')
+                    else:
+                        cursor.execute(
+                            '''DELETE FROM inventory
+                               WHERE id = %s AND warehouse = %s AND category = %s''',
+                            (int(site_id), DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+                        )
+                        conn.commit()
+                        flash('국사명이 삭제되었습니다.')
+
+        cursor.execute(
+            '''SELECT id, part_name, last_modifier, last_modified
+               FROM inventory
+               WHERE warehouse = %s AND category = %s
+               ORDER BY id''',
+            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+        )
+        raw_rows = cursor.fetchall()
+        conn.close()
+
+        site_rows = []
+        for row in raw_rows:
+            last_modified = row[3]
+            if last_modified and not isinstance(last_modified, str):
+                last_modified = last_modified.strftime('%Y-%m-%d %H:%M:%S')
+            site_rows.append({
+                'id': row[0],
+                'site_name': row[1],
+                'last_modifier': row[2] or '-',
+                'last_modified': last_modified or '-'
+            })
+
+        return render_template('admin_sites.html', site_rows=site_rows, warehouse_name=DIY_ACTIVE_LABEL)
+
+    except Exception as e:
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        print(f"❌ admin_sites 오류: {type(e).__name__}: {str(e)}")
+        flash(f'국사명 관리 중 오류가 발생했습니다: {str(e)}')
+        return redirect('/admin/dashboard')
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():
@@ -2118,8 +2449,8 @@ def delete_inventory(item_id):
         
         if item_info:
             warehouse, category = item_info
-            if category == "전기차":
-                return redirect(f'/warehouse/{warehouse}/electric')
+            if category in [DIY_CHECKLIST_CATEGORY, '전기차']:
+                return redirect(f'/warehouse/{get_slug_from_db_warehouse(warehouse)}/electric')
             else:
                 return redirect(f'/warehouse/{get_slug_from_db_warehouse(warehouse)}/access')
         
@@ -2311,7 +2642,7 @@ def health():
             'storage_enabled': bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
             'email_enabled': bool(SMTP_USERNAME and SMTP_PASSWORD),
             'timestamp': datetime.now().isoformat(),
-            'message': 'SK오앤에스 창고관리 시스템 (Supabase PostgreSQL + Storage + Email) 정상 작동 중'
+            'message': 'SK오앤에스 DIY System (Supabase PostgreSQL + Storage + Email) 정상 작동 중'
         })
     except Exception as e:
         return jsonify({
@@ -2388,7 +2719,7 @@ if __name__ == '__main__':
     print(f"📋 인수증 기능: 전자서명 + 이메일 발송")
     print(f"🏪 창고: {', '.join(WAREHOUSES)}")
     print("=" * 60)
-    print("🚀 SK오앤에스 창고관리 시스템 (Access 관리 포함) 시작!")
+    print("🚀 SK오앤에스 DIY System 시작!")
     print("=" * 60)
     
     try:
