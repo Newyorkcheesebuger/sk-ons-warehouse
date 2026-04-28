@@ -101,6 +101,77 @@ def normalize_warehouse_filter(warehouse_value):
         return DB_ACTIVE_WAREHOUSE
     return None
 
+
+INSPECTION_ITEMS = [
+    (1, '고무패킹교체'),
+    (2, '실내기 Reset'),
+    (3, 'V벨트 교체'),
+    (4, '타이머 릴레이'),
+    (5, '배수관 청소'),
+    (6, 'RMS 온도센싱'),
+    (7, '자연공조 점검'),
+    (8, '정전보상'),
+    (9, '실외기 핀,넝쿨'),
+    (10, '송풍구 풍량'),
+    (11, '열화상 측정'),
+]
+
+INSPECTION_SITE_NAMES = [
+    "(HK)수서역LDT1.51.LTE.DU30(내)",
+    "(RM)천호2LDB.51.LTE.ENB(내)",
+    "BR_여의도W.51.WCDMA.E3-NODEB(내)",
+    "BR_외수협W.51.WCDMA.E3-NODEB(내)",
+    "GR_강서구청W.51.WCDMA.E3-NODEB(내)",
+    "GR_내곡동INFOB7LDC_00.51.LTE.DU20(내)",
+    "GR_봉천4동2W.51.WCDMA.E3-NODEB(외)",
+    "GR_의사당WT1.51.WCDMA.E3-NODEB(내)-T",
+    "PR_목6동W.51.WCDMA.E3-NODEB(내)",
+    "SKB동작사옥W.51.WCDMA.E3-NODEB(외)",
+    "가락W.51.WCDMA.E3-NODEB(내)",
+    "가리봉(1FA)WD1.51.WCDMA.IPNB-DU-6S(내)",
+    "가산동2(1FA)WD1.51.WCDMA.IPNB-DU-3S(외)",
+    "가양(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "공항(1FA)WD5.51.WCDMA.IPNB-DU-6S(내)",
+    "관악소방서4TLDT_00.51.LTE.DU30(내)",
+    "광명대교(1FA)WD.51.WCDMA.IPNB-DU-9S(내)",
+    "구로에이스WT1.51.WCDMA.E3-NODEB(외)",
+    "구로역W.51.WCDMA.E3-NODEB(내)",
+    "궁동2(1FA)WD2.51.WCDMA.IPNB-DU-3S(내)",
+    "길동(1FA)WD.51.WCDMA.IPNB-DU-9S(내)",
+    "낙성대(1FA)WD.51.WCDMA.IPNB-DU-6S(내)",
+    "내곡IC_LDT_00.51.LTE.DU30(내)",
+    "노량진(1FA)WD3.51.WCDMA.IPNB-DU-6S(내)",
+    "당산3W.51.WCDMA.E3-NODEB(내)",
+    "대림2(1FA)WD.51.WCDMA.IPNB-DU-6S(내)",
+    "대림W.51.WCDMA.E3-NODEB(내)",
+    "대림우체국W.51.WCDMA.E3-NODEB(내)",
+    "대치(1FA)WD1.51.WCDMA.IPNB-DU-9S(내)",
+    "도곡주공(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "도곡행자타운(1FA)WD2.51.WCDMA.IPNB-DU-3S(내)",
+    "독산2(1FA)WD2.51.WCDMA.IPNB-DU-3S(내)",
+    "명덕고교(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "반포W.51.WCDMA.E3-NODEB(내)",
+    "방배사거리W.51.WCDMA.E3-NODEB(외)",
+    "상도(1FA)WD4.51.WCDMA.IPNB-DU-6S(내)",
+    "서초3_4TLDT_00.51.LTE.DU30(내)",
+    "수서원(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "시흥SE(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "신림2(1FA)WD.51.WCDMA.IPNB-DU-6S(내)",
+    "신림7동(1FA)WD1.51.WCDMA.IPNB-DU-6S(내)",
+    "신림분동(1FA)WD.51.WCDMA.IPNB-DU-6S(내)",
+    "신사(1FA)WD1.51.WCDMA.IPNB-DU-6S(내)",
+    "여의하류B7LDC_00.51.LTE.DU25(내)",
+    "영등6교(1FA)WD1.51.WCDMA.IPNB-DU-3S(외)",
+    "오류ICW.51.WCDMA.E3-NODEB(외)",
+    "오류동W.51.WCDMA.E3-NODEB(외)",
+    "일원역(1FA)WD.51.WCDMA.IPNB-DU-9S(내)",
+    "포스코사W.51.WCDMA.E3-NODEB(내)",
+    "풍납(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "한강대교2(1FA)WD1.51.WCDMA.IPNB-DU-3S(내)",
+    "한강대교WT.51.WCDMA.E3-NODEB(내)",
+    "화곡2W.51.WCDMA.E3-NODEB(내)",
+]
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -273,6 +344,31 @@ def upload_to_supabase_storage(image_bytes, filename, bucket_name='warehouse-pho
         print(f"❌ Supabase Storage 업로드 오류: {e}")
         return None
 
+
+def save_inspection_photo(file_obj, item_id, checkpoint_no, phase):
+    """점검 사진을 1MB 이하로 압축 후 Supabase에 저장"""
+    if not file_obj or file_obj.filename == '':
+        raise Exception(f"{checkpoint_no}번 {phase} 사진이 없습니다.")
+    if not allowed_file(file_obj.filename):
+        raise Exception(f"{checkpoint_no}번 {phase} 사진 형식이 올바르지 않습니다.")
+
+    file_obj.seek(0)
+    compressed_bytes, final_size_kb = compress_image_to_target_size(
+        file_obj,
+        max_size_mb=0.9,
+        max_width=1600,
+        quality=85
+    )
+    if not compressed_bytes:
+        raise Exception(f"{checkpoint_no}번 {phase} 사진 압축에 실패했습니다.")
+
+    filename = f"inspection_{item_id}_{checkpoint_no}_{phase}_{uuid.uuid4().hex}.jpg"
+    supabase_url = upload_to_supabase_storage(compressed_bytes, filename)
+    if not supabase_url:
+        raise Exception(f"{checkpoint_no}번 {phase} 사진 업로드에 실패했습니다.")
+
+    return filename, int(final_size_kb), supabase_url
+
 def init_db():
     """트랜잭션 오류 완전 해결된 초기화 함수"""
     conn = None
@@ -334,6 +430,28 @@ def init_db():
                 signature_data TEXT,
                 created_by TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )'''),
+            ('inspection_records', '''CREATE TABLE IF NOT EXISTS inspection_records (
+                id SERIAL PRIMARY KEY,
+                inventory_id INTEGER REFERENCES inventory(id),
+                warehouse TEXT NOT NULL,
+                site_name TEXT,
+                inspector_name TEXT NOT NULL,
+                inspected_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
+                status TEXT DEFAULT '작업 완료',
+                checklist_data TEXT,
+                memo TEXT
+            )'''),
+            ('inspection_photos', '''CREATE TABLE IF NOT EXISTS inspection_photos (
+                id SERIAL PRIMARY KEY,
+                record_id INTEGER REFERENCES inspection_records(id) ON DELETE CASCADE,
+                checkpoint_no INTEGER NOT NULL,
+                checkpoint_name TEXT NOT NULL,
+                phase TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                file_size INTEGER,
+                supabase_url TEXT NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
         ]
         
@@ -377,6 +495,31 @@ def init_db():
         except Exception as admin_error:
             conn.rollback()
             print(f"⚠️ 관리자 계정 처리 중 오류: {admin_error}")
+
+        # 점검 대상(국사명) 시드 데이터 추가
+        try:
+            inserted_count = 0
+            for site_name in INSPECTION_SITE_NAMES:
+                cursor.execute(
+                    '''SELECT id
+                       FROM inventory
+                       WHERE warehouse = %s AND category = %s AND part_name = %s''',
+                    (DB_ACTIVE_WAREHOUSE, "전기차", site_name)
+                )
+                if cursor.fetchone():
+                    continue
+                cursor.execute(
+                    '''INSERT INTO inventory
+                       (warehouse, category, part_name, quantity, last_modifier)
+                       VALUES (%s, %s, %s, %s, %s)''',
+                    (DB_ACTIVE_WAREHOUSE, "전기차", site_name, 0, "system-seed")
+                )
+                inserted_count += 1
+            conn.commit()
+            print(f"✅ 점검 대상 시드 반영 완료 (신규 {inserted_count}건)")
+        except Exception as seed_error:
+            conn.rollback()
+            print(f"⚠️ 점검 대상 시드 반영 중 오류: {seed_error}")
             
     except Exception as e:
         if conn:
@@ -1418,7 +1561,7 @@ def warehouse(warehouse_name):
 
 @app.route('/warehouse/<warehouse_name>/electric')
 def electric_inventory(warehouse_name):
-    """전기차 부품 재고 관리 페이지 - datetime 오류 완전 해결"""
+    """DIY 점검 대상 목록 페이지"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -1426,43 +1569,57 @@ def electric_inventory(warehouse_name):
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
-    print(f"🔍 전기차 부품 재고 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
+    print(f"🔍 DIY 작업 관리 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('''SELECT i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified,
-                                COUNT(p.id) as photo_count
-                         FROM inventory i
-                         LEFT JOIN photos p ON i.id = p.inventory_id
-                         WHERE i.warehouse = %s AND i.category = %s
-                         GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
-                         ORDER BY i.id''', (db_warehouse_name, "전기차"))
+        cursor.execute('''
+            SELECT i.id,
+                   i.part_name,
+                   r.inspector_name,
+                   r.inspected_at
+            FROM inventory i
+            LEFT JOIN (
+                SELECT DISTINCT ON (inventory_id)
+                       inventory_id,
+                       inspector_name,
+                       inspected_at
+                FROM inspection_records
+                ORDER BY inventory_id, inspected_at DESC
+            ) r ON i.id = r.inventory_id
+            WHERE i.warehouse = %s AND i.category = %s
+            ORDER BY i.id
+        ''', (db_warehouse_name, "전기차"))
         
         raw_inventory = cursor.fetchall()
         conn.close()
         
-        # 🔧 날짜 형식 변환 처리 (datetime 오류 완전 해결)
-        inventory = []
-        for item in raw_inventory:
-            item_list = list(item)
-            if item_list[5]:  # last_modified가 존재하면
-                if isinstance(item_list[5], str):
-                    # 이미 문자열이면 그대로 사용
-                    pass
-                else:
-                    # datetime 객체면 문자열로 변환
-                    item_list[5] = item_list[5].strftime('%Y-%m-%d %H:%M:%S')
-            inventory.append(item_list)
+        checklist_targets = []
+        for row in raw_inventory:
+            target_id = row[0]
+            site_name = row[1] or '미입력'
+            inspector_name = row[2] or ''
+            inspected_at = row[3]
+            if inspected_at and not isinstance(inspected_at, str):
+                inspected_at = inspected_at.strftime('%Y-%m-%d %H:%M:%S')
+            checklist_targets.append({
+                'id': target_id,
+                'site_name': site_name,
+                'inspector_name': inspector_name,
+                'inspected_at': inspected_at or '',
+                'status': '작업 완료' if inspected_at else '작업 미완료'
+            })
         
-        print(f"✅ 재고 데이터 조회 성공: {len(inventory)}개 항목")
+        print(f"✅ 점검 대상 조회 성공: {len(checklist_targets)}개 항목")
         
         return render_template('electric_inventory.html',
                                warehouse_name=DIY_ACTIVE_LABEL,
                                warehouse_slug=DIY_ACTIVE_SLUG,
                                warehouse_db_name=db_warehouse_name,
-                               inventory=inventory,
+                               checklist_targets=checklist_targets,
+                               inspection_items=INSPECTION_ITEMS,
                                is_admin=session.get('is_admin', False))
                                
     except Exception as e:
@@ -1474,6 +1631,122 @@ def electric_inventory(warehouse_name):
             return redirect('/admin/warehouse')
         else:
             return redirect('/dashboard')
+
+
+@app.route('/warehouse/<warehouse_name>/inspection/<int:item_id>', methods=['GET', 'POST'])
+def inspection_detail(warehouse_name, item_id):
+    """점검 상세 페이지 및 저장"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            '''SELECT id, part_name
+               FROM inventory
+               WHERE id = %s AND warehouse = %s AND category = %s''',
+            (item_id, db_warehouse_name, "전기차")
+        )
+        item = cursor.fetchone()
+        if not item:
+            conn.close()
+            flash('점검 대상을 찾을 수 없습니다.')
+            return redirect(f'/warehouse/{warehouse_name}/electric')
+
+        if request.method == 'POST':
+            korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
+            inspector_name = session.get('user_name', '미설정')
+            site_name = request.form.get('site_name', '').strip() or (item[1] or '미입력')
+            memo = request.form.get('memo', '').strip()
+
+            checklist_data = []
+            photo_rows = []
+
+            for checkpoint_no, checkpoint_name in INSPECTION_ITEMS:
+                result_value = request.form.get(f'result_{checkpoint_no}', 'ok')
+                before_file = request.files.get(f'before_{checkpoint_no}')
+                after_file = request.files.get(f'after_{checkpoint_no}')
+
+                before_name, before_size, before_url = save_inspection_photo(before_file, item_id, checkpoint_no, 'before')
+                after_name, after_size, after_url = save_inspection_photo(after_file, item_id, checkpoint_no, 'after')
+
+                checklist_data.append({
+                    'checkpoint_no': checkpoint_no,
+                    'checkpoint_name': checkpoint_name,
+                    'result': result_value
+                })
+
+                photo_rows.append((checkpoint_no, checkpoint_name, 'before', before_name, before_size, before_url))
+                photo_rows.append((checkpoint_no, checkpoint_name, 'after', after_name, after_size, after_url))
+
+            cursor.execute(
+                '''INSERT INTO inspection_records
+                   (inventory_id, warehouse, site_name, inspector_name, inspected_at, status, checklist_data, memo)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING id''',
+                (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료',
+                 json.dumps(checklist_data, ensure_ascii=False), memo)
+            )
+            record_id = cursor.fetchone()[0]
+
+            for checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url in photo_rows:
+                cursor.execute(
+                    '''INSERT INTO inspection_photos
+                       (record_id, checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                    (record_id, checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url)
+                )
+
+            cursor.execute(
+                'UPDATE inventory SET part_name = %s, last_modifier = %s, last_modified = %s WHERE id = %s',
+                (site_name, inspector_name, korea_time, item_id)
+            )
+            cursor.execute(
+                '''INSERT INTO inventory_history
+                   (inventory_id, change_type, quantity_change, modifier_name, modified_at)
+                   VALUES (%s, %s, %s, %s, %s)''',
+                (item_id, 'inspection', 0, inspector_name, korea_time)
+            )
+
+            conn.commit()
+            conn.close()
+            flash('점검 내용이 저장되었습니다.')
+            return redirect(f'/warehouse/{warehouse_name}/electric')
+
+        conn.close()
+        return render_template(
+            'inspection_detail.html',
+            warehouse_name=DIY_ACTIVE_LABEL,
+            warehouse_slug=warehouse_name,
+            item_id=item[0],
+            site_name=item[1] or '미입력',
+            inspector_name=session.get('user_name', '미설정'),
+            inspection_items=INSPECTION_ITEMS
+        )
+    except Exception as e:
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        print(f"❌ inspection_detail 오류: {type(e).__name__}: {str(e)}")
+        flash(f'점검 페이지 처리 중 오류가 발생했습니다: {str(e)}')
+        return redirect(f'/warehouse/{warehouse_name}/electric')
+
+
+@app.route('/inspection-method')
+def inspection_method():
+    if 'user_id' not in session:
+        return redirect('/')
+    image_path = os.path.join('static', 'inspection', 'inspection_method.png')
+    has_image = os.path.exists(image_path)
+    return render_template('inspection_method.html', has_image=has_image)
 
 @app.route('/add_inventory_item', methods=['POST'])
 def add_inventory_item():

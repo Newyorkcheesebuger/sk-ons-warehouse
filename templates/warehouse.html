@@ -17,45 +17,20 @@
 
             <!-- 카테고리 선택 카드 -->
             <div class="row">
-                <!-- DIY 카테고리 -->
                 <div class="col-12 mb-4">
                     <div class="card category-card h-100" onclick="location.href='{{ url_for('electric_inventory', warehouse_name=warehouse_slug) }}'">
                         <div class="card-body d-flex align-items-center p-4">
                             <div class="category-icon me-4">
-                                <i class="fas fa-car fa-4x text-success"></i>
+                                <i class="fas fa-clipboard-check fa-4x text-success"></i>
                             </div>
                             <div class="category-content flex-grow-1">
                                 <h3 class="card-title mb-2">DIY 작업 관리</h3>
-                                <p class="card-text text-muted mb-3">DIY 작업 관련 부품 재고를 관리합니다</p>
+                                <p class="card-text text-muted mb-3">냉방기 예방점검 대상 점검을 진행합니다</p>
                                 <div class="d-flex align-items-center">
                                     <span class="badge bg-success me-2">
                                         <i class="fas fa-check me-1"></i>운영 중
                                     </span>
-                                    <small class="text-muted">실시간 재고 관리 가능</small>
-                                </div>
-                            </div>
-                            <div class="category-arrow">
-                                <i class="fas fa-chevron-right fa-2x text-primary"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Access 카테고리 (기타 부품 재고) -->
-                <div class="col-12 mb-4">
-                    <div class="card category-card h-100" onclick="location.href='/warehouse/{{ warehouse_slug }}/access'">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="category-icon me-4">
-                                <i class="fas fa-tools fa-4x text-info"></i>
-                            </div>
-                            <div class="category-content flex-grow-1">
-                                <h3 class="card-title mb-2">Access 관리</h3>
-                                <p class="card-text text-muted mb-3">부품 재고를 관리 합니다</p>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-info me-2">
-                                        <i class="fas fa-check me-1"></i>운영 중
-                                    </span>
-                                    <small class="text-muted">기타 부품 재고 관리</small>
+                                    <small class="text-muted">점검 목록 확인 및 저장 가능</small>
                                 </div>
                             </div>
                             <div class="category-arrow">
@@ -74,8 +49,8 @@
                             <div class="info-icon mb-3">
                                 <i class="fas fa-chart-line fa-3x text-info"></i>
                             </div>
-                            <h5 class="card-title">실시간 현황</h5>
-                            <p class="card-text text-muted">재고 현황을 실시간으로 확인하고 관리할 수 있습니다</p>
+                            <h5 class="card-title">점검 현황</h5>
+                            <p class="card-text text-muted">작업 완료/미완료 상태를 확인할 수 있습니다</p>
                         </div>
                     </div>
                 </div>
@@ -86,8 +61,8 @@
                             <div class="info-icon mb-3">
                                 <i class="fas fa-history fa-3x text-primary"></i>
                             </div>
-                            <h5 class="card-title">이력 관리</h5>
-                            <p class="card-text text-muted">모든 입출고 내역이 자동으로 기록되고 추적됩니다</p>
+                            <h5 class="card-title">작업 이력</h5>
+                            <p class="card-text text-muted">점검 저장 시 작업자와 작업일시가 자동 기록됩니다</p>
                         </div>
                     </div>
                 </div>
@@ -205,7 +180,6 @@
 }
 
 .category-card:nth-child(1) { animation-delay: 0.1s; }
-.category-card:nth-child(2) { animation-delay: 0.2s; }
 
 .info-card {
     animation: fadeInUp 0.5s ease-out both;

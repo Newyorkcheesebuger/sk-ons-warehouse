@@ -11,6 +11,19 @@ DIY_ACTIVE_SLUG = "cooling-maintenance"
 DIY_ACTIVE_LABEL = "냉방기 예방점검"
 DIY_PREPARING_LABEL = "준비중"
 DB_ACTIVE_WAREHOUSE = "보라매창고"
+INSPECTION_ITEMS = [
+    (1, "고무패킹교체"),
+    (2, "실내기 Reset"),
+    (3, "V벨트 교체"),
+    (4, "타이머 릴레이"),
+    (5, "배수관 청소"),
+    (6, "RMS 온도센싱"),
+    (7, "자연공조 점검"),
+    (8, "정전보상"),
+    (9, "실외기 핀,넝쿨"),
+    (10, "송풍구 풍량"),
+    (11, "열화상 측정"),
+]
 
 
 def now_str() -> str:
@@ -149,13 +162,50 @@ def warehouse(warehouse_name):
 def electric_inventory(warehouse_name):
     if warehouse_name != DIY_ACTIVE_SLUG:
         return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
+    checklist_targets = []
+    for item in deepcopy(SAMPLE_ELECTRIC):
+        checklist_targets.append(
+            {
+                "id": item[0],
+                "site_name": item[2],
+                "inspector_name": item[4] or "",
+                "inspected_at": item[5] or "",
+                "status": "작업 완료" if item[5] else "작업 미완료",
+            }
+        )
     return render_template(
         "electric_inventory.html",
         warehouse_name=DIY_ACTIVE_LABEL,
         warehouse_slug=DIY_ACTIVE_SLUG,
         warehouse_db_name=DB_ACTIVE_WAREHOUSE,
-        inventory=deepcopy(SAMPLE_ELECTRIC),
+        checklist_targets=checklist_targets,
+        inspection_items=INSPECTION_ITEMS,
         is_admin=session.get("is_admin", False),
+    )
+
+
+@app.route("/warehouse/<warehouse_name>/inspection/<int:item_id>", methods=["GET", "POST"])
+def inspection_detail(warehouse_name, item_id):
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
+
+    item = next((i for i in SAMPLE_ELECTRIC if i[0] == item_id), None)
+    if not item:
+        return redirect(url_for("electric_inventory", warehouse_name=DIY_ACTIVE_SLUG))
+
+    if request.method == "POST":
+        item[4] = session.get("user_name", "프리뷰사용자")
+        item[5] = now_str()
+        return redirect(url_for("electric_inventory", warehouse_name=DIY_ACTIVE_SLUG))
+
+    return render_template(
+        "inspection_detail.html",
+        warehouse_name=DIY_ACTIVE_LABEL,
+        warehouse_slug=DIY_ACTIVE_SLUG,
+        item_id=item[0],
+        site_name=item[2],
+        inspector_name=session.get("user_name", "프리뷰사용자"),
+        inspection_items=INSPECTION_ITEMS,
     )
 
 
@@ -316,6 +366,11 @@ def health():
 @app.route("/preparing")
 def preparing():
     return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
+
+
+@app.route("/inspection-method")
+def inspection_method():
+    return render_template("inspection_method.html", has_image=False)
 
 
 if __name__ == "__main__":
