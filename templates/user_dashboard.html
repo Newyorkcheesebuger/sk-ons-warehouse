@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}대시보드 - SK오앤에스 창고관리{% endblock %}
+{% block title %}대시보드 - SK오앤에스 DIY System{% endblock %}
 
 {% block content %}
 <div class="user-header">
@@ -8,8 +8,8 @@
         <div class="row align-items-center">
             <div class="col-md-8">
                 <h1 class="user-title">
-                    <i class="fas fa-warehouse me-2"></i>
-                    창고관리 시스템
+                    <i class="fas fa-screwdriver-wrench me-2"></i>
+                    SK오앤에스 DIY System
                 </h1>
                 <p class="user-subtitle">{{ session.user_name }}님, 환영합니다!</p>
             </div>
@@ -25,7 +25,6 @@
     </div>
 </div>
 
-<!-- 빠른 검색 -->
 <div class="container mt-4 mb-4">
     <div class="row">
         <div class="col-12">
@@ -33,21 +32,19 @@
                 <div class="card-body">
                     <h5 class="card-title">
                         <i class="fas fa-search me-2 text-primary"></i>
-                        빠른 재고 검색
+                        작업자 검색
                     </h5>
                     <form action="{{ url_for('search_inventory') }}" method="GET" class="search-form">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <input type="text" class="form-control form-control-lg" name="q" 
-                                       placeholder="부품명을 입력하세요..." 
+                                <input type="text" class="form-control form-control-lg" name="q"
+                                       placeholder="작업자 또는 부품명을 입력하세요..."
                                        style="border-radius: 15px;">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <select class="form-select form-control-lg" name="warehouse" style="border-radius: 15px;">
-                                    <option value="">전체 창고</option>
-                                    {% for warehouse in warehouses %}
-                                    <option value="{{ warehouse }}">{{ warehouse }}</option>
-                                    {% endfor %}
+                                    <option value="">전체</option>
+                                    <option value="cooling-maintenance">냉방기 예방점검</option>
                                 </select>
                             </div>
                             <div class="col-md-3 mb-3">
@@ -63,28 +60,26 @@
     </div>
 </div>
 
-<!-- 창고 선택 메인 섹션 -->
 <div class="container">
     <div class="row">
         <div class="col-12">
             <div class="card warehouse-card">
                 <div class="card-header">
                     <h4 class="mb-0">
-                        <i class="fas fa-building me-2"></i>
-                        창고 선택
+                        <i class="fas fa-list-check me-2"></i>
+                        DIY 선택
                     </h4>
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <!-- 보라매창고 (운영 중) -->
                         <div class="col-lg-4 col-md-6 mb-4">
-                            <div class="warehouse-item active" onclick="location.href='{{ url_for('warehouse', warehouse_name='보라매창고') }}'">
+                            <div class="warehouse-item active" onclick="location.href='{{ url_for('warehouse', warehouse_name='cooling-maintenance') }}'">
                                 <div class="warehouse-icon">
-                                    <i class="fas fa-warehouse fa-3x text-success"></i>
+                                    <i class="fas fa-snowflake fa-3x text-success"></i>
                                 </div>
                                 <div class="warehouse-info">
-                                    <h5>보라매창고</h5>
-                                    <p class="text-muted">전기차 부품 관리</p>
+                                    <h5>냉방기 예방점검</h5>
+                                    <p class="text-muted">냉방기 예방점검</p>
                                     <span class="badge bg-success">운영 중</span>
                                 </div>
                                 <div class="warehouse-arrow">
@@ -93,67 +88,15 @@
                             </div>
                         </div>
 
-                        <!-- 관악창고 (준비 중) -->
                         <div class="col-lg-4 col-md-6 mb-4">
-                            <div class="warehouse-item preparing" onclick="location.href='{{ url_for('warehouse', warehouse_name='관악창고') }}'">
+                            <div class="warehouse-item preparing" onclick="location.href='{{ url_for('preparing') }}'">
                                 <div class="warehouse-icon">
-                                    <i class="fas fa-warehouse fa-3x text-warning"></i>
+                                    <i class="fas fa-hourglass-half fa-3x text-warning"></i>
                                 </div>
                                 <div class="warehouse-info">
-                                    <h5>관악창고</h5>
-                                    <p class="text-muted">전기차 부품 관리</p>
-                                    <span class="badge bg-warning">준비 중</span>
-                                </div>
-                                <div class="warehouse-arrow">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 양천창고 (준비 중) -->
-                        <div class="col-lg-4 col-md-6 mb-4">
-                            <div class="warehouse-item preparing" onclick="location.href='{{ url_for('warehouse', warehouse_name='양천창고') }}'">
-                                <div class="warehouse-icon">
-                                    <i class="fas fa-warehouse fa-3x text-warning"></i>
-                                </div>
-                                <div class="warehouse-info">
-                                    <h5>양천창고</h5>
-                                    <p class="text-muted">전기차 부품 관리</p>
-                                    <span class="badge bg-warning">준비 중</span>
-                                </div>
-                                <div class="warehouse-arrow">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 강남창고 (준비 중) -->
-                        <div class="col-lg-4 col-md-6 mb-4">
-                            <div class="warehouse-item preparing" onclick="location.href='{{ url_for('warehouse', warehouse_name='강남창고') }}'">
-                                <div class="warehouse-icon">
-                                    <i class="fas fa-warehouse fa-3x text-warning"></i>
-                                </div>
-                                <div class="warehouse-info">
-                                    <h5>강남창고</h5>
-                                    <p class="text-muted">전기차 부품 관리</p>
-                                    <span class="badge bg-warning">준비 중</span>
-                                </div>
-                                <div class="warehouse-arrow">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 강동창고 (준비 중) -->
-                        <div class="col-lg-4 col-md-6 mb-4">
-                            <div class="warehouse-item preparing" onclick="location.href='{{ url_for('warehouse', warehouse_name='강동창고') }}'">
-                                <div class="warehouse-icon">
-                                    <i class="fas fa-warehouse fa-3x text-warning"></i>
-                                </div>
-                                <div class="warehouse-info">
-                                    <h5>강동창고</h5>
-                                    <p class="text-muted">전기차 부품 관리</p>
-                                    <span class="badge bg-warning">준비 중</span>
+                                    <h5>준비중</h5>
+                                    <p class="text-muted">준비중</p>
+                                    <span class="badge bg-warning">준비중</span>
                                 </div>
                                 <div class="warehouse-arrow">
                                     <i class="fas fa-clock"></i>
@@ -167,71 +110,22 @@
     </div>
 </div>
 
-<!-- Access 관리 섹션 제거 -->
-
-<!-- 사용자 안내 정보 -->
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="info-card">
-                <div class="info-icon bg-primary">
-                    <i class="fas fa-box-open"></i>
-                </div>
-                <div class="info-content">
-                    <h6>재고 조회</h6>
-                    <p>실시간 재고 현황을 확인하고 부품을 검색할 수 있습니다.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="info-card">
-                <div class="info-icon bg-success">
-                    <i class="fas fa-plus-circle"></i>
-                </div>
-                <div class="info-content">
-                    <h6>입출고 관리</h6>
-                    <p>부품의 입고와 출고를 간편하게 처리할 수 있습니다.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="info-card">
-                <div class="info-icon bg-info">
-                    <i class="fas fa-camera"></i>
-                </div>
-                <div class="info-content">
-                    <h6>사진 관리</h6>
-                    <p>부품의 사진을 업로드하고 관리할 수 있습니다.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 최근 활동 (옵션) -->
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
             <div class="card activity-card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-history me-2"></i>
+                        <i class="fas fa-info-circle me-2"></i>
                         시스템 안내
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info" role="alert">
-                        <h6 class="alert-heading">
-                            <i class="fas fa-info-circle me-2"></i>
-                            사용 안내
-                        </h6>
+                    <div class="alert alert-info mb-0" role="alert">
                         <ul class="mb-0">
-                            <li>현재 <strong>보라매창고</strong>만 운영 중입니다.</li>
-                            <li>보라매창고에서는 전기차 부품과 기타 부품(Access 관리)을 관리할 수 있습니다.</li>
-                            <li>다른 창고들은 순차적으로 개설 예정입니다.</li>
-                            <li>문의사항이 있으시면 관리자에게 연락해주세요.</li>
+                            <li>현재 <strong>냉방기 예방점검</strong> 메뉴가 운영 중입니다.</li>
+                            <li>추가 DIY 메뉴는 준비중 상태입니다.</li>
+                            <li>작업자 검색에서 키워드와 DIY 위치를 함께 선택해 조회할 수 있습니다.</li>
                         </ul>
                     </div>
                 </div>
@@ -245,7 +139,6 @@
     background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
     color: white;
     padding: 2rem 0;
-    margin-bottom: 0;
     border-radius: 0 0 20px 20px;
 }
 
@@ -265,25 +158,16 @@
     text-align: right;
 }
 
-.search-card {
+.search-card,
+.warehouse-card,
+.activity-card {
     border: none;
     border-radius: 20px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
 
-.search-form .form-control:focus,
-.search-form .form-select:focus {
-    border-color: #0066cc;
-    box-shadow: 0 0 0 0.2rem rgba(0,102,204,0.25);
-}
-
-.warehouse-card {
-    border: none;
-    border-radius: 20px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.warehouse-card .card-header {
+.warehouse-card .card-header,
+.activity-card .card-header {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-radius: 20px 20px 0 0;
     border-bottom: 1px solid #dee2e6;
@@ -299,8 +183,6 @@
     height: 100%;
     display: flex;
     align-items: center;
-    position: relative;
-    overflow: hidden;
 }
 
 .warehouse-item.active {
@@ -318,14 +200,6 @@
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
-.warehouse-item.active:hover {
-    box-shadow: 0 10px 25px rgba(40,167,69,0.2);
-}
-
-.warehouse-item.preparing:hover {
-    box-shadow: 0 10px 25px rgba(255,193,7,0.2);
-}
-
 .warehouse-icon {
     margin-right: 1rem;
     flex-shrink: 0;
@@ -338,7 +212,6 @@
 .warehouse-info h5 {
     margin-bottom: 0.5rem;
     font-weight: 600;
-    color: #333;
 }
 
 .warehouse-info p {
@@ -350,397 +223,21 @@
     margin-left: 1rem;
     font-size: 1.5rem;
     color: #6c757d;
-    transition: all 0.3s ease;
-}
-
-.warehouse-item:hover .warehouse-arrow {
-    transform: translateX(5px);
-}
-
-.warehouse-item.active .warehouse-arrow {
-    color: #28a745;
-}
-
-.warehouse-item.preparing .warehouse-arrow {
-    color: #ffc107;
-}
-
-.info-card {
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 15px;
-    padding: 1.5rem;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    transition: all 0.3s ease;
-}
-
-.info-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.info-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 1rem;
-    flex-shrink: 0;
-}
-
-.info-icon i {
-    font-size: 1.5rem;
-    color: white;
-}
-
-.info-content h6 {
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: #333;
-}
-
-.info-content p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #6c757d;
-}
-
-.activity-card {
-    border: none;
-    border-radius: 20px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.activity-card .card-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 20px 20px 0 0;
-    border-bottom: 1px solid #dee2e6;
 }
 
 @media (max-width: 768px) {
     .user-header {
-        padding: 1.5rem 0;
         text-align: center;
     }
-    
+
     .user-title {
         font-size: 1.8rem;
     }
-    
+
     .user-info {
         text-align: center;
         margin-top: 1rem;
     }
-    
-    .warehouse-item {
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .warehouse-icon {
-        margin-right: 0.75rem;
-    }
-    
-    .warehouse-icon i {
-        font-size: 2rem;
-    }
-    
-    .info-card {
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .info-icon {
-        width: 50px;
-        height: 50px;
-        margin-right: 0.75rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .search-form .row > .col-md-3,
-    .search-form .row > .col-md-6 {
-        margin-bottom: 1rem;
-    }
 }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 카드 등장 애니메이션
-    const cards = document.querySelectorAll('.card, .warehouse-item, .info-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
-    });
-    
-    // 검색 폼 엔터키 처리
-    const searchInput = document.querySelector('input[name="q"]');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.closest('form').submit();
-            }
-        });
-    }
-    
-    console.log('사용자 대시보드 로드 완료');
-});
-
-// 창고 클릭 시 로딩 효과
-function showLoading(element) {
-    const originalContent = element.innerHTML;
-    element.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로딩 중...';
-    
-    setTimeout(() => {
-        element.innerHTML = originalContent;
-    }, 2000);
-}
-</script>
 {% endblock %}
-    <!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대시보드 - SK오앤에스 창고관리</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
-    <style>
-        body {
-            background-color: #f8f9fc;
-            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        
-        .dashboard-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 3rem 0;
-            margin-bottom: 3rem;
-            border-radius: 0 0 20px 20px;
-        }
-        
-        .dashboard-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        
-        .dashboard-subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            margin: 0;
-        }
-        
-        .warehouse-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            height: 200px;
-            margin-bottom: 30px;
-            text-decoration: none;
-            color: inherit;
-        }
-        
-        .warehouse-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 1rem 3rem rgba(0,0,0,.175);
-            text-decoration: none;
-            color: inherit;
-        }
-        
-        .card-body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            text-align: center;
-            padding: 2rem;
-        }
-        
-        .card-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            color: #667eea;
-        }
-        
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        
-        .card-subtitle {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .search-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .btn-custom {
-            border-radius: 10px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 500;
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-title {
-                font-size: 2rem;
-            }
-            
-            .warehouse-card {
-                height: 180px;
-                margin-bottom: 20px;
-            }
-            
-            .card-icon {
-                font-size: 2.5rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- 대시보드 헤더 -->
-    <div class="dashboard-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="dashboard-title">
-                        <i class="fas fa-tachometer-alt me-3"></i>
-                        대시보드
-                    </h1>
-                    <p class="dashboard-subtitle">창고를 선택하여 재고 관리를 시작하세요</p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <span class="badge bg-primary px-3 py-2 me-2">사용자 모드</span>
-                    <span class="text-light">{{ session.user_name }}님</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="container-fluid">
-        <!-- 전체 재고 검색 -->
-        <div class="row justify-content-center mb-4">
-            <div class="col-lg-8">
-                <div class="search-card">
-                    <h5 class="text-center mb-3">
-                        <i class="fas fa-search me-2"></i>전체 재고 검색
-                    </h5>
-                    <form action="/search_inventory" method="GET">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <input type="text" class="form-control form-control-lg" name="q" 
-                                       placeholder="부품명으로 검색하세요">
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select form-select-lg" name="warehouse">
-                                    <option value="">전체 창고</option>
-                                    {% for warehouse in warehouses %}
-                                    <option value="{{ warehouse }}">{{ warehouse }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary btn-lg w-100">
-                                    <i class="fas fa-search me-2"></i>검색
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- 창고 선택 -->
-        <div class="row">
-            {% for warehouse in warehouses %}
-            <div class="col-lg-4 col-md-6 mb-4">
-                <a href="/warehouse/{{ warehouse }}" class="warehouse-card d-block">
-                    <div class="card-body">
-                        <div class="card-icon">
-                            <i class="fas fa-warehouse"></i>
-                        </div>
-                        <h5 class="card-title">{{ warehouse }}</h5>
-                        <p class="card-subtitle">재고 관리 및 조회</p>
-                    </div>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-
-        <!-- Access 관리 섹션 -->
-        <div class="row mt-5">
-            <div class="col-12">
-                <h3 class="text-center mb-4">
-                    <i class="fas fa-tools me-2"></i>Access 관리
-                </h3>
-            </div>
-            
-            <div class="col-lg-4 col-md-6 offset-lg-4 offset-md-3">
-                <a href="/warehouse/보라매창고/access" class="warehouse-card d-block">
-                    <div class="card-body">
-                        <div class="card-icon">
-                            <i class="fas fa-cogs"></i>
-                        </div>
-                        <h5 class="card-title">보라매창고 - 기타 부품 재고</h5>
-                        <p class="card-subtitle">부품 재고를 관리 합니다</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-
-        <!-- 하단 네비게이션 -->
-        <div class="row mt-5">
-            <div class="col-12 text-center">
-                <a href="/logout" class="btn btn-danger btn-custom">
-                    <i class="fas fa-sign-out-alt me-2"></i>로그아웃
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
-        // 검색 폼 엔터키 처리
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchForm = document.querySelector('form');
-            if (searchForm) {
-                searchForm.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.submit();
-                    }
-                });
-            }
-        });
-    </script>
-</body>
-</html>

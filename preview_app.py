@@ -7,7 +7,10 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 app = Flask(__name__)
 app.secret_key = "preview-only-secret-key"
 
-WAREHOUSES = ["보라매창고", "관악창고", "양천창고", "강남창고", "강동창고"]
+DIY_ACTIVE_SLUG = "cooling-maintenance"
+DIY_ACTIVE_LABEL = "냉방기 예방점검"
+DIY_PREPARING_LABEL = "준비중"
+DB_ACTIVE_WAREHOUSE = "보라매창고"
 
 
 def now_str() -> str:
@@ -114,7 +117,7 @@ def logout():
 def user_dashboard():
     if session.get("is_admin"):
         return redirect(url_for("admin_dashboard"))
-    return render_template("user_dashboard.html", warehouses=WAREHOUSES)
+    return render_template("user_dashboard.html", warehouses=[DIY_ACTIVE_SLUG])
 
 
 @app.route("/admin/dashboard")
@@ -125,28 +128,32 @@ def admin_dashboard():
         users=deepcopy(SAMPLE_USERS),
         total_items=len(INVENTORY_BY_ID),
         total_quantity=sum(item[3] for item in INVENTORY_BY_ID.values()),
-        warehouse_stats={"보라매창고": 2, "강남창고": 1, "양천창고": 1},
+        warehouse_stats={DIY_ACTIVE_LABEL: 2, "준비중": 3},
     )
 
 
 @app.route("/admin/warehouse")
 def admin_warehouse():
     session["is_admin"] = True
-    return render_template("user_dashboard.html", warehouses=WAREHOUSES)
+    return render_template("user_dashboard.html", warehouses=[DIY_ACTIVE_SLUG])
 
 
 @app.route("/warehouse/<warehouse_name>")
 def warehouse(warehouse_name):
-    if warehouse_name not in WAREHOUSES:
-        return render_template("preparing.html", warehouse_name=warehouse_name)
-    return render_template("warehouse.html", warehouse_name=warehouse_name)
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
+    return render_template("warehouse.html", warehouse_name=DIY_ACTIVE_LABEL, warehouse_slug=DIY_ACTIVE_SLUG)
 
 
 @app.route("/warehouse/<warehouse_name>/electric")
 def electric_inventory(warehouse_name):
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
     return render_template(
         "electric_inventory.html",
-        warehouse_name=warehouse_name,
+        warehouse_name=DIY_ACTIVE_LABEL,
+        warehouse_slug=DIY_ACTIVE_SLUG,
+        warehouse_db_name=DB_ACTIVE_WAREHOUSE,
         inventory=deepcopy(SAMPLE_ELECTRIC),
         is_admin=session.get("is_admin", False),
     )
@@ -154,9 +161,13 @@ def electric_inventory(warehouse_name):
 
 @app.route("/warehouse/<warehouse_name>/access")
 def access_inventory(warehouse_name):
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
     return render_template(
         "access_inventory.html",
-        warehouse_name=warehouse_name,
+        warehouse_name=DIY_ACTIVE_LABEL,
+        warehouse_slug=DIY_ACTIVE_SLUG,
+        warehouse_db_name=DB_ACTIVE_WAREHOUSE,
         inventory=deepcopy(SAMPLE_ACCESS),
         is_admin=session.get("is_admin", False),
     )
@@ -169,10 +180,12 @@ def search_inventory():
 
     rows = []
     for item in INVENTORY_BY_ID.values():
-        inferred_warehouse = "보라매창고" if item[0] in (101, 201) else "강남창고"
+        inferred_warehouse = DB_ACTIVE_WAREHOUSE
         if query and query not in item[2]:
             continue
-        if warehouse_name and warehouse_name != inferred_warehouse:
+        if warehouse_name and warehouse_name not in (DIY_ACTIVE_SLUG, DB_ACTIVE_WAREHOUSE):
+            continue
+        if warehouse_name in (DIY_ACTIVE_SLUG, DB_ACTIVE_WAREHOUSE) and inferred_warehouse != DB_ACTIVE_WAREHOUSE:
             continue
         rows.append([item[0], inferred_warehouse, item[1], item[2], item[3], item[4], item[5], item[6]])
 
@@ -190,7 +203,7 @@ def view_photos(item_id):
     item = INVENTORY_BY_ID.get(item_id)
     if not item:
         return render_template("photos.html", photos=[], item_id=item_id, item_info=None, is_admin=session.get("is_admin", False))
-    item_info = (item[2], "보라매창고", item[1])
+    item_info = (item[2], DIY_ACTIVE_LABEL, item[1])
     photos = [
         [1, "sample1.jpg", "sample1.jpg", 245, "김관리", now_str(), "https://picsum.photos/seed/warehouse1/800/600"],
         [2, "sample2.jpg", "sample2.jpg", 198, "홍작업", now_str(), "https://picsum.photos/seed/warehouse2/800/600"],
@@ -208,7 +221,7 @@ def view_photos(item_id):
 def inventory_history(item_id):
     item = INVENTORY_BY_ID.get(item_id)
     if item:
-        item_info = (item[2], "보라매창고", item[1], item[3])
+        item_info = (item[2], DIY_ACTIVE_LABEL, item[1], item[3])
     else:
         item_info = None
     return render_template("inventory_history.html", item_info=item_info, history=SAMPLE_HISTORY.get(item_id, []))
@@ -216,9 +229,12 @@ def inventory_history(item_id):
 
 @app.route("/receipt_history/<warehouse_name>")
 def receipt_history(warehouse_name):
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
     return render_template(
         "receipt_history.html",
-        warehouse_name=warehouse_name,
+        warehouse_name=DIY_ACTIVE_LABEL,
+        warehouse_slug=DIY_ACTIVE_SLUG,
         receipts=deepcopy(SAMPLE_RECEIPTS),
         current_page=1,
         total_pages=1,
@@ -274,7 +290,7 @@ def delivery_receipt_actions():
 
 @app.route("/delivery_receipt/<warehouse_name>")
 def delivery_receipt(warehouse_name):
-    return redirect(url_for("receipt_history", warehouse_name=warehouse_name))
+    return redirect(url_for("receipt_history", warehouse_name=DIY_ACTIVE_SLUG))
 
 
 @app.route("/approve_user/<int:user_id>")
@@ -295,6 +311,11 @@ def upload_photo(item_id):
 @app.route("/health")
 def health():
     return jsonify({"status": "healthy", "mode": "preview"})
+
+
+@app.route("/preparing")
+def preparing():
+    return render_template("preparing.html", warehouse_name=DIY_PREPARING_LABEL)
 
 
 if __name__ == "__main__":

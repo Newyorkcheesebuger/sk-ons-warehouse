@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고 검색 결과 - SK오앤에스 창고관리</title>
+    <title>작업자 검색 결과 - SK오앤에스 DIY System</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -87,7 +87,7 @@
                 <div class="col-md-8">
                     <h1 class="mb-0">
                         <i class="fas fa-search me-2"></i>
-                        재고 검색 결과
+                        작업자 검색 결과
                     </h1>
                 </div>
                 <div class="col-md-4 text-end">
@@ -123,12 +123,12 @@
                 <div class="row">
                     {% if query %}
                     <div class="col-md-4 mb-2">
-                        <strong>부품명:</strong> "{{ query }}"
+                        <strong>검색어:</strong> "{{ query }}"
                     </div>
                     {% endif %}
                     {% if warehouse %}
                     <div class="col-md-4 mb-2">
-                        <strong>창고:</strong> {{ warehouse }}
+                        <strong>DIY 위치:</strong> 냉방기 예방점검
                     </div>
                     {% endif %}
                     {% if category %}
@@ -138,18 +138,18 @@
                     {% endif %}
                     {% if not query and not warehouse and not category %}
                     <div class="col-12">
-                        <span class="text-muted">전체 재고 조회</span>
+                        <span class="text-muted">전체 조회</span>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- 새로운 검색 -->
+        <!-- 작업자 검색 -->
         <div class="card">
             <div class="card-header bg-light">
                 <h6 class="mb-0">
-                    <i class="fas fa-search me-2"></i>새로운 검색
+                    <i class="fas fa-search me-2"></i>작업자 검색
                 </h6>
             </div>
             <div class="card-body">
@@ -157,16 +157,12 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <input type="text" class="form-control" name="q" 
-                                   placeholder="부품명 검색" value="{{ query or '' }}">
+                                   placeholder="작업자 또는 부품명 검색" value="{{ query or '' }}">
                         </div>
                         <div class="col-md-3 mb-3">
                             <select class="form-select" name="warehouse">
-                                <option value="">전체 창고</option>
-                                <option value="보라매창고" {% if warehouse == '보라매창고' %}selected{% endif %}>보라매창고</option>
-                                <option value="관악창고" {% if warehouse == '관악창고' %}selected{% endif %}>관악창고</option>
-                                <option value="양천창고" {% if warehouse == '양천창고' %}selected{% endif %}>양천창고</option>
-                                <option value="강남창고" {% if warehouse == '강남창고' %}selected{% endif %}>강남창고</option>
-                                <option value="강동창고" {% if warehouse == '강동창고' %}selected{% endif %}>강동창고</option>
+                                <option value="">전체</option>
+                                <option value="cooling-maintenance" {% if warehouse == 'cooling-maintenance' %}selected{% endif %}>냉방기 예방점검</option>
                             </select>
                         </div>     
                     </div>
@@ -198,7 +194,7 @@
                             <table class="table table-hover">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>창고</th>
+                                        <th>DIY 위치</th>
                                         <th>카테고리</th>
                                         <th>부품명</th>
                                         <th>현재 수량</th>
@@ -215,7 +211,9 @@
                                     {% for item in inventory %}
                                     <tr>
                                         <td>
-                                            <span class="badge bg-secondary">{{ item[1] }}</span>
+                                            <span class="badge bg-secondary">
+                                                {% if item[1] == '보라매창고' %}냉방기 예방점검{% else %}준비중{% endif %}
+                                            </span>
                                         </td>
                                         <td>
                                             <span class="badge {% if item[2] == '전기차' %}bg-info{% else %}bg-warning{% endif %}">
@@ -279,7 +277,9 @@
                                 <div>
                                     <h6 class="mb-1 text-primary">{{ item[3] }}</h6>
                                     <div class="d-flex gap-2 mb-1">
-                                        <span class="badge bg-secondary">{{ item[1] }}</span>
+                                        <span class="badge bg-secondary">
+                                            {% if item[1] == '보라매창고' %}냉방기 예방점검{% else %}준비중{% endif %}
+                                        </span>
                                         <span class="badge {% if item[2] == '전기차' %}bg-info{% else %}bg-warning{% endif %}">
                                             {{ item[2] }}
                                         </span>

@@ -68,8 +68,38 @@ print(f"✅ SUPABASE_URL: {SUPABASE_URL}")
 # 허용된 파일 확장자
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# 올바른 창고 목록
-WAREHOUSES = ['보라매창고', '관악창고', '양천창고', '강남창고', '강동창고']
+# 공개 식별자와 DB 저장값 분리
+DIY_ACTIVE_SLUG = 'cooling-maintenance'
+DIY_ACTIVE_LABEL = '냉방기 예방점검'
+DIY_PREPARING_LABEL = '준비중'
+DB_ACTIVE_WAREHOUSE = '보라매창고'
+WAREHOUSES = [DIY_ACTIVE_SLUG]
+
+
+def get_db_warehouse_from_slug(warehouse_slug):
+    if warehouse_slug == DIY_ACTIVE_SLUG:
+        return DB_ACTIVE_WAREHOUSE
+    return None
+
+
+def get_display_warehouse_from_slug(warehouse_slug):
+    if warehouse_slug == DIY_ACTIVE_SLUG:
+        return DIY_ACTIVE_LABEL
+    return DIY_PREPARING_LABEL
+
+
+def get_slug_from_db_warehouse(warehouse_name):
+    if warehouse_name == DB_ACTIVE_WAREHOUSE:
+        return DIY_ACTIVE_SLUG
+    return DIY_ACTIVE_SLUG
+
+
+def normalize_warehouse_filter(warehouse_value):
+    if not warehouse_value:
+        return None
+    if warehouse_value in [DIY_ACTIVE_SLUG, DIY_ACTIVE_LABEL, DB_ACTIVE_WAREHOUSE]:
+        return DB_ACTIVE_WAREHOUSE
+    return None
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -606,6 +636,13 @@ def admin_warehouse():
     # 관리자는 모든 창고에 접근 가능
     return render_template('user_dashboard.html', warehouses=WAREHOUSES)
 
+
+@app.route('/preparing')
+def preparing():
+    if 'user_id' not in session:
+        return redirect('/')
+    return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
 # ========
 # NEW: Access 관리 관련 라우트들
 # ========
@@ -615,8 +652,9 @@ def access_inventory(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
 
-    if warehouse_name not in WAREHOUSES:
-        return render_template('preparing.html', warehouse_name=warehouse_name)
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
     print(f"🔍 Access 관리 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
@@ -630,7 +668,7 @@ def access_inventory(warehouse_name):
                          LEFT JOIN photos p ON i.id = p.inventory_id
                          WHERE i.warehouse = %s AND i.category = %s
                          GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
-                         ORDER BY i.id''', (warehouse_name, "기타"))
+                         ORDER BY i.id''', (db_warehouse_name, "기타"))
         
         raw_inventory = cursor.fetchall()
         conn.close()
@@ -651,7 +689,9 @@ def access_inventory(warehouse_name):
         print(f"✅ Access 관리 재고 데이터 조회 성공: {len(inventory)}개 항목")
         
         return render_template('access_inventory.html',
-                               warehouse_name=warehouse_name,
+                               warehouse_name=DIY_ACTIVE_LABEL,
+                               warehouse_slug=DIY_ACTIVE_SLUG,
+                               warehouse_db_name=db_warehouse_name,
                                inventory=inventory,
                                is_admin=session.get('is_admin', False))
                                
@@ -738,6 +778,10 @@ def receipt_history(warehouse_name):
     if 'user_name' not in session and 'user_id' not in session:
         return redirect('/')
     
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
     print(f"🔍 인수증 이력 조회 시작 - 창고: {warehouse_name}")
     
     try:
@@ -751,7 +795,7 @@ def receipt_history(warehouse_name):
             WHERE items_data LIKE %s
             ORDER BY receipt_date DESC, created_at DESC
             LIMIT 20
-        ''', (f'%{warehouse_name}%',))
+        ''', (f'%{db_warehouse_name}%',))
         
         receipts = cursor.fetchall()
         conn.close()
@@ -939,7 +983,8 @@ def receipt_history(warehouse_name):
         print(f"✅ 전체 파싱 완료: {len(parsed_receipts)}개")
         
         template_vars = {
-            'warehouse_name': warehouse_name,
+            'warehouse_name': DIY_ACTIVE_LABEL,
+            'warehouse_slug': DIY_ACTIVE_SLUG,
             'receipts': parsed_receipts,
             'current_page': 1,
             'total_pages': 1,
@@ -954,7 +999,7 @@ def receipt_history(warehouse_name):
         import traceback
         print(f"상세 오류: {traceback.format_exc()}")
         flash('인수증 이력을 불러오는 중 오류가 발생했습니다.')
-        return redirect(f'/warehouse/{warehouse_name}/access')
+        return redirect(f'/warehouse/{DIY_ACTIVE_SLUG}/access')
         
 def generate_quantity_remark(warehouse_name, part_name, quantity, receipt_type):
     """수량 변화 비고 생성 함수 - 올바른 버전"""
@@ -1000,6 +1045,10 @@ def debug_receipts(warehouse_name):
         flash('관리자 권한이 필요합니다.')
         return redirect('/')
     
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1014,13 +1063,13 @@ def debug_receipts(warehouse_name):
             FROM delivery_receipts 
             WHERE items_data::text LIKE %s 
             ORDER BY created_at DESC LIMIT 20
-        ''', (f'%"warehouse": "{warehouse_name}"%',))
+        ''', (f'%"warehouse": "{db_warehouse_name}"%',))
         warehouse_receipts = cursor.fetchall()
         
         conn.close()
         
         debug_info = {
-            'warehouse_name': warehouse_name,
+            'warehouse_name': DIY_ACTIVE_LABEL,
             'total_receipts': len(all_receipts),
             'warehouse_receipts': len(warehouse_receipts),
             'all_receipts': all_receipts,
@@ -1029,18 +1078,18 @@ def debug_receipts(warehouse_name):
         
         return f"""
         <html>
-        <head><title>인수증 디버깅 - {warehouse_name}</title></head>
+        <head><title>인수증 디버깅 - {DIY_ACTIVE_LABEL}</title></head>
         <body style="font-family: Arial, sans-serif; padding: 20px;">
             <h1>인수증 디버깅 정보</h1>
-            <h2>창고: {warehouse_name}</h2>
+            <h2>DIY 위치: {DIY_ACTIVE_LABEL}</h2>
             
             <h3>📊 통계</h3>
             <ul>
                 <li>전체 인수증 개수: {debug_info['total_receipts']}</li>
-                <li>{warehouse_name} 창고 인수증: {debug_info['warehouse_receipts']}</li>
+                <li>{DIY_ACTIVE_LABEL} 인수증: {debug_info['warehouse_receipts']}</li>
             </ul>
             
-            <h3>🔍 최근 {warehouse_name} 인수증들</h3>
+            <h3>🔍 최근 {DIY_ACTIVE_LABEL} 인수증들</h3>
             <table border="1" style="border-collapse: collapse; width: 100%;">
                 <tr>
                     <th>ID</th>
@@ -1067,7 +1116,7 @@ def debug_receipts(warehouse_name):
             </table>
             
             <br><br>
-            <a href="/warehouse/{warehouse_name}/access">← 재고 관리로 돌아가기</a>
+            <a href="/warehouse/{DIY_ACTIVE_SLUG}/access">← 재고 관리로 돌아가기</a>
         </body>
         </html>
         """
@@ -1101,7 +1150,7 @@ def add_access_inventory_item():
     except Exception as e:
         flash('재고 추가 중 오류가 발생했습니다.')
     
-    return redirect(f'/warehouse/{warehouse_name}/access')
+    return redirect(f'/warehouse/{get_slug_from_db_warehouse(warehouse_name)}/access')
 
 @app.route('/delivery_receipt/<warehouse_name>')
 def delivery_receipt_form(warehouse_name):
@@ -1109,7 +1158,10 @@ def delivery_receipt_form(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
     
-    return render_template('delivery_receipt.html', warehouse_name=warehouse_name)
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+    return render_template('delivery_receipt.html', warehouse_name=DIY_ACTIVE_LABEL, warehouse_slug=DIY_ACTIVE_SLUG, warehouse_db_name=db_warehouse_name)
 
 @app.route('/get_inventory_changes', methods=['POST'])
 def get_inventory_changes():
@@ -1359,16 +1411,20 @@ def warehouse(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
 
-    if warehouse_name not in WAREHOUSES:
-        return render_template('preparing.html', warehouse_name=warehouse_name)
+    if warehouse_name != DIY_ACTIVE_SLUG:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
-    return render_template('warehouse.html', warehouse_name=warehouse_name)
+    return render_template('warehouse.html', warehouse_name=DIY_ACTIVE_LABEL, warehouse_slug=DIY_ACTIVE_SLUG)
 
 @app.route('/warehouse/<warehouse_name>/electric')
 def electric_inventory(warehouse_name):
     """전기차 부품 재고 관리 페이지 - datetime 오류 완전 해결"""
     if 'user_id' not in session:
         return redirect('/')
+
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
     print(f"🔍 전기차 부품 재고 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
@@ -1382,7 +1438,7 @@ def electric_inventory(warehouse_name):
                          LEFT JOIN photos p ON i.id = p.inventory_id
                          WHERE i.warehouse = %s AND i.category = %s
                          GROUP BY i.id, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
-                         ORDER BY i.id''', (warehouse_name, "전기차"))
+                         ORDER BY i.id''', (db_warehouse_name, "전기차"))
         
         raw_inventory = cursor.fetchall()
         conn.close()
@@ -1403,7 +1459,9 @@ def electric_inventory(warehouse_name):
         print(f"✅ 재고 데이터 조회 성공: {len(inventory)}개 항목")
         
         return render_template('electric_inventory.html',
-                               warehouse_name=warehouse_name,
+                               warehouse_name=DIY_ACTIVE_LABEL,
+                               warehouse_slug=DIY_ACTIVE_SLUG,
+                               warehouse_db_name=db_warehouse_name,
                                inventory=inventory,
                                is_admin=session.get('is_admin', False))
                                
@@ -1444,7 +1502,7 @@ def add_inventory_item():
     except Exception as e:
         flash('재고 추가 중 오류가 발생했습니다.')
     
-    return redirect(f'/warehouse/{warehouse_name}/electric')
+    return redirect(f'/warehouse/{get_slug_from_db_warehouse(warehouse_name)}/electric')
 
 @app.route('/update_quantity', methods=['POST'])
 def update_quantity():
@@ -1668,7 +1726,8 @@ def search_inventory():
         return redirect('/')
     
     query = request.args.get('q', '').strip()
-    warehouse = request.args.get('warehouse', '')
+    warehouse = request.args.get('warehouse', '').strip()
+    warehouse_db = normalize_warehouse_filter(warehouse)
     
     print(f"🔍 재고 검색 요청: query='{query}', warehouse='{warehouse}'")
     
@@ -1691,9 +1750,9 @@ def search_inventory():
             where_conditions.append("i.part_name LIKE %s")
             params.append(f'%{query}%')
         
-        if warehouse:
+        if warehouse_db:
             where_conditions.append("i.warehouse = %s")
-            params.append(warehouse)
+            params.append(warehouse_db)
         
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
@@ -1789,7 +1848,7 @@ def delete_inventory(item_id):
             if category == "전기차":
                 return redirect(f'/warehouse/{warehouse}/electric')
             else:
-                return redirect(f'/warehouse/{warehouse}/access')
+                return redirect(f'/warehouse/{get_slug_from_db_warehouse(warehouse)}/access')
         
     except Exception as e:
         flash('재고 삭제 중 오류가 발생했습니다.')
@@ -1817,7 +1876,7 @@ def delete_receipt(receipt_id):
         
         if receipt_info:
             # 창고명 추출
-            warehouse_name = "보라매창고"  # 기본값
+            warehouse_name = DB_ACTIVE_WAREHOUSE  # 기본값
             try:
                 items_data = receipt_info[0]
                 if isinstance(items_data, str):
@@ -1833,7 +1892,7 @@ def delete_receipt(receipt_id):
             flash('인수증이 삭제되었습니다.')
             
             conn.close()
-            return redirect(f'/receipt_history/{warehouse_name}')
+            return redirect(f'/receipt_history/{get_slug_from_db_warehouse(warehouse_name)}')
         else:
             flash('삭제할 인수증을 찾을 수 없습니다.')
             conn.close()

@@ -263,7 +263,7 @@
                 {% if session.get('is_admin') %}
                     <a href="/admin/warehouse" class="btn btn-secondary">← 창고 관리</a>
                 {% else %}
-                    <a href="/warehouse/{{ warehouse_name }}" class="btn btn-secondary">← 창고 메뉴</a>
+                    <a href="/warehouse/{{ warehouse_slug }}" class="btn btn-secondary">← 창고 메뉴</a>
                 {% endif %}
                 <a href="/logout" class="btn btn-danger">로그아웃</a>
             </div>
@@ -285,7 +285,7 @@
         <div class="add-item-form">
             <h3>새 물품 추가</h3>
             <form method="POST" action="/add_inventory_item">
-                <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
+                <input type="hidden" name="warehouse_name" value="{{ warehouse_db_name }}">
                 <input type="hidden" name="category" value="전기차">
                 
                 <div class="form-group">

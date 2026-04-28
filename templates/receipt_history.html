@@ -186,7 +186,7 @@
         <div class="header">
             <h1>{{ warehouse_name }} - 인수증 이력</h1>
             <div>
-                <a href="/warehouse/{{ warehouse_name }}/access" class="btn btn-secondary">← 재고 관리</a>
+                <a href="/warehouse/{{ warehouse_slug }}/access" class="btn btn-secondary">← 재고 관리</a>
                 <a href="/logout" class="btn btn-danger">로그아웃</a>
             </div>
         </div>
@@ -346,7 +346,7 @@
         <div class="no-data">
             📋 아직 생성된 인수증 이력이 없습니다.
             <br><br>
-            <a href="/warehouse/{{ warehouse_name }}/access" class="btn btn-secondary">재고 관리로 돌아가기</a>
+            <a href="/warehouse/{{ warehouse_slug }}/access" class="btn btn-secondary">재고 관리로 돌아가기</a>
         </div>
         {% endif %}
         

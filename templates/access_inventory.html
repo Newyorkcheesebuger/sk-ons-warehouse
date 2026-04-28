@@ -418,7 +418,7 @@
                 {% if session.get('is_admin') %}
                     <a href="/admin/warehouse" class="btn btn-secondary">← 창고 관리</a>
                 {% else %}
-                    <a href="/warehouse/{{ warehouse_name }}" class="btn btn-secondary">← 창고 메뉴</a>
+                    <a href="/warehouse/{{ warehouse_slug }}" class="btn btn-secondary">← 창고 메뉴</a>
                 {% endif %}
                 <a href="/logout" class="btn btn-danger">로그아웃</a>
             </div>
@@ -434,7 +434,7 @@
                 <button class="receipt-btn" onclick="showReceiptModal()">
                     ➕ 인수증 만들기
                 </button>
-                <a href="/receipt_history/{{ warehouse_name }}" class="receipt-btn" style="text-decoration: none;">
+                <a href="/receipt_history/{{ warehouse_slug }}" class="receipt-btn" style="text-decoration: none;">
                     📋 이력 관리
                 </a>
             </div>
@@ -456,7 +456,7 @@
         <div class="add-item-form">
             <h3>새 물품 추가</h3>
             <form method="POST" action="/add_access_inventory_item">
-                <input type="hidden" name="warehouse_name" value="{{ warehouse_name }}">
+                <input type="hidden" name="warehouse_name" value="{{ warehouse_db_name }}">
                 <input type="hidden" name="category" value="기타">
                 
                 <div class="form-group">
@@ -1106,7 +1106,7 @@
                         const receiptData = {
                             date: receiptDate,
                             type: type,
-                            warehouse: '{{ warehouse_name }}',
+                            warehouse: '{{ warehouse_db_name }}',
                             deliverer_dept: delivererDept,
                             deliverer_name: delivererName,
                             receiver_dept: receiverDept,
