@@ -18,6 +18,16 @@ from email.mime.base import MIMEBase
 from email import encoders
 import base64
 import json
+from collections import defaultdict
+
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.drawing.image import Image as XLImage
+    OPENPYXL_AVAILABLE = True
+except Exception:
+    OPENPYXL_AVAILABLE = False
 
 
 app = Flask(__name__)
@@ -66,7 +76,7 @@ print(f"✅ SUPABASE_DB_URL: {DATABASE_URL[:50]}...")
 print(f"✅ SUPABASE_URL: {SUPABASE_URL}")
 
 # 허용된 파일 확장자
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 # 공개 식별자와 DB 저장값 분리
 DIY_ACTIVE_SLUG = 'cooling-maintenance'
@@ -116,6 +126,20 @@ INSPECTION_ITEMS = [
     (10, '송풍구 풍량'),
     (11, '열화상 측정'),
 ]
+
+INSPECTION_METHOD_GUIDE = {
+    1: "공냉식 토출구가 그릴타입 대상\n- 위치고정이 안되는 경우\n- 고무패킹 교체",
+    2: "공냉식 micom 램프 확인 후 Reset\n- RUN 램프 미점등: ON/OFF버튼 눌러 RUN 점등 확인\n- Alarm 램프 점등: Reset 버튼 누름 후 램프 복구 확인",
+    3: "공냉식(구형) 공기 토출구에서 V벨트 존재 확인\n- 앞판을 열어 벨트 손상/처짐 여부 확인",
+    4: "공냉식 릴레이, 타이머 불량 점검\n- 불량 시 BP 교체요청\n- 변색 또는 열화상 측정 시 고온 발생 여부 확인",
+    5: "(전체) 오염물질 많으면 청소\n- 전후 사진\n- 실내기 필터\n- 배수구 청소 등",
+    6: "(전체) 온도센서 설치위치 점검\n- 이상한 경우(고온) 확인",
+    7: "집중국 기반 외부공기 팬/모터 점검",
+    8: "공냉식 micom 내부 분리 후 dip s/w 확인 필요\n- 좌측에 있으면 우측으로 변경",
+    9: "(전체) 청소 시 전후사진\n- 칡넝쿨 등 조치 시",
+    10: "(전체) 풍량계 측정 또는 촉감점검",
+    11: "(전체) 분전반 커버 탈착 후 열화상 측정\n- 사진 보관",
+}
 
 INSPECTION_SITE_NAMES = [
     "(HK)수서역LDT1.51.LTE.DU30(내)",
@@ -179,6 +203,80 @@ def allowed_file(filename):
 def get_korea_time():
     korea_tz = pytz.timezone('Asia/Seoul')
     return datetime.now(korea_tz)
+
+def find_inspection_method_image_relpath():
+    inspection_dir = os.path.join(app.root_path, 'static', 'inspection')
+    os.makedirs(inspection_dir, exist_ok=True)
+
+    candidate_files = [
+        'inspection_method.png',
+        'inspection_method.jpg',
+        'inspection_method.jpeg',
+        'inspection_method.webp',
+        'inspection-method.png',
+        'inspection-method.jpg',
+        'inspection-method.jpeg',
+        'inspection-method.webp'
+    ]
+
+    for filename in candidate_files:
+        abs_path = os.path.join(inspection_dir, filename)
+        if os.path.exists(abs_path):
+            return f'inspection/{filename}'
+
+    for filename in os.listdir(inspection_dir):
+        lower_name = filename.lower()
+        if lower_name.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            return f'inspection/{filename}'
+
+    return None
+
+def fetch_image_bytes(image_url):
+    if not image_url:
+        return None
+    try:
+        response = requests.get(image_url, timeout=20)
+        if response.status_code != 200:
+            return None
+        content_type = response.headers.get('content-type', '').lower()
+        if 'image' not in content_type and not response.content:
+            return None
+        return response.content
+    except Exception:
+        return None
+
+def add_excel_image(worksheet, row_no, col_no, image_bytes, image_refs, max_width=150, max_height=120):
+    if not image_bytes:
+        return False
+    try:
+        pil_image = Image.open(io.BytesIO(image_bytes))
+        if pil_image.mode not in ('RGB', 'RGBA'):
+            pil_image = pil_image.convert('RGB')
+
+        width, height = pil_image.size
+        if width <= 0 or height <= 0:
+            return False
+
+        scale = min(max_width / width, max_height / height, 1)
+        if scale < 1:
+            resized = pil_image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
+        else:
+            resized = pil_image
+
+        if resized.mode != 'RGB':
+            resized = resized.convert('RGB')
+
+        output = io.BytesIO()
+        resized.save(output, format='JPEG', quality=85, optimize=True)
+        output.seek(0)
+
+        excel_image = XLImage(output)
+        excel_image.anchor = f"{get_column_letter(col_no)}{row_no}"
+        worksheet.add_image(excel_image)
+        image_refs.append(output)
+        return True
+    except Exception:
+        return False
 
 def get_db_connection():
     """안정적인 데이터베이스 연결 함수"""
@@ -1740,7 +1838,11 @@ def inspection_detail(warehouse_name, item_id):
         if request.method == 'POST':
             korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
             inspector_name = session.get('user_name', '미설정')
-            site_name = request.form.get('site_name', '').strip() or (item[1] or '미입력')
+            requested_site_name = request.form.get('site_name', '').strip()
+            if session.get('is_admin'):
+                site_name = requested_site_name or (item[1] or '미입력')
+            else:
+                site_name = (latest_record[1] if latest_record and latest_record[1] else item[1] or '미입력')
             memo = request.form.get('memo', '').strip()
             edit_mode = request.form.get('edit_mode') == '1'
             record_id = request.form.get('record_id', '').strip()
@@ -1869,7 +1971,8 @@ def inspection_detail(warehouse_name, item_id):
             editable=editable,
             latest_record=latest_record_dict,
             latest_checklist_by_no=latest_checklist_by_no,
-            latest_photos=latest_photos
+            latest_photos=latest_photos,
+            is_admin=session.get('is_admin', False)
         )
     except Exception as e:
         try:
@@ -1882,39 +1985,193 @@ def inspection_detail(warehouse_name, item_id):
         return redirect(f'/warehouse/{warehouse_name}/electric')
 
 
+@app.route('/warehouse/<warehouse_name>/inspection-export')
+def export_inspection_report(warehouse_name):
+    """DIY 점검 결과 엑셀 내보내기"""
+    if 'user_id' not in session:
+        return redirect('/')
+
+    if not OPENPYXL_AVAILABLE:
+        flash('엑셀 내보내기 라이브러리가 설치되지 않았습니다. 서버 관리자에게 문의해주세요.')
+        return redirect(f'/warehouse/{warehouse_name}/electric')
+
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            '''SELECT id, part_name
+               FROM inventory
+               WHERE warehouse = %s AND category = %s
+               ORDER BY id''',
+            (db_warehouse_name, DIY_CHECKLIST_CATEGORY)
+        )
+        targets = cursor.fetchall()
+
+        record_map = {}
+        for item_id, site_name in targets:
+            cursor.execute(
+                '''SELECT id, site_name, checklist_data
+                   FROM inspection_records
+                   WHERE inventory_id = %s
+                   ORDER BY inspected_at DESC
+                   LIMIT 1''',
+                (item_id,)
+            )
+            latest_record = cursor.fetchone()
+            checklist_by_no = {}
+            photos_by_no = defaultdict(dict)
+
+            if latest_record:
+                record_id = latest_record[0]
+                raw_checklist = latest_record[2]
+                if raw_checklist:
+                    try:
+                        checklist_rows = raw_checklist if isinstance(raw_checklist, list) else json.loads(raw_checklist)
+                        for row in checklist_rows:
+                            checklist_by_no[int(row.get('checkpoint_no', 0))] = row.get('result', '')
+                    except Exception:
+                        checklist_by_no = {}
+
+                cursor.execute(
+                    '''SELECT checkpoint_no, phase, supabase_url
+                       FROM inspection_photos
+                       WHERE record_id = %s''',
+                    (record_id,)
+                )
+                for checkpoint_no, phase, photo_url in cursor.fetchall():
+                    photos_by_no[int(checkpoint_no)][phase] = photo_url
+
+                site_display_name = latest_record[1] or site_name or '미입력'
+            else:
+                site_display_name = site_name or '미입력'
+
+            record_map[item_id] = {
+                'site_name': site_display_name,
+                'checklist': checklist_by_no,
+                'photos': photos_by_no
+            }
+
+        conn.close()
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = 'DIY 점검 리포트'
+
+        header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+        sub_header_fill = PatternFill(start_color='EEF3FA', end_color='EEF3FA', fill_type='solid')
+        header_font = Font(bold=True)
+        thin_side = Side(border_style='thin', color='D0D0D0')
+        thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+        sheet.merge_cells(start_row=1, start_column=1, end_row=2, end_column=1)
+        sheet.merge_cells(start_row=1, start_column=2, end_row=2, end_column=2)
+        sheet.cell(row=1, column=1, value='순번')
+        sheet.cell(row=1, column=2, value='국사명')
+
+        start_col = 3
+        for checkpoint_no, checkpoint_name in INSPECTION_ITEMS:
+            sheet.merge_cells(start_row=1, start_column=start_col, end_row=1, end_column=start_col + 2)
+            sheet.cell(row=1, column=start_col, value=f'{checkpoint_no}. {checkpoint_name}')
+            sheet.cell(row=2, column=start_col, value='점검방법')
+            sheet.cell(row=2, column=start_col + 1, value='작업전')
+            sheet.cell(row=2, column=start_col + 2, value='작업후')
+            start_col += 3
+
+        max_col = 2 + (len(INSPECTION_ITEMS) * 3)
+        for row_no in [1, 2]:
+            for col_no in range(1, max_col + 1):
+                cell = sheet.cell(row=row_no, column=col_no)
+                cell.font = header_font
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                if row_no == 1:
+                    cell.fill = header_fill
+                else:
+                    cell.fill = sub_header_fill
+
+        sheet.column_dimensions['A'].width = 7
+        sheet.column_dimensions['B'].width = 40
+        for col_no in range(3, max_col + 1):
+            if (col_no - 3) % 3 == 0:
+                sheet.column_dimensions[get_column_letter(col_no)].width = 32
+            else:
+                sheet.column_dimensions[get_column_letter(col_no)].width = 24
+
+        image_refs = []
+        data_row_start = 3
+
+        for idx, (item_id, _site_name) in enumerate(targets, start=1):
+            row_no = data_row_start + idx - 1
+            row_data = record_map.get(item_id, {})
+            sheet.row_dimensions[row_no].height = 110
+
+            sheet.cell(row=row_no, column=1, value=idx)
+            sheet.cell(row=row_no, column=2, value=row_data.get('site_name', '미입력'))
+            sheet.cell(row=row_no, column=1).alignment = Alignment(horizontal='center', vertical='center')
+            sheet.cell(row=row_no, column=2).alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+            col_no = 3
+            checklist_map = row_data.get('checklist', {})
+            photos_map = row_data.get('photos', {})
+            for checkpoint_no, _checkpoint_name in INSPECTION_ITEMS:
+                method_text = INSPECTION_METHOD_GUIDE.get(checkpoint_no, '-')
+                result_text = checklist_map.get(checkpoint_no, '')
+                if result_text == 'ok':
+                    result_text = '정상'
+                elif result_text == 'need':
+                    result_text = '조치필요'
+
+                method_cell = sheet.cell(row=row_no, column=col_no)
+                method_cell.value = f"{method_text}\n\n결과: {result_text or '-'}"
+                method_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+                before_url = photos_map.get(checkpoint_no, {}).get('before')
+                after_url = photos_map.get(checkpoint_no, {}).get('after')
+
+                if not add_excel_image(sheet, row_no, col_no + 1, fetch_image_bytes(before_url), image_refs):
+                    sheet.cell(row=row_no, column=col_no + 1, value='미등록').alignment = Alignment(horizontal='center', vertical='center')
+                if not add_excel_image(sheet, row_no, col_no + 2, fetch_image_bytes(after_url), image_refs):
+                    sheet.cell(row=row_no, column=col_no + 2, value='미등록').alignment = Alignment(horizontal='center', vertical='center')
+
+                col_no += 3
+
+            for cell_col in range(1, max_col + 1):
+                sheet.cell(row=row_no, column=cell_col).border = thin_border
+
+        sheet.freeze_panes = 'C3'
+
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        filename = f'SK오앤에스_DIY점검리포트_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        encoded_filename = urllib.parse.quote(filename, safe="")
+        return Response(
+            output.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except Exception as e:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print(f"❌ export_inspection_report 오류: {type(e).__name__}: {str(e)}")
+        flash(f'점검 엑셀 내보내기 중 오류가 발생했습니다: {str(e)}')
+        return redirect(f'/warehouse/{warehouse_name}/electric')
+
+
 @app.route('/inspection-method')
 def inspection_method():
     if 'user_id' not in session:
         return redirect('/')
 
-    inspection_dir = os.path.join('static', 'inspection')
-    os.makedirs(inspection_dir, exist_ok=True)
-
-    candidate_files = [
-        'inspection_method.png',
-        'inspection_method.jpg',
-        'inspection_method.jpeg',
-        'inspection_method.webp',
-        'inspection-method.png',
-        'inspection-method.jpg',
-        'inspection-method.jpeg',
-        'inspection-method.webp'
-    ]
-
-    found_file = None
-    for filename in candidate_files:
-        path = os.path.join(inspection_dir, filename)
-        if os.path.exists(path):
-            found_file = f'inspection/{filename}'
-            break
-
-    if not found_file:
-        for filename in os.listdir(inspection_dir):
-            lower_name = filename.lower()
-            if lower_name.endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                found_file = f'inspection/{filename}'
-                break
-
+    found_file = find_inspection_method_image_relpath()
     return render_template(
         'inspection_method.html',
         has_image=bool(found_file),
@@ -1938,7 +2195,7 @@ def upload_inspection_method():
         flash('png/jpg/jpeg/webp 형식만 등록할 수 있습니다.')
         return redirect(url_for('inspection_method'))
 
-    inspection_dir = os.path.join('static', 'inspection')
+    inspection_dir = os.path.join(app.root_path, 'static', 'inspection')
     os.makedirs(inspection_dir, exist_ok=True)
 
     candidate_files = [

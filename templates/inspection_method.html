@@ -16,7 +16,12 @@
             {% if has_image %}
             <img src="{{ url_for('static', filename=image_file) }}"
                  alt="점검 방법"
-                 class="img-fluid rounded border">
+                 id="inspectionMethodImage"
+                 class="img-fluid rounded border inspection-method-image"
+                 role="button"
+                 data-bs-toggle="modal"
+                 data-bs-target="#inspectionImageModal">
+            <div class="mt-2 text-muted small">이미지를 클릭하면 확대됩니다.</div>
             {% else %}
             <div class="alert alert-warning mb-0">
                 점검 방법 이미지가 아직 등록되지 않았습니다.<br>
@@ -41,4 +46,29 @@
     </div>
     {% endif %}
 </div>
+
+{% if has_image %}
+<div class="modal fade" id="inspectionImageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">점검 방법 확대 보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img src="{{ url_for('static', filename=image_file) }}"
+                     alt="점검 방법 확대"
+                     class="img-fluid rounded border">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.inspection-method-image {
+    cursor: zoom-in;
+    max-height: 70vh;
+}
+</style>
 {% endblock %}

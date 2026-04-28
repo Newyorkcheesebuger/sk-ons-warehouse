@@ -10,6 +10,9 @@
             <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
                 <i class="fas fa-image me-1"></i>점검 방법
             </a>
+            <a href="{{ url_for('export_inspection_report', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
+                <i class="fas fa-file-excel me-1"></i>엑셀다운
+            </a>
             {% if is_admin %}
             <a href="{{ url_for('admin_sites') }}" class="btn btn-outline-success">
                 <i class="fas fa-list-check me-1"></i>국사명 관리

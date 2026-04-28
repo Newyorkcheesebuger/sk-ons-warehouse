@@ -268,6 +268,7 @@ def inspection_detail(warehouse_name, item_id):
         latest_record=latest_record,
         latest_checklist_by_no=latest_checklist_by_no,
         latest_photos={},
+        is_admin=session.get("is_admin", False),
     )
 
 
@@ -413,6 +414,10 @@ def delivery_receipt(warehouse_name):
 @app.route("/export_inventory")
 def placeholder_redirect(**_kwargs):
     return redirect(request.referrer or url_for("user_dashboard"))
+
+@app.route("/warehouse/<warehouse_name>/inspection-export")
+def export_inspection_report(warehouse_name):
+    return redirect(url_for("electric_inventory", warehouse_name=warehouse_name))
 
 
 @app.route("/upload_photo/<int:item_id>", methods=["POST"])
