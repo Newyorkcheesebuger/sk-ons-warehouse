@@ -279,7 +279,21 @@ def fetch_image_bytes(image_url):
     except Exception:
         return None
 
-def add_excel_image(worksheet, row_no, col_no, image_bytes, image_refs, max_width=150, max_height=120):
+def excel_column_width_to_pixels(width):
+    """Excel 열 너비 값을 픽셀로 근사 변환."""
+    if not width:
+        width = 8.43
+    return int(width * 7 + 5)
+
+
+def excel_row_height_to_pixels(height):
+    """Excel 행 높이(pt)를 픽셀로 근사 변환."""
+    if not height:
+        height = 15
+    return int(height * 96 / 72)
+
+
+def add_excel_image(worksheet, row_no, col_no, image_bytes, image_refs, max_width=None, max_height=None):
     if not image_bytes:
         return False
     try:
@@ -291,11 +305,17 @@ def add_excel_image(worksheet, row_no, col_no, image_bytes, image_refs, max_widt
         if width <= 0 or height <= 0:
             return False
 
-        scale = min(max_width / width, max_height / height, 1)
-        if scale < 1:
-            resized = pil_image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
-        else:
-            resized = pil_image
+        col_letter = get_column_letter(col_no)
+        column_width = worksheet.column_dimensions[col_letter].width
+        row_height = worksheet.row_dimensions[row_no].height
+
+        target_width = int(max_width) if max_width else excel_column_width_to_pixels(column_width)
+        target_height = int(max_height) if max_height else excel_row_height_to_pixels(row_height)
+        target_width = max(target_width, 1)
+        target_height = max(target_height, 1)
+
+        # 셀에 꽉 차도록 이미지 비율 유지 대신 셀 크기로 맞춤.
+        resized = pil_image.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
         if resized.mode != 'RGB':
             resized = resized.convert('RGB')
@@ -305,6 +325,8 @@ def add_excel_image(worksheet, row_no, col_no, image_bytes, image_refs, max_widt
         output.seek(0)
 
         excel_image = XLImage(output)
+        excel_image.width = target_width
+        excel_image.height = target_height
         excel_image.anchor = f"{get_column_letter(col_no)}{row_no}"
         worksheet.add_image(excel_image)
         image_refs.append(output)
@@ -2663,84 +2685,113 @@ def delete_photo(photo_id):
 
 @app.route('/search_inventory')
 def search_inventory():
-    """재고 검색 페이지 - 무한 리디렉션 및 datetime 오류 해결"""
+    """DIY 점검 대상 검색 페이지."""
     if 'user_id' not in session:
         return redirect('/')
-    
+
     query = request.args.get('q', '').strip()
     warehouse = request.args.get('warehouse', '').strip()
     warehouse_db = normalize_warehouse_filter(warehouse)
-    
-    print(f"🔍 재고 검색 요청: query='{query}', warehouse='{warehouse}'")
-    
+
+    print(f"🔍 점검 대상 검색 요청: query='{query}', warehouse='{warehouse}'")
+
     if not query and not warehouse:
-        # 빈 검색 결과 표시
-        return render_template('search_results.html', 
-                             inventory=[], 
-                             query='',
-                             warehouse='',
-                             is_admin=session.get('is_admin', False))
-    
+        return render_template(
+            'search_results.html',
+            results=[],
+            query='',
+            warehouse='',
+            is_admin=session.get('is_admin', False)
+        )
+
+    # 현재 검색은 DIY 점검 대상만 제공
+    if not warehouse_db:
+        warehouse_db = DB_ACTIVE_WAREHOUSE
+        warehouse = DIY_ACTIVE_SLUG
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         where_conditions = []
         params = []
-        
+
         if query:
-            where_conditions.append("i.part_name LIKE %s")
+            where_conditions.append("(i.part_name ILIKE %s OR COALESCE(r.inspector_name, '') ILIKE %s)")
             params.append(f'%{query}%')
-        
+            params.append(f'%{query}%')
+
         if warehouse_db:
             where_conditions.append("i.warehouse = %s")
             params.append(warehouse_db)
-        
-        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
-        
-        query_sql = f'''SELECT i.id, i.warehouse, i.category, i.part_name, i.quantity, 
-                              i.last_modifier, i.last_modified, COUNT(p.id) as photo_count
-                       FROM inventory i
-                       LEFT JOIN photos p ON i.id = p.inventory_id
-                       WHERE {where_clause}
-                       GROUP BY i.id, i.warehouse, i.category, i.part_name, i.quantity, i.last_modifier, i.last_modified
-                       ORDER BY i.warehouse, i.category, i.part_name'''
-        
+
+        where_conditions.append("i.category = %s")
+        params.append(DIY_CHECKLIST_CATEGORY)
+
+        where_clause = " AND ".join(where_conditions)
+
+        query_sql = f'''
+            SELECT i.id,
+                   i.part_name AS site_name,
+                   r.inspector_name,
+                   r.inspected_at
+            FROM inventory i
+            LEFT JOIN (
+                SELECT DISTINCT ON (inventory_id)
+                       inventory_id,
+                       inspector_name,
+                       inspected_at
+                FROM inspection_records
+                ORDER BY inventory_id, inspected_at DESC
+            ) r ON i.id = r.inventory_id
+            WHERE {where_clause}
+            ORDER BY i.part_name
+        '''
+
         cursor.execute(query_sql, params)
-        raw_inventory = cursor.fetchall()
+        raw_results = cursor.fetchall()
         conn.close()
-        
-        # 🔧 날짜 형식 변환 처리 (datetime 오류 해결)
-        inventory = []
-        for item in raw_inventory:
-            item_list = list(item)
-            if item_list[6]:  # last_modified가 존재하면
-                if isinstance(item_list[6], str):
-                    # 이미 문자열이면 그대로 사용
-                    pass
+
+        results = []
+        for item_id, site_name, inspector_name, inspected_at in raw_results:
+            inspected_at_str = ''
+            if inspected_at:
+                if isinstance(inspected_at, str):
+                    inspected_at_str = inspected_at
                 else:
-                    # datetime 객체면 문자열로 변환
-                    item_list[6] = item_list[6].strftime('%Y-%m-%d %H:%M:%S')
-            inventory.append(item_list)
-        
-        print(f"✅ 검색 결과: {len(inventory)}개 항목 발견")
-        
-        return render_template('search_results.html', 
-                             inventory=inventory, 
-                             query=query,
-                             warehouse=warehouse,
-                             is_admin=session.get('is_admin', False))
-        
+                    inspected_at_str = inspected_at.strftime('%Y-%m-%d %H:%M:%S')
+
+            is_completed = bool(inspected_at_str)
+            results.append({
+                'id': item_id,
+                'site_name': site_name or '미입력',
+                'inspector_name': inspector_name or '',
+                'inspected_at': inspected_at_str,
+                'is_completed': is_completed,
+                'action_label': '보기' if is_completed else '점검하기',
+                'detail_url': url_for('inspection_detail', warehouse_name=DIY_ACTIVE_SLUG, item_id=item_id)
+            })
+
+        print(f"✅ 검색 결과: {len(results)}개 항목")
+
+        return render_template(
+            'search_results.html',
+            results=results,
+            query=query,
+            warehouse=warehouse or DIY_ACTIVE_SLUG,
+            is_admin=session.get('is_admin', False)
+        )
+
     except Exception as e:
         print(f"❌ 검색 중 오류: {type(e).__name__}: {str(e)}")
-        
-        # 🔧 오류 발생 시 빈 결과와 함께 검색 페이지 표시 (리디렉션 방지)
-        return render_template('search_results.html', 
-                             inventory=[], 
-                             query=query,
-                             warehouse=warehouse,
-                             is_admin=session.get('is_admin', False),
-                             error_message=f'검색 중 오류가 발생했습니다: {str(e)}')
+        return render_template(
+            'search_results.html',
+            results=[],
+            query=query,
+            warehouse=warehouse or DIY_ACTIVE_SLUG,
+            is_admin=session.get('is_admin', False),
+            error_message=f'검색 중 오류가 발생했습니다: {str(e)}'
+        )
 
 @app.route('/delete_inventory/<int:item_id>')
 def delete_inventory(item_id):
@@ -3065,6 +3116,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ 서버 시작 실패: {e}")
         sys.exit(1)
+
 
 
 
