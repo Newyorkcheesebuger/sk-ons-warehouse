@@ -84,6 +84,8 @@ DIY_ACTIVE_LABEL = '냉방기 예방점검'
 DIY_PREPARING_LABEL = '준비중'
 DB_ACTIVE_WAREHOUSE = '보라매창고'
 DIY_CHECKLIST_CATEGORY = 'DIY점검'
+INSPECTION_METHOD_BUCKET = 'warehouse-photos'
+INSPECTION_METHOD_PREFIX = 'inspection-methods'
 WAREHOUSES = [DIY_ACTIVE_SLUG]
 
 
@@ -204,7 +206,7 @@ def get_korea_time():
     korea_tz = pytz.timezone('Asia/Seoul')
     return datetime.now(korea_tz)
 
-def find_inspection_method_image_relpath():
+def find_local_inspection_method_image_relpath():
     inspection_dir = os.path.join(app.root_path, 'static', 'inspection')
     os.makedirs(inspection_dir, exist_ok=True)
 
@@ -230,6 +232,38 @@ def find_inspection_method_image_relpath():
             return f'inspection/{filename}'
 
     return None
+
+def get_latest_inspection_method_image():
+    """점검방법 이미지(DB+Supabase) 최신 활성 데이터 조회"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''SELECT id, storage_path, public_url, uploaded_by, created_at
+               FROM inspection_method_images
+               WHERE is_active = 1
+               ORDER BY created_at DESC, id DESC
+               LIMIT 1'''
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            'id': row[0],
+            'storage_path': row[1],
+            'public_url': row[2],
+            'uploaded_by': row[3],
+            'created_at': row[4]
+        }
+    except Exception:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+        return None
 
 def fetch_image_bytes(image_url):
     if not image_url:
@@ -406,7 +440,7 @@ def compress_image_to_target_size(image_file, max_size_mb=1, max_width=800, qual
         print(f"❌ 이미지 압축 오류: {e}")
         return None, 0
 
-def upload_to_supabase_storage(image_bytes, filename, bucket_name='warehouse-photos'):
+def upload_to_supabase_storage(image_bytes, filename, bucket_name='warehouse-photos', content_type='image/jpeg'):
     """
     압축된 이미지를 Supabase Storage에 업로드
     
@@ -424,7 +458,7 @@ def upload_to_supabase_storage(image_bytes, filename, bucket_name='warehouse-pho
         
         headers = {
             'Authorization': f'Bearer {SUPABASE_SERVICE_KEY}',
-            'Content-Type': 'image/jpeg'
+            'Content-Type': content_type
         }
         
         # 파일 업로드
@@ -551,6 +585,14 @@ def init_db():
                 file_size INTEGER,
                 supabase_url TEXT NOT NULL,
                 uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )'''),
+            ('inspection_method_images', '''CREATE TABLE IF NOT EXISTS inspection_method_images (
+                id SERIAL PRIMARY KEY,
+                storage_path TEXT NOT NULL,
+                public_url TEXT NOT NULL,
+                uploaded_by TEXT,
+                created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
+                is_active INTEGER DEFAULT 1
             )''')
         ]
         
@@ -1991,7 +2033,7 @@ def inspection_detail(warehouse_name, item_id):
 
 @app.route('/warehouse/<warehouse_name>/inspection-export')
 def export_inspection_report(warehouse_name):
-    """DIY 점검 결과 엑셀 내보내기"""
+    """DIY 점검 결과 엑셀 내보내기 (이미지 샘플 구조)"""
     if 'user_id' not in session:
         return redirect('/')
 
@@ -2067,62 +2109,69 @@ def export_inspection_report(warehouse_name):
         sheet.title = 'DIY 점검 리포트'
 
         header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-        sub_header_fill = PatternFill(start_color='EEF3FA', end_color='EEF3FA', fill_type='solid')
         header_font = Font(bold=True)
         thin_side = Side(border_style='thin', color='D0D0D0')
         thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
-        sheet.merge_cells(start_row=1, start_column=1, end_row=2, end_column=1)
-        sheet.merge_cells(start_row=1, start_column=2, end_row=2, end_column=2)
+        item_titles = {
+            1: '①고무패킹교체',
+            2: '②실내기 Reset',
+            3: '③V벨트 교체',
+            4: '④타이머릴레이',
+            5: '⑤배수관청소',
+            6: '⑥RMS 온도센싱',
+            7: '⑦자연공조점검',
+            8: '⑧정전보상',
+            9: '⑨실외기 핀,넝쿨',
+            10: '⑩송풍구 풍량',
+            11: '⑪열화상 측정'
+        }
+
         sheet.cell(row=1, column=1, value='순번')
         sheet.cell(row=1, column=2, value='국사명')
+        for checkpoint_no, _checkpoint_name in INSPECTION_ITEMS:
+            col_no = 2 + checkpoint_no
+            sheet.cell(row=1, column=col_no, value=item_titles.get(checkpoint_no, f'{checkpoint_no}번'))
 
-        start_col = 3
-        for checkpoint_no, checkpoint_name in INSPECTION_ITEMS:
-            sheet.merge_cells(start_row=1, start_column=start_col, end_row=1, end_column=start_col + 2)
-            sheet.cell(row=1, column=start_col, value=f'{checkpoint_no}. {checkpoint_name}')
-            sheet.cell(row=2, column=start_col, value='점검방법')
-            sheet.cell(row=2, column=start_col + 1, value='작업전')
-            sheet.cell(row=2, column=start_col + 2, value='작업후')
-            start_col += 3
+        max_col = 2 + len(INSPECTION_ITEMS)
+        for col_no in range(1, max_col + 1):
+            cell = sheet.cell(row=1, column=col_no)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-        max_col = 2 + (len(INSPECTION_ITEMS) * 3)
-        for row_no in [1, 2]:
-            for col_no in range(1, max_col + 1):
-                cell = sheet.cell(row=row_no, column=col_no)
-                cell.font = header_font
-                cell.border = thin_border
-                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                if row_no == 1:
-                    cell.fill = header_fill
-                else:
-                    cell.fill = sub_header_fill
-
-        sheet.column_dimensions['A'].width = 7
-        sheet.column_dimensions['B'].width = 40
+        sheet.column_dimensions['A'].width = 8
+        sheet.column_dimensions['B'].width = 38
         for col_no in range(3, max_col + 1):
-            if (col_no - 3) % 3 == 0:
-                sheet.column_dimensions[get_column_letter(col_no)].width = 32
-            else:
-                sheet.column_dimensions[get_column_letter(col_no)].width = 24
+            sheet.column_dimensions[get_column_letter(col_no)].width = 34
 
         image_refs = []
-        data_row_start = 3
+        data_row_start = 2
 
         for idx, (item_id, _site_name) in enumerate(targets, start=1):
-            row_no = data_row_start + idx - 1
+            block_start = data_row_start + (idx - 1) * 3
+            method_row = block_start
+            before_row = block_start + 1
+            after_row = block_start + 2
+
             row_data = record_map.get(item_id, {})
-            sheet.row_dimensions[row_no].height = 110
-
-            sheet.cell(row=row_no, column=1, value=idx)
-            sheet.cell(row=row_no, column=2, value=row_data.get('site_name', '미입력'))
-            sheet.cell(row=row_no, column=1).alignment = Alignment(horizontal='center', vertical='center')
-            sheet.cell(row=row_no, column=2).alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
-
-            col_no = 3
             checklist_map = row_data.get('checklist', {})
             photos_map = row_data.get('photos', {})
+
+            sheet.merge_cells(start_row=method_row, start_column=1, end_row=after_row, end_column=1)
+            sheet.merge_cells(start_row=method_row, start_column=2, end_row=after_row, end_column=2)
+            sheet.cell(row=method_row, column=1, value=idx)
+            sheet.cell(row=method_row, column=2, value=row_data.get('site_name', '미입력'))
+            sheet.cell(row=method_row, column=1).alignment = Alignment(horizontal='center', vertical='center')
+            sheet.cell(row=method_row, column=2).alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+            sheet.row_dimensions[method_row].height = 95
+            sheet.row_dimensions[before_row].height = 120
+            sheet.row_dimensions[after_row].height = 120
+
             for checkpoint_no, _checkpoint_name in INSPECTION_ITEMS:
+                col_no = 2 + checkpoint_no
                 method_text = INSPECTION_METHOD_GUIDE.get(checkpoint_no, '-')
                 result_text = checklist_map.get(checkpoint_no, '')
                 if result_text == 'ok':
@@ -2130,24 +2179,23 @@ def export_inspection_report(warehouse_name):
                 elif result_text == 'need':
                     result_text = '조치필요'
 
-                method_cell = sheet.cell(row=row_no, column=col_no)
+                method_cell = sheet.cell(row=method_row, column=col_no)
                 method_cell.value = f"{method_text}\n\n결과: {result_text or '-'}"
                 method_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
                 before_url = photos_map.get(checkpoint_no, {}).get('before')
                 after_url = photos_map.get(checkpoint_no, {}).get('after')
 
-                if not add_excel_image(sheet, row_no, col_no + 1, fetch_image_bytes(before_url), image_refs):
-                    sheet.cell(row=row_no, column=col_no + 1, value='미등록').alignment = Alignment(horizontal='center', vertical='center')
-                if not add_excel_image(sheet, row_no, col_no + 2, fetch_image_bytes(after_url), image_refs):
-                    sheet.cell(row=row_no, column=col_no + 2, value='미등록').alignment = Alignment(horizontal='center', vertical='center')
+                if not add_excel_image(sheet, before_row, col_no, fetch_image_bytes(before_url), image_refs):
+                    sheet.cell(row=before_row, column=col_no, value='작업전 미등록').alignment = Alignment(horizontal='center', vertical='center')
+                if not add_excel_image(sheet, after_row, col_no, fetch_image_bytes(after_url), image_refs):
+                    sheet.cell(row=after_row, column=col_no, value='작업후 미등록').alignment = Alignment(horizontal='center', vertical='center')
 
-                col_no += 3
+            for row_no in (method_row, before_row, after_row):
+                for col_no in range(1, max_col + 1):
+                    sheet.cell(row=row_no, column=col_no).border = thin_border
 
-            for cell_col in range(1, max_col + 1):
-                sheet.cell(row=row_no, column=cell_col).border = thin_border
-
-        sheet.freeze_panes = 'C3'
+        sheet.freeze_panes = 'C2'
 
         output = io.BytesIO()
         workbook.save(output)
@@ -2175,12 +2223,21 @@ def inspection_method():
     if 'user_id' not in session:
         return redirect('/')
 
-    found_file = find_inspection_method_image_relpath()
+    latest_image = get_latest_inspection_method_image()
+    image_url = latest_image['public_url'] if latest_image else None
+
+    # 하위 호환: DB가 비어있는 경우 로컬 파일 표시
+    if not image_url:
+        local_relpath = find_local_inspection_method_image_relpath()
+        if local_relpath:
+            image_url = url_for('static', filename=local_relpath)
+
     return render_template(
         'inspection_method.html',
-        has_image=bool(found_file),
-        image_file=found_file,
-        is_admin=session.get('is_admin', False)
+        has_image=bool(image_url),
+        image_url=image_url,
+        is_admin=session.get('is_admin', False),
+        image_meta=latest_image
     )
 
 @app.route('/inspection-method/upload', methods=['POST'])
@@ -2199,35 +2256,55 @@ def upload_inspection_method():
         flash('png/jpg/jpeg/webp 형식만 등록할 수 있습니다.')
         return redirect(url_for('inspection_method'))
 
-    inspection_dir = os.path.join(app.root_path, 'static', 'inspection')
-    os.makedirs(inspection_dir, exist_ok=True)
+    conn = None
+    try:
+        file_obj.seek(0)
+        compressed_bytes, _final_size_kb = compress_image_to_target_size(
+            file_obj,
+            max_size_mb=1.8,
+            max_width=2200,
+            quality=90
+        )
+        if not compressed_bytes:
+            flash('점검 방법 이미지 압축에 실패했습니다.')
+            return redirect(url_for('inspection_method'))
 
-    candidate_files = [
-        'inspection_method.png',
-        'inspection_method.jpg',
-        'inspection_method.jpeg',
-        'inspection_method.webp',
-        'inspection-method.png',
-        'inspection-method.jpg',
-        'inspection-method.jpeg',
-        'inspection-method.webp'
-    ]
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_key = f"{INSPECTION_METHOD_PREFIX}/inspection_method_{timestamp}_{uuid.uuid4().hex}.jpg"
+        public_url = upload_to_supabase_storage(
+            compressed_bytes,
+            file_key,
+            bucket_name=INSPECTION_METHOD_BUCKET,
+            content_type='image/jpeg'
+        )
+        if not public_url:
+            flash('점검 방법 이미지 업로드에 실패했습니다.')
+            return redirect(url_for('inspection_method'))
 
-    ext = file_obj.filename.rsplit('.', 1)[1].lower()
-    target_filename = f'inspection_method.{ext}'
-    target_path = os.path.join(inspection_dir, target_filename)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE inspection_method_images SET is_active = 0 WHERE is_active = 1')
+        cursor.execute(
+            '''INSERT INTO inspection_method_images
+               (storage_path, public_url, uploaded_by, is_active)
+               VALUES (%s, %s, %s, %s)''',
+            (file_key, public_url, session.get('user_name', '관리자'), 1)
+        )
+        conn.commit()
+        conn.close()
 
-    for filename in candidate_files:
-        old_path = os.path.join(inspection_dir, filename)
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-
-    file_obj.save(target_path)
-    flash('점검 방법 이미지가 등록되었습니다.')
-    return redirect(url_for('inspection_method'))
+        flash('점검 방법 이미지가 Supabase에 등록되었습니다.')
+        return redirect(url_for('inspection_method'))
+    except Exception as e:
+        try:
+            if conn:
+                conn.rollback()
+                conn.close()
+        except Exception:
+            pass
+        print(f"❌ upload_inspection_method 오류: {type(e).__name__}: {str(e)}")
+        flash(f'점검 방법 이미지 등록 중 오류가 발생했습니다: {str(e)}')
+        return redirect(url_for('inspection_method'))
 
 @app.route('/admin/sites', methods=['GET', 'POST'])
 def admin_sites():

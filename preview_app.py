@@ -440,7 +440,7 @@ def inspection_method():
     return render_template(
         "inspection_method.html",
         has_image=False,
-        image_file=None,
+        image_url=None,
         is_admin=session.get("is_admin", False),
     )
 
