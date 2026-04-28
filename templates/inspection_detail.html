@@ -108,7 +108,7 @@
             </div>
 
             <div class="alert alert-info">
-                각 항목별 작업전/작업후 사진을 등록하세요. 업로드 시 1MB 이하로 자동 압축됩니다.
+                필요한 항목만 작업전/작업후 사진을 선택해서 등록하세요. 업로드 시 1MB 이하로 자동 압축됩니다.
             </div>
 
             <div class="table-responsive">
@@ -137,8 +137,7 @@
                                 <input type="file"
                                        class="form-control"
                                        name="before_{{ item_no }}"
-                                       accept="image/*"
-                                       {% if not latest_record %}required{% endif %}>
+                                       accept="image/*">
                                 {% if before_photo %}
                                 <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
                                 <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>
@@ -148,8 +147,7 @@
                                 <input type="file"
                                        class="form-control"
                                        name="after_{{ item_no }}"
-                                       accept="image/*"
-                                       {% if not latest_record %}required{% endif %}>
+                                       accept="image/*">
                                 {% if after_photo %}
                                 <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
                                 <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>

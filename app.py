@@ -1863,23 +1863,25 @@ def inspection_detail(warehouse_name, item_id):
                 existing_before = latest_photos.get(checkpoint_no, {}).get('before') if update_existing else None
                 existing_after = latest_photos.get(checkpoint_no, {}).get('after') if update_existing else None
 
+                before_name = None
+                before_size = None
+                before_url = None
                 if before_file and before_file.filename:
                     before_name, before_size, before_url = save_inspection_photo(before_file, item_id, checkpoint_no, 'before')
                 elif existing_before:
                     before_name = existing_before['filename']
                     before_size = existing_before['file_size']
                     before_url = existing_before['supabase_url']
-                else:
-                    raise Exception(f"{checkpoint_no}번 작업전 사진이 필요합니다.")
 
+                after_name = None
+                after_size = None
+                after_url = None
                 if after_file and after_file.filename:
                     after_name, after_size, after_url = save_inspection_photo(after_file, item_id, checkpoint_no, 'after')
                 elif existing_after:
                     after_name = existing_after['filename']
                     after_size = existing_after['file_size']
                     after_url = existing_after['supabase_url']
-                else:
-                    raise Exception(f"{checkpoint_no}번 작업후 사진이 필요합니다.")
 
                 checklist_data.append({
                     'checkpoint_no': checkpoint_no,
@@ -1887,8 +1889,10 @@ def inspection_detail(warehouse_name, item_id):
                     'result': result_value
                 })
 
-                photo_rows.append((checkpoint_no, checkpoint_name, 'before', before_name, before_size, before_url))
-                photo_rows.append((checkpoint_no, checkpoint_name, 'after', after_name, after_size, after_url))
+                if before_url:
+                    photo_rows.append((checkpoint_no, checkpoint_name, 'before', before_name, before_size, before_url))
+                if after_url:
+                    photo_rows.append((checkpoint_no, checkpoint_name, 'after', after_name, after_size, after_url))
 
             if update_existing:
                 record_id_int = int(record_id)
