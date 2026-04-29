@@ -1765,6 +1765,7 @@ def electric_inventory(warehouse_name):
     db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+    search_query = request.args.get('q', '').strip()
 
     print(f"🔍 DIY 작업 관리 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
@@ -1772,7 +1773,14 @@ def electric_inventory(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('''
+        where_conditions = ["i.warehouse = %s", "i.category = %s"]
+        params = [db_warehouse_name, DIY_CHECKLIST_CATEGORY]
+        if search_query:
+            where_conditions.append("(i.part_name ILIKE %s OR COALESCE(r.inspector_name, '') ILIKE %s)")
+            params.append(f'%{search_query}%')
+            params.append(f'%{search_query}%')
+
+        cursor.execute(f'''
             SELECT i.id,
                    i.part_name,
                    r.id,
@@ -1788,9 +1796,9 @@ def electric_inventory(warehouse_name):
                 FROM inspection_records
                 ORDER BY inventory_id, inspected_at DESC
             ) r ON i.id = r.inventory_id
-            WHERE i.warehouse = %s AND i.category = %s
+            WHERE {' AND '.join(where_conditions)}
             ORDER BY i.id
-        ''', (db_warehouse_name, DIY_CHECKLIST_CATEGORY))
+        ''', params)
         
         raw_inventory = cursor.fetchall()
         conn.close()
@@ -1821,6 +1829,7 @@ def electric_inventory(warehouse_name):
                                warehouse_slug=DIY_ACTIVE_SLUG,
                                warehouse_db_name=db_warehouse_name,
                                checklist_targets=checklist_targets,
+                               search_query=search_query,
                                inspection_items=INSPECTION_ITEMS,
                                is_admin=session.get('is_admin', False))
                                
@@ -1922,6 +1931,8 @@ def inspection_detail(warehouse_name, item_id):
 
             for checkpoint_no, checkpoint_name in INSPECTION_ITEMS:
                 result_value = request.form.get(f'result_{checkpoint_no}', 'ok')
+                if result_value not in {'ok', 'need', 'na'}:
+                    result_value = 'ok'
                 before_file = request.files.get(f'before_{checkpoint_no}')
                 after_file = request.files.get(f'after_{checkpoint_no}')
                 existing_before = latest_photos.get(checkpoint_no, {}).get('before') if update_existing else None
@@ -2200,6 +2211,8 @@ def export_inspection_report(warehouse_name):
                     result_text = '정상'
                 elif result_text == 'need':
                     result_text = '조치필요'
+                elif result_text == 'na':
+                    result_text = '대상아님'
 
                 method_cell = sheet.cell(row=method_row, column=col_no)
                 method_cell.value = f"{method_text}\n\n결과: {result_text or '-'}"

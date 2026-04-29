@@ -9,9 +9,14 @@
             <h3 class="mb-1">{{ warehouse_name }}</h3>
             <div class="text-muted">국사명: {{ site_name }}</div>
         </div>
-        <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i>뒤로가기
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
+                <i class="fas fa-image me-1"></i>점검 방법
+            </a>
+            <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>뒤로가기
+            </a>
+        </div>
     </div>
 
     {% if not editable and latest_record %}
@@ -50,8 +55,8 @@
                             <td><strong>{{ item_no }}. {{ item_name }}</strong></td>
                             <td>
                                 {% set result_value = latest_checklist_by_no.get(item_no, 'ok') %}
-                                <span class="badge {{ 'bg-success' if result_value == 'ok' else 'bg-warning text-dark' }}">
-                                    {{ '정상' if result_value == 'ok' else '조치필요' }}
+                                <span class="badge {% if result_value == 'ok' %}bg-success{% elif result_value == 'need' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {% if result_value == 'ok' %}정상{% elif result_value == 'need' %}조치필요{% else %}대상아님{% endif %}
                                 </span>
                             </td>
                             <td>
@@ -86,7 +91,7 @@
         </div>
     </div>
     {% else %}
-    <form method="POST" enctype="multipart/form-data" class="card shadow-sm">
+    <form method="POST" enctype="multipart/form-data" class="card shadow-sm" id="inspection-form">
         <div class="card-body">
             {% if latest_record %}
             <input type="hidden" name="edit_mode" value="1">
@@ -131,6 +136,7 @@
                                 <select class="form-select" name="result_{{ item_no }}">
                                     <option value="ok" {% if latest_checklist_by_no.get(item_no, 'ok') == 'ok' %}selected{% endif %}>정상</option>
                                     <option value="need" {% if latest_checklist_by_no.get(item_no, 'ok') == 'need' %}selected{% endif %}>조치필요</option>
+                                    <option value="na" {% if latest_checklist_by_no.get(item_no, 'ok') == 'na' %}selected{% endif %}>대상아님</option>
                                 </select>
                             </td>
                             <td>
@@ -165,9 +171,61 @@
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end">
-            <button type="submit" class="btn btn-primary px-4">저장</button>
+            <button type="submit" class="btn btn-primary px-4" id="inspection-save-btn">저장</button>
         </div>
     </form>
     {% endif %}
+
+    <div id="inspection-loading-overlay" class="inspection-loading-overlay d-none" aria-live="polite" aria-busy="true">
+        <div class="inspection-loading-box">
+            <div class="spinner-border text-primary mb-2" role="status" aria-hidden="true"></div>
+            <div>저장 중입니다. 잠시만 기다려주세요.</div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('inspection-form');
+    if (!form) {
+        return;
+    }
+
+    const saveButton = document.getElementById('inspection-save-btn');
+    const overlay = document.getElementById('inspection-loading-overlay');
+
+    form.addEventListener('submit', function() {
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>저장 중...';
+        }
+        if (overlay) {
+            overlay.classList.remove('d-none');
+        }
+    });
+});
+</script>
+<style>
+.inspection-loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 1060;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.inspection-loading-box {
+    min-width: 280px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+    padding: 1rem 1.2rem;
+    text-align: center;
+    font-weight: 500;
+}
+</style>
 {% endblock %}

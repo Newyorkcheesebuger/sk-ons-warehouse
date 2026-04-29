@@ -7,9 +7,6 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h2 class="mb-0">{{ warehouse_name }}</h2>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
-                <i class="fas fa-image me-1"></i>점검 방법
-            </a>
             <a href="{{ url_for('export_inspection_report', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
                 <i class="fas fa-file-excel me-1"></i>엑셀다운
             </a>
@@ -21,6 +18,26 @@
             <a href="{{ url_for('warehouse', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i>뒤로가기
             </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <input
+                        type="text"
+                        name="q"
+                        class="form-control"
+                        value="{{ search_query or '' }}"
+                        placeholder="국소명 또는 작업자 검색">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>검색
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

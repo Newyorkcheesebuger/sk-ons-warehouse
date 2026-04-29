@@ -25,41 +25,6 @@
     </div>
 </div>
 
-<div class="container mt-4 mb-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card search-card">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-search me-2 text-primary"></i>
-                        검색
-                    </h5>
-                    <form action="{{ url_for('search_inventory') }}" method="GET" class="search-form">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <input type="text" class="form-control form-control-lg" name="q"
-                                       placeholder="국소명 또는 작업자명을 입력하세요..."
-                                       style="border-radius: 15px;">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <select class="form-select form-control-lg" name="warehouse" style="border-radius: 15px;">
-                                    <option value="">전체</option>
-                                    <option value="cooling-maintenance">냉방기 예방점검</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <button type="submit" class="btn btn-primary btn-lg w-100" style="border-radius: 15px;">
-                                    <i class="fas fa-search me-2"></i>검색
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="container">
     <div class="row">
         <div class="col-12">
@@ -125,7 +90,7 @@
                         <ul class="mb-0">
                             <li>현재 <strong>냉방기 예방점검</strong> 메뉴가 운영 중입니다.</li>
                             <li>추가 DIY 메뉴는 준비중 상태입니다.</li>
-                            <li>검색에서 키워드와 DIY 위치를 함께 선택해 조회할 수 있습니다.</li>
+                            <li>검색은 DIY 선택 후 국소 선택 화면에서 사용할 수 있습니다.</li>
                         </ul>
                     </div>
                 </div>

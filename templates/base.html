@@ -205,11 +205,6 @@
                             <i class="fas fa-home me-1"></i>대시보드
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('search_inventory') }}">
-                            <i class="fas fa-search me-1"></i>검색
-                        </a>
-                    </li>
                     {% if session.is_admin %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
@@ -463,13 +458,10 @@
 
         // 키보드 단축키
         document.addEventListener('keydown', function(e) {
-            // Ctrl+/ 또는 Cmd+/ - 검색 페이지로 이동
+            // Ctrl+/ 또는 Cmd+/ - 점검 대상 화면으로 이동
             if ((e.ctrlKey || e.metaKey) && e.key === '/') {
                 e.preventDefault();
-                const searchLink = document.querySelector('a[href*="search_inventory"]');
-                if (searchLink) {
-                    window.location.href = searchLink.href;
-                }
+                window.location.href = "{{ url_for('electric_inventory', warehouse_name='cooling-maintenance') }}";
             }
             
             // ESC - 모달 닫기

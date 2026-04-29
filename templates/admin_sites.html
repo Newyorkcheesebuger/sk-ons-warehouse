@@ -53,10 +53,10 @@
                         <tr>
                             <td>{{ row.id }}</td>
                             <td>
-                                <form method="POST" class="d-flex gap-2">
+                                <form method="POST" class="d-flex gap-2 site-edit-form">
                                     <input type="hidden" name="action" value="update">
                                     <input type="hidden" name="site_id" value="{{ row.id }}">
-                                    <input type="text" class="form-control" name="site_name" value="{{ row.site_name }}" required>
+                                    <input type="text" class="form-control site-name-input" name="site_name" value="{{ row.site_name }}" required>
                                     <button type="submit" class="btn btn-outline-primary btn-sm">수정</button>
                                 </form>
                             </td>
@@ -81,4 +81,26 @@
         </div>
     </div>
 </div>
+
+<style>
+.site-name-input {
+    min-width: 360px;
+}
+
+@media (max-width: 768px) {
+    .site-edit-form {
+        display: block !important;
+    }
+
+    .site-name-input {
+        min-width: 280px;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .site-edit-form .btn {
+        width: 100%;
+    }
+}
+</style>
 {% endblock %}
