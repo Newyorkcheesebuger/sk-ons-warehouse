@@ -615,6 +615,11 @@ def init_db():
                 uploaded_by TEXT,
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
                 is_active INTEGER DEFAULT 1
+            )'''),
+            ('app_settings', '''CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
             )''')
         ]
         
@@ -659,48 +664,84 @@ def init_db():
             conn.rollback()
             print(f"⚠️ 관리자 계정 처리 중 오류: {admin_error}")
 
-        # 점검 대상(국사명) 시드 데이터 추가
+        # 점검 대상(국사명) 시드 데이터 추가 (최초 1회만)
         try:
-            inserted_count = 0
-            migrated_count = 0
-            for site_name in INSPECTION_SITE_NAMES:
-                cursor.execute(
-                    '''SELECT id
-                       FROM inventory
-                       WHERE warehouse = %s AND category = %s AND part_name = %s''',
-                    (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name)
-                )
-                if cursor.fetchone():
-                    continue
+            cursor.execute(
+                "SELECT setting_value FROM app_settings WHERE setting_key = %s",
+                ('inspection_seed_initialized',)
+            )
+            seed_flag = cursor.fetchone()
 
+            if seed_flag:
+                print("ℹ️ 점검 대상 시드 이미 초기화됨 - 자동 재삽입 건너뜀")
+            else:
                 cursor.execute(
-                    '''SELECT id
+                    '''SELECT COUNT(*)
                        FROM inventory
-                       WHERE warehouse = %s AND category = %s AND part_name = %s
-                       ORDER BY id
-                       LIMIT 1''',
-                    (DB_ACTIVE_WAREHOUSE, '전기차', site_name)
+                       WHERE warehouse = %s AND category = %s''',
+                    (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
                 )
-                legacy_row = cursor.fetchone()
-                if legacy_row:
+                existing_diy_count = cursor.fetchone()[0] or 0
+
+                if existing_diy_count > 0:
                     cursor.execute(
-                        '''UPDATE inventory
-                           SET category = %s
-                           WHERE id = %s''',
-                        (DIY_CHECKLIST_CATEGORY, legacy_row[0])
+                        '''INSERT INTO app_settings (setting_key, setting_value)
+                           VALUES (%s, %s)
+                           ON CONFLICT (setting_key)
+                           DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = (NOW() AT TIME ZONE 'Asia/Seoul')''',
+                        ('inspection_seed_initialized', 'existing-data')
                     )
-                    migrated_count += 1
-                    continue
+                    conn.commit()
+                    print(f"ℹ️ 기존 점검 대상 {existing_diy_count}건 확인 - 시드 초기화 플래그만 저장")
+                else:
+                    inserted_count = 0
+                    migrated_count = 0
+                    for site_name in INSPECTION_SITE_NAMES:
+                        cursor.execute(
+                            '''SELECT id
+                               FROM inventory
+                               WHERE warehouse = %s AND category = %s AND part_name = %s''',
+                            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name)
+                        )
+                        if cursor.fetchone():
+                            continue
 
-                cursor.execute(
-                    '''INSERT INTO inventory
-                       (warehouse, category, part_name, quantity, last_modifier)
-                       VALUES (%s, %s, %s, %s, %s)''',
-                    (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name, 0, "system-seed")
-                )
-                inserted_count += 1
-            conn.commit()
-            print(f"✅ 점검 대상 시드 반영 완료 (신규 {inserted_count}건, 전환 {migrated_count}건)")
+                        cursor.execute(
+                            '''SELECT id
+                               FROM inventory
+                               WHERE warehouse = %s AND category = %s AND part_name = %s
+                               ORDER BY id
+                               LIMIT 1''',
+                            (DB_ACTIVE_WAREHOUSE, '전기차', site_name)
+                        )
+                        legacy_row = cursor.fetchone()
+                        if legacy_row:
+                            cursor.execute(
+                                '''UPDATE inventory
+                                   SET category = %s
+                                   WHERE id = %s''',
+                                (DIY_CHECKLIST_CATEGORY, legacy_row[0])
+                            )
+                            migrated_count += 1
+                            continue
+
+                        cursor.execute(
+                            '''INSERT INTO inventory
+                               (warehouse, category, part_name, quantity, last_modifier)
+                               VALUES (%s, %s, %s, %s, %s)''',
+                            (DB_ACTIVE_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name, 0, "system-seed")
+                        )
+                        inserted_count += 1
+
+                    cursor.execute(
+                        '''INSERT INTO app_settings (setting_key, setting_value)
+                           VALUES (%s, %s)
+                           ON CONFLICT (setting_key)
+                           DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = (NOW() AT TIME ZONE 'Asia/Seoul')''',
+                        ('inspection_seed_initialized', f'seeded:{inserted_count}|migrated:{migrated_count}')
+                    )
+                    conn.commit()
+                    print(f"✅ 점검 대상 시드 반영 완료 (신규 {inserted_count}건, 전환 {migrated_count}건)")
         except Exception as seed_error:
             conn.rollback()
             print(f"⚠️ 점검 대상 시드 반영 중 오류: {seed_error}")
@@ -1766,6 +1807,9 @@ def electric_inventory(warehouse_name):
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
     search_query = request.args.get('q', '').strip()
+    status_filter = request.args.get('status', '').strip()
+    if status_filter not in {'completed', 'pending'}:
+        status_filter = ''
 
     print(f"🔍 DIY 작업 관리 접근: {warehouse_name}, 사용자: {session.get('user_name')}")
 
@@ -1773,12 +1817,40 @@ def electric_inventory(warehouse_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        where_conditions = ["i.warehouse = %s", "i.category = %s"]
-        params = [db_warehouse_name, DIY_CHECKLIST_CATEGORY]
+        base_where_conditions = ["i.warehouse = %s", "i.category = %s"]
+        base_params = [db_warehouse_name, DIY_CHECKLIST_CATEGORY]
         if search_query:
-            where_conditions.append("(i.part_name ILIKE %s OR COALESCE(r.inspector_name, '') ILIKE %s)")
-            params.append(f'%{search_query}%')
-            params.append(f'%{search_query}%')
+            base_where_conditions.append("(i.part_name ILIKE %s OR COALESCE(r.inspector_name, '') ILIKE %s)")
+            base_params.append(f'%{search_query}%')
+            base_params.append(f'%{search_query}%')
+
+        count_query = f'''
+            SELECT
+                SUM(CASE WHEN r.inspected_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_count,
+                SUM(CASE WHEN r.inspected_at IS NULL THEN 1 ELSE 0 END) AS pending_count
+            FROM inventory i
+            LEFT JOIN (
+                SELECT DISTINCT ON (inventory_id)
+                       id,
+                       inventory_id,
+                       inspector_name,
+                       inspected_at
+                FROM inspection_records
+                ORDER BY inventory_id, inspected_at DESC
+            ) r ON i.id = r.inventory_id
+            WHERE {' AND '.join(base_where_conditions)}
+        '''
+        cursor.execute(count_query, base_params)
+        count_row = cursor.fetchone() or (0, 0)
+        completed_count = int(count_row[0] or 0)
+        pending_count = int(count_row[1] or 0)
+
+        where_conditions = list(base_where_conditions)
+        params = list(base_params)
+        if status_filter == 'completed':
+            where_conditions.append("r.inspected_at IS NOT NULL")
+        elif status_filter == 'pending':
+            where_conditions.append("r.inspected_at IS NULL")
 
         cursor.execute(f'''
             SELECT i.id,
@@ -1830,6 +1902,9 @@ def electric_inventory(warehouse_name):
                                warehouse_db_name=db_warehouse_name,
                                checklist_targets=checklist_targets,
                                search_query=search_query,
+                               status_filter=status_filter,
+                               completed_count=completed_count,
+                               pending_count=pending_count,
                                inspection_items=INSPECTION_ITEMS,
                                is_admin=session.get('is_admin', False))
                                

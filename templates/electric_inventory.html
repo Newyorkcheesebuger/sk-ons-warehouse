@@ -31,6 +31,9 @@
                         class="form-control"
                         value="{{ search_query or '' }}"
                         placeholder="국소명 또는 작업자 검색">
+                    {% if status_filter %}
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                    {% endif %}
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
@@ -39,6 +42,28 @@
                 </div>
             </form>
         </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-6">
+            <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug, q=search_query, status='completed') }}"
+               class="status-filter-box status-filter-completed {% if status_filter == 'completed' %}active{% endif %}">
+                <div class="status-filter-title">작업 완료</div>
+                <div class="status-filter-count">{{ completed_count }}</div>
+            </a>
+        </div>
+        <div class="col-md-6">
+            <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug, q=search_query, status='pending') }}"
+               class="status-filter-box status-filter-pending {% if status_filter == 'pending' %}active{% endif %}">
+                <div class="status-filter-title">작업 미완료</div>
+                <div class="status-filter-count">{{ pending_count }}</div>
+            </a>
+        </div>
+        {% if status_filter %}
+        <div class="col-12 text-end">
+            <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug, q=search_query) }}" class="btn btn-sm btn-outline-secondary">필터 해제</a>
+        </div>
+        {% endif %}
     </div>
 
     <div class="card shadow-sm">
@@ -109,4 +134,53 @@
         </div>
     </div>
 </div>
+
+<style>
+.status-filter-box {
+    display: block;
+    text-decoration: none;
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 0.9rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.status-filter-title {
+    color: #2f3a47;
+    font-weight: 600;
+}
+
+.status-filter-count {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+}
+
+.status-filter-completed {
+    border-left: 5px solid #198754;
+}
+
+.status-filter-pending {
+    border-left: 5px solid #ffc107;
+}
+
+.status-filter-completed .status-filter-count {
+    color: #198754;
+}
+
+.status-filter-pending .status-filter-count {
+    color: #997404;
+}
+
+.status-filter-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.status-filter-box.active {
+    border-width: 2px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
+}
+</style>
 {% endblock %}
