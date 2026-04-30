@@ -13,11 +13,9 @@
             {% endif %}
         </div>
         <div class="d-flex gap-2">
-            {% if not facility_mode %}
             <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
                 <i class="fas fa-image me-1"></i>점검 방법
             </a>
-            {% endif %}
             <a href="{{ back_url }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i>{{ back_button_label }}
             </a>
@@ -104,6 +102,30 @@
                 </div>
                 {% endfor %}
 
+                <div class="card border mb-3">
+                    <div class="card-header">
+                        <strong>서면(자가)점검 사진촬영 자료</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {% for slot in facility_capture_slots %}
+                            {% set photo = facility_capture_photos.get(slot.slot_no) %}
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-1">{{ slot.slot_no }}. 점검내용: {{ slot.title }}</div>
+                                    <div class="text-muted small mb-2">세부사항: {{ slot.detail }}</div>
+                                    {% if photo %}
+                                    <a href="{{ photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">사진 보기</a>
+                                    {% else %}
+                                    <span class="text-muted">등록된 사진 없음</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-3">
                     <label class="form-label">메모</label>
                     <textarea class="form-control" rows="4" readonly>{{ latest_record.memo }}</textarea>
@@ -114,7 +136,7 @@
             </div>
         </div>
         {% else %}
-        <form method="POST" class="card shadow-sm" id="inspection-form">
+        <form method="POST" enctype="multipart/form-data" class="card shadow-sm" id="inspection-form">
             <div class="card-body">
                 {% if latest_record %}
                 <input type="hidden" name="edit_mode" value="1">
@@ -211,6 +233,29 @@
                     </div>
                 </div>
                 {% endfor %}
+
+                <div class="card border mb-3">
+                    <div class="card-header">
+                        <strong>서면(자가)점검 사진촬영 자료 (항목별 1장, 1MB 미만 자동 압축)</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {% for slot in facility_capture_slots %}
+                            {% set photo = facility_capture_photos.get(slot.slot_no) %}
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-1">{{ slot.slot_no }}. 점검내용: {{ slot.title }}</div>
+                                    <div class="text-muted small mb-2">세부사항: {{ slot.detail }}</div>
+                                    <input type="file" class="form-control" name="facility_capture_{{ slot.slot_no }}" accept="image/*">
+                                    {% if photo %}
+                                    <a href="{{ photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">기존 사진 보기</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
 
                 <div class="mt-3">
                     <label class="form-label">메모</label>

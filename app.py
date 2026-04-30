@@ -30,6 +30,14 @@ try:
 except Exception:
     OPENPYXL_AVAILABLE = False
 
+try:
+    from docx import Document
+    from docx.shared import Inches, Pt
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    PYDOCX_AVAILABLE = True
+except Exception:
+    PYDOCX_AVAILABLE = False
+
 
 app = Flask(__name__)
 app.secret_key = 'sk_ons_warehouse_secret_key_2025'
@@ -326,6 +334,49 @@ FACILITY_SURVEY_SECTIONS = [
             '통신장비, 전원설비, 부대설비의 지진 대책 적정 여부',
         ],
         'detail_fields': [],
+    },
+]
+
+FACILITY_CAPTURE_SLOTS = [
+    {
+        'slot_no': 1,
+        'title': '보호기 설치여부',
+        'detail': '인입단에 서지보호기 설치'
+    },
+    {
+        'slot_no': 2,
+        'title': '접지저항 적합여부',
+        'detail': '메인 접지저항(00 Ω)'
+    },
+    {
+        'slot_no': 3,
+        'title': '예비전원 설비',
+        'detail': '축전지 용량 및 배선 적합여부'
+    },
+    {
+        'slot_no': 4,
+        'title': '제3자의 접촉 방지',
+        'detail': '자물쇠, 시설 보호망(펜스) 등 설치'
+    },
+    {
+        'slot_no': 5,
+        'title': '통신설비 환경 저해요인 제거',
+        'detail': '통신국사 까치집 제거 및 잡초제거 여부'
+    },
+    {
+        'slot_no': 6,
+        'title': '내진대상설비 지진대책',
+        'detail': '통신장비 고정앙카 또는 볼트 설치'
+    },
+    {
+        'slot_no': 7,
+        'title': '옥외설비 육안검사',
+        'detail': '통신주 볼트의 풀림 및 파손여부 등'
+    },
+    {
+        'slot_no': 8,
+        'title': '통신설비 화재대책',
+        'detail': '소화기, 감지장치, 자동소화장치 등'
     },
 ]
 
@@ -884,6 +935,55 @@ def save_inspection_photo(file_obj, item_id, checkpoint_no, phase):
 
     return filename, int(final_size_kb), supabase_url
 
+
+def save_facility_capture_photo(file_obj, item_id, slot_no):
+    """시설물 적합조사 사진(항목당 1장)을 1MB 미만으로 압축 후 저장"""
+    if not file_obj or file_obj.filename == '':
+        return None
+    if not allowed_file(file_obj.filename):
+        raise Exception(f"{slot_no}번 사진 형식이 올바르지 않습니다.")
+
+    file_obj.seek(0)
+    compressed_bytes, final_size_kb = compress_image_to_target_size(
+        file_obj,
+        max_size_mb=0.95,
+        max_width=1600,
+        quality=88
+    )
+    if not compressed_bytes:
+        raise Exception(f"{slot_no}번 사진 압축에 실패했습니다.")
+
+    filename = f"facility_capture_{item_id}_{slot_no}_{uuid.uuid4().hex}.jpg"
+    supabase_url = upload_to_supabase_storage(compressed_bytes, filename)
+    if not supabase_url:
+        raise Exception(f"{slot_no}번 사진 업로드에 실패했습니다.")
+
+    return {
+        'filename': filename,
+        'file_size': int(final_size_kb),
+        'supabase_url': supabase_url
+    }
+
+
+def fetch_facility_capture_photos(cursor, record_id):
+    photo_map = {}
+    cursor.execute(
+        '''SELECT slot_no, point_title, detail_text, filename, file_size, supabase_url
+           FROM facility_capture_photos
+           WHERE record_id = %s
+           ORDER BY slot_no''',
+        (record_id,)
+    )
+    for slot_no, point_title, detail_text, filename, file_size, supabase_url in cursor.fetchall():
+        photo_map[int(slot_no)] = {
+            'point_title': point_title or '',
+            'detail_text': detail_text or '',
+            'filename': filename,
+            'file_size': file_size,
+            'supabase_url': supabase_url
+        }
+    return photo_map
+
 def init_db():
     """트랜잭션 오류 완전 해결된 초기화 함수"""
     conn = None
@@ -976,6 +1076,18 @@ def init_db():
                 file_size INTEGER,
                 supabase_url TEXT NOT NULL,
                 uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')
+            )'''),
+            ('facility_capture_photos', '''CREATE TABLE IF NOT EXISTS facility_capture_photos (
+                id SERIAL PRIMARY KEY,
+                record_id INTEGER REFERENCES inspection_records(id) ON DELETE CASCADE,
+                slot_no INTEGER NOT NULL,
+                point_title TEXT,
+                detail_text TEXT,
+                filename TEXT NOT NULL,
+                file_size INTEGER,
+                supabase_url TEXT NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
+                UNIQUE(record_id, slot_no)
             )'''),
             ('inspection_method_images', '''CREATE TABLE IF NOT EXISTS inspection_method_images (
                 id SERIAL PRIMARY KEY,
@@ -2350,6 +2462,11 @@ def electric_inventory(warehouse_name):
                     url_for('inspection_units', warehouse_name=warehouse_name, item_id=target_id)
                     if use_equipment_units
                     else url_for('inspection_detail', warehouse_name=warehouse_name, item_id=target_id)
+                ),
+                'hangul_url': (
+                    url_for('export_facility_report_docx', warehouse_name=warehouse_name, item_id=target_id)
+                    if (warehouse_name == DIY_FACILITY_SLUG and inspected_at)
+                    else ''
                 )
             })
         
@@ -2420,18 +2537,21 @@ def inspection_detail(warehouse_name, item_id):
         latest_checklist_by_no = {}
         latest_photos = {}
         latest_facility_payload = build_default_facility_payload()
-        if latest_record and latest_record[4]:
+        latest_facility_capture_photos = {}
+        if latest_record:
             if facility_mode:
                 latest_facility_payload = parse_facility_payload(latest_record[4])
+                latest_facility_capture_photos = fetch_facility_capture_photos(cursor, latest_record[0])
             else:
-                try:
-                    checklist_raw = latest_record[4]
-                    checklist_data = checklist_raw if isinstance(checklist_raw, list) else json.loads(checklist_raw)
-                    for row in checklist_data:
-                        checkpoint_no = int(row.get('checkpoint_no', 0))
-                        latest_checklist_by_no[checkpoint_no] = row.get('result', 'ok')
-                except Exception:
-                    latest_checklist_by_no = {}
+                if latest_record[4]:
+                    try:
+                        checklist_raw = latest_record[4]
+                        checklist_data = checklist_raw if isinstance(checklist_raw, list) else json.loads(checklist_raw)
+                        for row in checklist_data:
+                            checkpoint_no = int(row.get('checkpoint_no', 0))
+                            latest_checklist_by_no[checkpoint_no] = row.get('result', 'ok')
+                    except Exception:
+                        latest_checklist_by_no = {}
 
                 cursor.execute(
                     '''SELECT checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url
@@ -2469,6 +2589,7 @@ def inspection_detail(warehouse_name, item_id):
             if facility_mode:
                 facility_payload = build_facility_payload_from_form(request.form)
                 checklist_json = json.dumps(facility_payload, ensure_ascii=False)
+                existing_capture_map = latest_facility_capture_photos if update_existing else {}
 
                 if update_existing:
                     record_id_int = int(record_id)
@@ -2483,14 +2604,47 @@ def inspection_detail(warehouse_name, item_id):
                            WHERE id = %s AND inventory_id = %s''',
                         (site_name, inspector_name, korea_time, '작업 완료', checklist_json, plain_memo, record_id_int, item_id)
                     )
-                    cursor.execute('DELETE FROM inspection_photos WHERE record_id = %s', (record_id_int,))
+                    target_record_id = record_id_int
                 else:
                     cursor.execute(
                         '''INSERT INTO inspection_records
                            (inventory_id, warehouse, site_name, inspector_name, inspected_at, status, checklist_data, memo)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                           RETURNING id''',
                         (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료', checklist_json, plain_memo)
                     )
+                    target_record_id = cursor.fetchone()[0]
+
+                cursor.execute('DELETE FROM facility_capture_photos WHERE record_id = %s', (target_record_id,))
+
+                for slot in FACILITY_CAPTURE_SLOTS:
+                    slot_no = slot['slot_no']
+                    photo_file = request.files.get(f'facility_capture_{slot_no}')
+                    saved_photo = None
+                    if photo_file and photo_file.filename:
+                        saved_photo = save_facility_capture_photo(photo_file, item_id, slot_no)
+                    elif existing_capture_map.get(slot_no):
+                        saved_photo = {
+                            'filename': existing_capture_map[slot_no]['filename'],
+                            'file_size': existing_capture_map[slot_no]['file_size'],
+                            'supabase_url': existing_capture_map[slot_no]['supabase_url']
+                        }
+
+                    if saved_photo:
+                        cursor.execute(
+                            '''INSERT INTO facility_capture_photos
+                               (record_id, slot_no, point_title, detail_text, filename, file_size, supabase_url)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                            (
+                                target_record_id,
+                                slot_no,
+                                slot['title'],
+                                slot['detail'],
+                                saved_photo['filename'],
+                                saved_photo['file_size'],
+                                saved_photo['supabase_url']
+                            )
+                        )
 
                 cursor.execute(
                     'UPDATE inventory SET part_name = %s, last_modifier = %s, last_modified = %s WHERE id = %s',
@@ -2647,7 +2801,9 @@ def inspection_detail(warehouse_name, item_id):
             is_admin=session.get('is_admin', False),
             facility_mode=facility_mode,
             facility_sections=FACILITY_SURVEY_SECTIONS,
-            facility_payload=latest_facility_payload
+            facility_payload=latest_facility_payload,
+            facility_capture_slots=FACILITY_CAPTURE_SLOTS,
+            facility_capture_photos=latest_facility_capture_photos
         )
     except Exception as e:
         try:
@@ -3494,9 +3650,9 @@ def upload_inspection_method():
         file_obj.seek(0)
         compressed_bytes, _final_size_kb = compress_image_to_target_size(
             file_obj,
-            max_size_mb=1.8,
-            max_width=2200,
-            quality=90
+            max_size_mb=2.9,
+            max_width=2800,
+            quality=92
         )
         if not compressed_bytes:
             flash('점검 방법 이미지 압축에 실패했습니다.')
@@ -3538,6 +3694,198 @@ def upload_inspection_method():
         print(f"❌ upload_inspection_method 오류: {type(e).__name__}: {str(e)}")
         flash(f'점검 방법 이미지 등록 중 오류가 발생했습니다: {str(e)}')
         return redirect(url_for('inspection_method'))
+
+
+def facility_result_label(value):
+    return {'fit': '적합', 'unfit': '부적합', 'na': '해당없음'}.get(value, '-')
+
+
+def build_facility_section_detail_text(section, state):
+    fields = state.get('fields', {}) if isinstance(state, dict) else {}
+    parts = []
+    for field in section.get('detail_fields', []):
+        label = field.get('label', '').strip()
+        value = str(fields.get(field.get('key'), '') or '').strip()
+        if label:
+            parts.append(f"{label}: {value if value else '-'}")
+    note = str(state.get('detail_note', '') or '').strip() if isinstance(state, dict) else ''
+    if note:
+        parts.append(f"비고: {note}")
+    return " / ".join(parts) if parts else "-"
+
+
+def add_picture_to_docx_cell(cell, image_bytes, width_inches=2.7):
+    cell.text = ''
+    paragraph = cell.paragraphs[0]
+    paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    if not image_bytes:
+        paragraph.add_run('사진 없음')
+        return
+    run = paragraph.add_run()
+    run.add_picture(io.BytesIO(image_bytes), width=Inches(width_inches))
+
+
+@app.route('/warehouse/<warehouse_name>/inspection-hangul/<int:item_id>')
+def export_facility_report_docx(warehouse_name, item_id):
+    if 'user_id' not in session:
+        return redirect('/')
+
+    if warehouse_name != DIY_FACILITY_SLUG:
+        flash('시설물 적합조사 메뉴에서만 한글 다운로드가 가능합니다.')
+        return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+
+    if not PYDOCX_AVAILABLE:
+        flash('한글 문서 생성을 위한 라이브러리가 설치되지 않았습니다. 관리자에게 문의해주세요.')
+        return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''SELECT id, part_name
+               FROM inventory
+               WHERE id = %s AND warehouse = %s AND category = %s''',
+            (item_id, DB_FACILITY_WAREHOUSE, DIY_CHECKLIST_CATEGORY)
+        )
+        item = cursor.fetchone()
+        if not item:
+            conn.close()
+            flash('점검 대상을 찾을 수 없습니다.')
+            return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+
+        cursor.execute(
+            '''SELECT id, site_name, inspector_name, inspected_at, checklist_data, memo
+               FROM inspection_records
+               WHERE inventory_id = %s
+               ORDER BY inspected_at DESC
+               LIMIT 1''',
+            (item_id,)
+        )
+        latest_record = cursor.fetchone()
+        if not latest_record:
+            conn.close()
+            flash('저장된 점검 결과가 없습니다.')
+            return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
+
+        payload = parse_facility_payload(latest_record[4])
+        capture_photos = fetch_facility_capture_photos(cursor, latest_record[0])
+        conn.close()
+
+        doc = Document()
+        normal_style = doc.styles['Normal']
+        normal_style.font.name = 'Malgun Gothic'
+        normal_style.font.size = Pt(10)
+
+        title = doc.add_paragraph('방송통신설비 기술기준 적합 조사ㆍ시험 평가표')
+        title.runs[0].bold = True
+        title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        inspected_date = payload.get('inspection_date') or (
+            latest_record[3].strftime('%Y-%m-%d')
+            if latest_record[3] and not isinstance(latest_record[3], str)
+            else (latest_record[3] or '-')
+        )
+
+        info_table = doc.add_table(rows=1, cols=1)
+        info_table.style = 'Table Grid'
+        info_table.cell(0, 0).text = (
+            f"□ 사업자명: {payload.get('business_name') or '-'}    "
+            f"□ 국사명: {latest_record[1] or item[1] or '미입력'}    "
+            f"□ 국사형태: {payload.get('site_type') or '-'}    "
+            f"□ 점검일자: {inspected_date}"
+        )
+
+        doc.add_paragraph('')
+        checklist_table = doc.add_table(rows=1, cols=3)
+        checklist_table.style = 'Table Grid'
+        checklist_table.cell(0, 0).text = '조 사 항 목'
+        checklist_table.cell(0, 1).text = '결 과'
+        checklist_table.cell(0, 2).text = '비 고'
+
+        for section in FACILITY_SURVEY_SECTIONS:
+            code = section['code']
+            state = payload['sections'].get(code, {})
+            checks = state.get('checks', [])
+
+            section_row = checklist_table.add_row().cells
+            section_row[0].text = f"{code}. {section['title']}"
+            section_row[1].text = facility_result_label(state.get('result', ''))
+            section_row[2].text = ''
+
+            for idx, check_name in enumerate(section.get('checks', [])):
+                check_row = checklist_table.add_row().cells
+                check_row[0].text = f"- {check_name}"
+                check_row[1].text = facility_result_label(checks[idx] if idx < len(checks) else '')
+                check_row[2].text = ''
+
+            detail_row = checklist_table.add_row().cells
+            detail_row[0].text = f"o 점검결과(상세): {build_facility_section_detail_text(section, state)}"
+            detail_row[1].text = ''
+            detail_row[2].text = ''
+
+        photo_title = doc.add_paragraph('서면(자가)점검 사진촬영 자료')
+        photo_title.runs[0].bold = True
+
+        photo_table = doc.add_table(rows=0, cols=4)
+        photo_table.style = 'Table Grid'
+        pair_rows = [
+            (FACILITY_CAPTURE_SLOTS[0], FACILITY_CAPTURE_SLOTS[1]),
+            (FACILITY_CAPTURE_SLOTS[2], FACILITY_CAPTURE_SLOTS[3]),
+            (FACILITY_CAPTURE_SLOTS[4], FACILITY_CAPTURE_SLOTS[5]),
+            (FACILITY_CAPTURE_SLOTS[6], FACILITY_CAPTURE_SLOTS[7]),
+        ]
+
+        for left_slot, right_slot in pair_rows:
+            row_title = photo_table.add_row().cells
+            row_title[0].text = '점검내용'
+            row_title[1].text = f"{left_slot['slot_no']}. {left_slot['title']}"
+            row_title[2].text = '점검내용'
+            row_title[3].text = f"{right_slot['slot_no']}. {right_slot['title']}"
+
+            row_detail = photo_table.add_row().cells
+            row_detail[0].text = '세부사항'
+            row_detail[1].text = left_slot['detail']
+            row_detail[2].text = '세부사항'
+            row_detail[3].text = right_slot['detail']
+
+            row_photo = photo_table.add_row().cells
+            left_image_cell = row_photo[0].merge(row_photo[1])
+            right_image_cell = row_photo[2].merge(row_photo[3])
+
+            left_photo = capture_photos.get(left_slot['slot_no'])
+            right_photo = capture_photos.get(right_slot['slot_no'])
+            left_bytes = fetch_image_bytes(left_photo['supabase_url']) if left_photo and left_photo.get('supabase_url') else None
+            right_bytes = fetch_image_bytes(right_photo['supabase_url']) if right_photo and right_photo.get('supabase_url') else None
+            add_picture_to_docx_cell(left_image_cell, left_bytes, width_inches=2.8)
+            add_picture_to_docx_cell(right_image_cell, right_bytes, width_inches=2.8)
+
+        memo_text = latest_record[5] or ''
+        doc.add_paragraph(f"메모: {memo_text if memo_text else '-'}")
+        doc.add_paragraph(f"점검자: {latest_record[2] or '-'}")
+
+        output = io.BytesIO()
+        doc.save(output)
+        output.seek(0)
+
+        site_name_for_file = (latest_record[1] or item[1] or '시설물').replace('/', '_').replace('\\', '_')
+        filename = f"서면자가점검_{site_name_for_file}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        encoded_filename = urllib.parse.quote(filename, safe='')
+
+        return Response(
+            output.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            headers={'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except Exception as e:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+        print(f"❌ export_facility_report_docx 오류: {type(e).__name__}: {str(e)}")
+        flash(f'한글 다운로드 중 오류가 발생했습니다: {str(e)}')
+        return redirect(url_for('electric_inventory', warehouse_name=warehouse_name))
 
 @app.route('/admin/sites', methods=['GET', 'POST'])
 def admin_sites():

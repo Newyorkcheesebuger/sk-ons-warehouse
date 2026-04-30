@@ -99,6 +99,9 @@
                                    class="btn btn-primary btn-sm">
                                     {{ '보기' if target.is_completed else '점검하기' }}
                                 </a>
+                                {% if target.hangul_url %}
+                                <a href="{{ target.hangul_url }}" class="btn btn-outline-success btn-sm ms-1">한글 다운</a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}
@@ -127,6 +130,9 @@
                         </div>
                         <a href="{{ target.detail_url }}"
                            class="btn btn-primary w-100">{{ '보기' if target.is_completed else '점검하기' }}</a>
+                        {% if target.hangul_url %}
+                        <a href="{{ target.hangul_url }}" class="btn btn-outline-success w-100 mt-2">한글 다운</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}

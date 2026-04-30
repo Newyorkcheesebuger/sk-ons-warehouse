@@ -6,4 +6,5 @@ pg8000==1.30.2
 requests==2.32.3
 pillow==10.4.0
 openpyxl==3.1.5
+python-docx==1.1.2
 

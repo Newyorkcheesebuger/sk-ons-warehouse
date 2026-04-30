@@ -37,6 +37,7 @@
             <form method="POST" action="{{ url_for('upload_inspection_method') }}" enctype="multipart/form-data" class="row g-2">
                 <div class="col-md-9">
                     <input type="file" class="form-control" name="inspection_method_image" accept="image/png,image/jpeg,image/webp" required>
+                    <small class="text-muted">점검방법 이미지는 약 3MB 이하로 자동 압축 저장됩니다.</small>
                 </div>
                 <div class="col-md-3">
                     <button type="submit" class="btn btn-primary w-100">이미지 등록</button>
