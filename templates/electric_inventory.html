@@ -1,14 +1,14 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}{{ warehouse_name }} - SK오앤에스 DIY System{% endblock %}
+{% block title %}냉방기 예방점검 - SK오앤에스 DIY System{% endblock %}
 
 {% block content %}
 <div class="container py-3">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <h2 class="mb-0">{{ warehouse_name }}</h2>
+        <h2 class="mb-0">냉방기 예방점검</h2>
         <div class="d-flex gap-2">
             <a href="{{ url_for('export_inspection_report_v2', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
-                <i class="fas fa-file-excel me-1"></i>엑셀다운
+                <i class="fas fa-file-excel me-1"></i>엑셀 다운로드
             </a>
             {% if is_admin %}
             <a href="{{ url_for('admin_sites') }}" class="btn btn-outline-success">
@@ -30,7 +30,7 @@
                         name="q"
                         class="form-control"
                         value="{{ search_query or '' }}"
-                        placeholder="국소명 또는 작업자 검색">
+                        placeholder="국사명 또는 점검자로 검색">
                     {% if status_filter %}
                     <input type="hidden" name="status" value="{{ status_filter }}">
                     {% endif %}
@@ -73,9 +73,9 @@
                     <thead class="table-light">
                         <tr>
                             <th>국사명</th>
-                            <th>작업자</th>
-                            <th>작업일시</th>
-                            <th>현황</th>
+                            <th>점검자</th>
+                            <th>점검일시</th>
+                            <th>상태</th>
                             <th>작업</th>
                         </tr>
                     </thead>
@@ -86,10 +86,10 @@
                             <td>{{ target.inspector_name or '-' }}</td>
                             <td>{{ target.inspected_at or '-' }}</td>
                             <td>
-                                {% if target.status == '작업 완료' %}
-                                <span class="badge bg-success">{{ target.status }}</span>
+                                {% if target.is_completed %}
+                                <span class="badge bg-success">작업 완료</span>
                                 {% else %}
-                                <span class="badge bg-warning text-dark">{{ target.status }}</span>
+                                <span class="badge bg-warning text-dark">작업 미완료</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -112,15 +112,15 @@
                 {% for target in checklist_targets %}
                 <div class="card mb-3 border">
                     <div class="card-body">
-                        <div class="mb-2"><strong>국사명:</strong> {{ target.site_name }}</div>
-                        <div class="mb-2"><strong>작업자:</strong> {{ target.inspector_name or '-' }}</div>
-                        <div class="mb-2"><strong>작업일시:</strong> {{ target.inspected_at or '-' }}</div>
+                        <div class="mb-2"><strong>국사명</strong> {{ target.site_name }}</div>
+                        <div class="mb-2"><strong>점검자</strong> {{ target.inspector_name or '-' }}</div>
+                        <div class="mb-2"><strong>점검일시</strong> {{ target.inspected_at or '-' }}</div>
                         <div class="mb-3">
-                            <strong>현황:</strong>
-                            {% if target.status == '작업 완료' %}
-                            <span class="badge bg-success">{{ target.status }}</span>
+                            <strong>상태:</strong>
+                            {% if target.is_completed %}
+                            <span class="badge bg-success">작업 완료</span>
                             {% else %}
-                            <span class="badge bg-warning text-dark">{{ target.status }}</span>
+                            <span class="badge bg-warning text-dark">작업 미완료</span>
                             {% endif %}
                         </div>
                         <a href="{{ url_for('inspection_units', warehouse_name=warehouse_slug, item_id=target.id) }}"

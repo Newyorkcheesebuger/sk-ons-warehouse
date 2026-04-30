@@ -81,10 +81,10 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 # 공개 식별자와 DB 저장값 분리
 DIY_ACTIVE_SLUG = 'cooling-maintenance'
-DIY_ACTIVE_LABEL = '냉방기 예방점검'
-DIY_PREPARING_LABEL = '준비중'
-DB_ACTIVE_WAREHOUSE = '보라매창고'
-DIY_CHECKLIST_CATEGORY = 'DIY점검'
+DIY_ACTIVE_LABEL = '??? ????'
+DIY_PREPARING_LABEL = '???'
+DB_ACTIVE_WAREHOUSE = '?????'
+DIY_CHECKLIST_CATEGORY = 'DIY??'
 INSPECTION_METHOD_BUCKET = 'warehouse-photos'
 INSPECTION_METHOD_PREFIX = 'inspection-methods'
 WAREHOUSES = [DIY_ACTIVE_SLUG]
@@ -156,31 +156,31 @@ def get_next_equipment_no(equipment_numbers):
 
 
 INSPECTION_ITEMS = [
-    (1, '고무패킹교체'),
-    (2, '실내기 Reset'),
-    (3, 'V벨트 교체'),
-    (4, '타이머 릴레이'),
-    (5, '배수관 청소'),
-    (6, 'RMS 온도센싱'),
-    (7, '자연공조 점검'),
-    (8, '정전보상'),
-    (9, '실외기 핀,넝쿨'),
-    (10, '송풍구 풍량'),
-    (11, '열화상 측정'),
+    (1, '???? ??'),
+    (2, '??? Reset'),
+    (3, 'V?? ??'),
+    (4, '??? ??'),
+    (5, '??? ??'),
+    (6, 'RMS ????'),
+    (7, '???? ??'),
+    (8, '?? ??'),
+    (9, '??? ?/??'),
+    (10, '??? ??'),
+    (11, '??? ??'),
 ]
 
 INSPECTION_METHOD_GUIDE = {
-    1: "공냉식 토출구가 그릴타입 대상\n- 위치고정이 안되는 경우\n- 고무패킹 교체",
-    2: "공냉식 micom 램프 확인 후 Reset\n- RUN 램프 미점등: ON/OFF버튼 눌러 RUN 점등 확인\n- Alarm 램프 점등: Reset 버튼 누름 후 램프 복구 확인",
-    3: "공냉식(구형) 공기 토출구에서 V벨트 존재 확인\n- 앞판을 열어 벨트 손상/처짐 여부 확인",
-    4: "공냉식 릴레이, 타이머 불량 점검\n- 불량 시 BP 교체요청\n- 변색 또는 열화상 측정 시 고온 발생 여부 확인",
-    5: "(전체) 오염물질 많으면 청소\n- 전후 사진\n- 실내기 필터\n- 배수구 청소 등",
-    6: "(전체) 온도센서 설치위치 점검\n- 이상한 경우(고온) 확인",
-    7: "집중국 기반 외부공기 팬/모터 점검",
-    8: "공냉식 micom 내부 분리 후 dip s/w 확인 필요\n- 좌측에 있으면 우측으로 변경",
-    9: "(전체) 청소 시 전후사진\n- 칡넝쿨 등 조치 시",
-    10: "(전체) 풍량계 측정 또는 촉감점검",
-    11: "(전체) 분전반 커버 탈착 후 열화상 측정\n- 사진 보관",
+    1: '???? ?? ?? ? ?? ? ??',
+    2: '??? ?? ?? ?? ? Reset ??',
+    3: 'V?? ??/?? ?? ? ?? ? ??',
+    4: '??? ?? ?? ?? ??',
+    5: '??? ? ??? ?? ??',
+    6: 'RMS ?? ? ?? ?? ??',
+    7: '???? ?? ?? ??',
+    8: '?? ?? ?? ??',
+    9: '??? ? ??/?? ??',
+    10: '??? ?? ??',
+    11: '????? ?? ?? ??',
 }
 
 INSPECTION_SITE_NAMES = [
