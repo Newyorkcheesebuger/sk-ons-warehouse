@@ -319,6 +319,14 @@ def fetch_image_bytes(image_url):
     except Exception:
         return None
 
+
+def safe_excel_sheet_title(title, fallback='Sheet1'):
+    invalid_chars = set('[]:*?/\\')
+    cleaned = ''.join(ch for ch in str(title or '') if ch not in invalid_chars).strip()
+    if not cleaned:
+        cleaned = fallback
+    return cleaned[:31]
+
 def excel_column_width_to_pixels(width):
     """Excel 열 너비 값을 픽셀로 근사 변환."""
     if not width:
@@ -2719,7 +2727,7 @@ def export_inspection_report_v2(warehouse_name):
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = 'DIY ?먭? 由ы룷??'
+        sheet.title = safe_excel_sheet_title('DIY_Report')
 
         header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
         header_font = Font(bold=True)
@@ -2893,7 +2901,7 @@ def export_inspection_report(warehouse_name):
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = 'DIY 점검 리포트'
+        sheet.title = safe_excel_sheet_title('DIY_Report')
 
         header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
         header_font = Font(bold=True)
