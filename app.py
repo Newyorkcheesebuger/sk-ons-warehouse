@@ -82,12 +82,15 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 # 공개 식별자와 DB 저장값 분리
 DIY_ACTIVE_SLUG = 'cooling-maintenance'
 DIY_ACTIVE_LABEL = '냉방기 예방점검'
+DIY_FACILITY_SLUG = 'facility-suitability'
+DIY_FACILITY_LABEL = '시설물 적합조사'
 DIY_PREPARING_LABEL = '준비중'
 DB_ACTIVE_WAREHOUSE = '보라매창고'
+DB_FACILITY_WAREHOUSE = '시설물적합조사'
 DIY_CHECKLIST_CATEGORY = 'DIY점검'
 INSPECTION_METHOD_BUCKET = 'warehouse-photos'
 INSPECTION_METHOD_PREFIX = 'inspection-methods'
-WAREHOUSES = [DIY_ACTIVE_SLUG]
+WAREHOUSES = [DIY_ACTIVE_SLUG, DIY_FACILITY_SLUG]
 DEFAULT_EQUIPMENT_PREFIX = 'A05'
 DEFAULT_EQUIPMENT_START = 1
 EQUIPMENT_NO_PATTERN = re.compile(r'^(?P<prefix>[A-Za-z0-9]+)-(?P<index>\d+)$')
@@ -96,18 +99,24 @@ EQUIPMENT_NO_PATTERN = re.compile(r'^(?P<prefix>[A-Za-z0-9]+)-(?P<index>\d+)$')
 def get_db_warehouse_from_slug(warehouse_slug):
     if warehouse_slug == DIY_ACTIVE_SLUG:
         return DB_ACTIVE_WAREHOUSE
+    if warehouse_slug == DIY_FACILITY_SLUG:
+        return DB_FACILITY_WAREHOUSE
     return None
 
 
 def get_display_warehouse_from_slug(warehouse_slug):
     if warehouse_slug == DIY_ACTIVE_SLUG:
         return DIY_ACTIVE_LABEL
+    if warehouse_slug == DIY_FACILITY_SLUG:
+        return DIY_FACILITY_LABEL
     return DIY_PREPARING_LABEL
 
 
 def get_slug_from_db_warehouse(warehouse_name):
     if warehouse_name == DB_ACTIVE_WAREHOUSE:
         return DIY_ACTIVE_SLUG
+    if warehouse_name == DB_FACILITY_WAREHOUSE:
+        return DIY_FACILITY_SLUG
     return DIY_ACTIVE_SLUG
 
 
@@ -116,7 +125,305 @@ def normalize_warehouse_filter(warehouse_value):
         return None
     if warehouse_value in [DIY_ACTIVE_SLUG, DIY_ACTIVE_LABEL, DB_ACTIVE_WAREHOUSE]:
         return DB_ACTIVE_WAREHOUSE
+    if warehouse_value in [DIY_FACILITY_SLUG, DIY_FACILITY_LABEL, DB_FACILITY_WAREHOUSE]:
+        return DB_FACILITY_WAREHOUSE
     return None
+
+
+def get_diy_intro_text(warehouse_slug):
+    if warehouse_slug == DIY_FACILITY_SLUG:
+        return 'DIY작업관리 시설물 적합조사를 진행합니다.'
+    return '냉방기 예방점검 대상 점검을 진행합니다'
+
+
+def uses_equipment_units(warehouse_slug):
+    return warehouse_slug == DIY_ACTIVE_SLUG
+
+
+FACILITY_SURVEY_VERSION = 1
+FACILITY_RESULT_OPTIONS = {'fit', 'unfit'}
+FACILITY_CHECK_OPTIONS = {'fit', 'unfit', 'na'}
+
+
+def is_facility_suitability(warehouse_slug):
+    return warehouse_slug == DIY_FACILITY_SLUG
+
+
+FACILITY_SURVEY_SECTIONS = [
+    {
+        'code': '1',
+        'title': '보호기 및 접지(규정 제7조)',
+        'checks': [
+            '보호기 설치 여부',
+            '보호기의 기술기준 준수 여부',
+            '접지저항 적합 여부',
+        ],
+        'detail_fields': [
+            {'key': 'ground_measure_count', 'label': '연 ( )회 측정'},
+            {'key': 'ground_measure_date', 'label': '( . . . 시행)'},
+            {'key': 'ground_ohm', 'label': '( Ω )'},
+            {'key': 'opening_date', 'label': '개국일'},
+            {'key': 'approval_date', 'label': '사용승인일 ( . . . )'},
+            {'key': 'floor_area_m2', 'label': '연면적 ( ㎡ )'},
+        ],
+    },
+    {
+        'code': '2',
+        'title': '예비전원설비(규정 제10조)',
+        'checks': [
+            '축전지 및 발전기 설치 여부(사업용)',
+            '예비전원 설치 여부(사업용 외 국선 10회선 이상)',
+        ],
+        'detail_fields': [
+            {'key': 'generator_kw', 'label': '비상발전기 용량 (KW)'},
+            {'key': 'fuel_tank_total_l', 'label': '유류탱크 용량 총량 (L)'},
+            {'key': 'fuel_tank_have_l', 'label': '유류탱크 보유량 (L)'},
+            {'key': 'backup_hours', 'label': '백업 가능 시간'},
+            {'key': 'rectifier_count', 'label': '정류기 (대)'},
+            {'key': 'rectifier_battery_ah', 'label': '정류기 축전지 (AH)'},
+            {'key': 'rectifier_max_load_a', 'label': '정류기 최대부하량 (A)'},
+            {'key': 'rectifier_avg_hr', 'label': '정류기 평균 (HR)'},
+            {'key': 'ups_count', 'label': 'UPS (대)'},
+            {'key': 'ups_battery_ah', 'label': 'UPS 축전지 (AH)'},
+            {'key': 'ups_max_load_a', 'label': 'UPS 최대부하량 (A)'},
+            {'key': 'ups_avg_hr', 'label': 'UPS 평균 (HR)'},
+        ],
+    },
+    {
+        'code': '18',
+        'title': '옥외설비 설치 기준(신뢰성 고시 별표1)',
+        'checks': [
+            '풍해 대책 강구 여부',
+            "지진 대책 강구 여부('09.10.16. 이후 설치 설비, 임차국사는 '15.7.1.부터 적용)",
+            '수해 방지 조치 강구 여부',
+            '맨홀 등 내부에 설치되는 접속함체 등의 거치대 이용 설치 여부',
+            '지하 통신구의 개구부 설치 위치가 적정하거나, 침수방지장치 설치 여부',
+            '제3자의 접촉방지를 위한 맨홀 잠금장치 설치 여부',
+            '낙뢰 대책 강구 여부(권고)',
+            '진동 대책 강구 여부(권고)',
+            '화재 대책 강구 여부(권고)',
+            '내수(방수) 기능 구비 여부(권고)',
+            '동결 대책 강구 여부(권고)',
+            '염해 등 대책(권고)',
+            '고온·저온 대책(권고)',
+            '다습도 대책(권고)',
+            '고신뢰도 부품 사용(해저 등 특수장소)(권고)',
+            '제3자의 접촉 및 침입 방지 조치 강구 여부(권고)',
+        ],
+        'detail_fields': [
+            {'key': 'route_tongsingu', 'label': '통신구'},
+            {'key': 'route_manhole', 'label': '맨홀'},
+            {'key': 'route_gagong', 'label': '가공'},
+        ],
+    },
+    {
+        'code': '21',
+        'title': '통신기계실의 구조 조건(신뢰성 고시 별표1)',
+        'checks': [
+            '통신기계실의 전용 공간 설치 여부',
+            "바닥시설의 지진대책 기준 적합 여부('09.10.16. 이후 설치 설비, 임차국사는 '15.7.1.부터 적용)",
+            '비, 바람, 자외선 및 대기먼지 등에 의한 피해 방지 조치 여부',
+            '바닥, 내벽, 천장 내장재의 지진 대비 조치 강구 여부(임차국사)(권고)',
+        ],
+        'detail_fields': [],
+    },
+    {
+        'code': '22',
+        'title': '통신국사 및 통신기계실의 출입제한 기능(신뢰성 고시 별표1)',
+        'checks': [
+            '모든 출입구에 시건장치 설치 및 출입통제관리 실시 여부(권고)',
+        ],
+        'detail_fields': [
+            {'key': 'restricted_sign', 'label': '제한구역 안내표시 유/무'},
+            {'key': 'lock_device', 'label': '시건장치 유/무'},
+            {'key': 'cctv', 'label': 'CCTV 운영 유/무'},
+        ],
+    },
+    {
+        'code': '23',
+        'title': '통신국사의 화재 및 수해대책(신뢰성 고시 별표1)',
+        'checks': [
+            '주요시설에 소화기, 자동화재탐지설비 및 자동소화설비 설치 여부',
+            '주요시설 내장재의 불연재료/준불연재료 여부',
+            '통신국사 출입구가 침수 예상 높이보다 높게 설치 여부',
+            '통신국사 내 주요시설 지상 설치 여부(또는 방수 조치)',
+            '지하공간 출입구 침수 방지턱 설치 여부',
+        ],
+        'detail_fields': [
+            {'key': 'halon_extinguisher', 'label': '하론소화기'},
+            {'key': 'powder_extinguisher', 'label': '분말소화기'},
+            {'key': 'clean_gas', 'label': '청정가스'},
+            {'key': 'cabinet_halon1301', 'label': '케비넷하론1301'},
+            {'key': 'centralized_halon', 'label': '집합형 하론'},
+            {'key': 'diffusion_extinguisher', 'label': '확산소화기'},
+            {'key': 'smoke_detector_ea', 'label': '연기 감지기 (EA)'},
+            {'key': 'heat_detector_ea', 'label': '열 감지기 (EA)'},
+            {'key': 'differential_detector_ea', 'label': '차동 감지기 (EA)'},
+        ],
+    },
+    {
+        'code': '24',
+        'title': '통신기계실의 온·습도 관리(신뢰성 고시 별표1)',
+        'checks': [
+            '항온·항습 기능 구비 여부(권고)',
+        ],
+        'detail_fields': [
+            {'key': 'cooler_count', 'label': '냉방기 (개)'},
+        ],
+    },
+    {
+        'code': '25',
+        'title': '통신기계실의 분진·유해가스 관리(신뢰성 고시 별표1)',
+        'checks': [
+            '부식성 가스(SO2 등)나 분진 혼입 시 배제 기능 구비 여부(권고)',
+        ],
+        'detail_fields': [
+            {'key': 'cooling_clean_count', 'label': '냉방기 관리 횟수'},
+            {'key': 'equipment_clean_count', 'label': '장비 관리 횟수'},
+        ],
+    },
+    {
+        'code': '26',
+        'title': '통신망 보전·운용 기준 설정(신뢰성 고시 별표1)',
+        'checks': [
+            '통신망 보전·운용 기준 설정 및 데이터 집계·관리 여부',
+        ],
+        'detail_fields': [],
+    },
+    {
+        'code': '31',
+        'title': '방송통신설비의 시험 및 결과 기록·관리(방발법 제28조제2항)',
+        'checks': [
+            '사업자의 방송통신설비 자체 시험 및 기록·관리 여부',
+        ],
+        'detail_fields': [],
+    },
+    {
+        'code': '32',
+        'title': '전송설비 및 선로설비의 보호(규정 제8조 및 접지설비 고시)',
+        'checks': [
+            '타 설비/차량 통행에 피해가 없도록 설치 여부',
+            '하천 횡단 시 안전표지(항공표지 등) 설치 여부',
+        ],
+        'detail_fields': [],
+    },
+    {
+        'code': '33',
+        'title': '선로설비의 설치 및 철거방법(규정 제18조 및 접지설비 고시)',
+        'checks': [
+            '가공통신선 지지물의 등주 방지 적정 여부',
+            '가공통신선의 높이 적정 여부',
+            '통신선과 전력선 간 이격거리 적정 여부',
+            '동일 지지물에서 통신선/전력선 이격거리 적정 여부',
+            '지중/해저 통신선과 전력선 이격거리 적정 여부',
+        ],
+        'detail_fields': [],
+    },
+    {
+        'code': '34',
+        'title': '통신장비류의 지진 대책(신뢰성 고시 제5조 및 별표2)',
+        'checks': [
+            '통신장비, 전원설비, 부대설비의 지진 대책 적정 여부',
+        ],
+        'detail_fields': [],
+    },
+]
+
+
+def build_default_facility_payload():
+    sections = {}
+    for section in FACILITY_SURVEY_SECTIONS:
+        sections[section['code']] = {
+            'result': '',
+            'checks': ['' for _ in section.get('checks', [])],
+            'detail_note': '',
+            'fields': {field['key']: '' for field in section.get('detail_fields', [])}
+        }
+    return {
+        'version': FACILITY_SURVEY_VERSION,
+        'business_name': '',
+        'site_type': '',
+        'inspection_date': '',
+        'sections': sections
+    }
+
+
+def parse_facility_payload(raw_checklist_data):
+    payload = build_default_facility_payload()
+    if not raw_checklist_data:
+        return payload
+
+    try:
+        parsed = raw_checklist_data if isinstance(raw_checklist_data, dict) else json.loads(raw_checklist_data)
+    except Exception:
+        return payload
+
+    if not isinstance(parsed, dict):
+        return payload
+
+    payload['business_name'] = str(parsed.get('business_name', '') or '').strip()
+    payload['site_type'] = str(parsed.get('site_type', '') or '').strip()
+    payload['inspection_date'] = str(parsed.get('inspection_date', '') or '').strip()
+
+    source_sections = parsed.get('sections') or {}
+    if not isinstance(source_sections, dict):
+        return payload
+
+    for section in FACILITY_SURVEY_SECTIONS:
+        code = section['code']
+        src = source_sections.get(code) or {}
+        if not isinstance(src, dict):
+            continue
+
+        result = str(src.get('result', '') or '').strip()
+        if result in FACILITY_RESULT_OPTIONS:
+            payload['sections'][code]['result'] = result
+
+        checks = src.get('checks') or []
+        if isinstance(checks, list):
+            safe_checks = []
+            for idx, _check_name in enumerate(section.get('checks', [])):
+                value = str(checks[idx] if idx < len(checks) else '').strip()
+                safe_checks.append(value if value in FACILITY_CHECK_OPTIONS else '')
+            payload['sections'][code]['checks'] = safe_checks
+
+        payload['sections'][code]['detail_note'] = str(src.get('detail_note', '') or '').strip()
+
+        src_fields = src.get('fields') or {}
+        if isinstance(src_fields, dict):
+            for field in section.get('detail_fields', []):
+                key = field['key']
+                payload['sections'][code]['fields'][key] = str(src_fields.get(key, '') or '').strip()
+
+    return payload
+
+
+def build_facility_payload_from_form(form_data):
+    payload = build_default_facility_payload()
+    payload['business_name'] = form_data.get('business_name', '').strip()
+    payload['site_type'] = form_data.get('site_type', '').strip()
+    payload['inspection_date'] = form_data.get('inspection_date', '').strip()
+
+    for section in FACILITY_SURVEY_SECTIONS:
+        code = section['code']
+        section_state = payload['sections'][code]
+
+        result = form_data.get(f'sec_{code}_result', '').strip()
+        section_state['result'] = result if result in FACILITY_RESULT_OPTIONS else ''
+
+        checks = []
+        for idx, _check_name in enumerate(section.get('checks', []), start=1):
+            value = form_data.get(f'sec_{code}_check_{idx}', '').strip()
+            checks.append(value if value in FACILITY_CHECK_OPTIONS else '')
+        section_state['checks'] = checks
+
+        section_state['detail_note'] = form_data.get(f'sec_{code}_detail_note', '').strip()
+
+        for field in section.get('detail_fields', []):
+            key = field['key']
+            section_state['fields'][key] = form_data.get(f'sec_{code}_field_{key}', '').strip()
+
+    return payload
 
 
 def format_equipment_no(index, prefix=DEFAULT_EQUIPMENT_PREFIX):
@@ -182,6 +489,11 @@ INSPECTION_METHOD_GUIDE = {
     10: "(전체) 풍량계 측정 또는 촉감점검",
     11: "(전체) 분전반 커버 탈착 후 열화상 측정\n- 사진 보관",
 }
+
+FACILITY_INSPECTION_SITE_NAMES = [
+    "대림2WD",
+    "대방역2WD",
+]
 
 INSPECTION_SITE_NAMES = [
     "(HK)수서역LDT1.51.LTE.DU30(내)",
@@ -812,6 +1124,32 @@ def init_db():
         except Exception as seed_error:
             conn.rollback()
             print(f"⚠️ 점검 대상 시드 반영 중 오류: {seed_error}")
+
+        try:
+            inserted_count = 0
+            for site_name in FACILITY_INSPECTION_SITE_NAMES:
+                cursor.execute(
+                    '''SELECT id
+                       FROM inventory
+                       WHERE warehouse = %s AND category = %s AND part_name = %s''',
+                    (DB_FACILITY_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name)
+                )
+                if cursor.fetchone():
+                    continue
+
+                cursor.execute(
+                    '''INSERT INTO inventory
+                       (warehouse, category, part_name, quantity, last_modifier)
+                       VALUES (%s, %s, %s, %s, %s)''',
+                    (DB_FACILITY_WAREHOUSE, DIY_CHECKLIST_CATEGORY, site_name, 0, "system-seed")
+                )
+                inserted_count += 1
+
+            conn.commit()
+            print(f"✅ 시설물 적합조사 점검 대상 시드 반영 완료 (신규 {inserted_count}건)")
+        except Exception as facility_seed_error:
+            conn.rollback()
+            print(f"⚠️ 시설물 적합조사 점검 대상 시드 반영 중 오류: {facility_seed_error}")
 
         try:
             cursor.execute(
@@ -1894,10 +2232,16 @@ def warehouse(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
 
-    if warehouse_name != DIY_ACTIVE_SLUG:
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
-    return render_template('warehouse.html', warehouse_name=DIY_ACTIVE_LABEL, warehouse_slug=DIY_ACTIVE_SLUG)
+    return render_template(
+        'warehouse.html',
+        warehouse_name=get_display_warehouse_from_slug(warehouse_name),
+        warehouse_slug=warehouse_name,
+        diy_intro_text=get_diy_intro_text(warehouse_name)
+    )
 
 @app.route('/warehouse/<warehouse_name>/electric')
 def electric_inventory(warehouse_name):
@@ -1908,6 +2252,11 @@ def electric_inventory(warehouse_name):
     db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
+    warehouse_label = get_display_warehouse_from_slug(warehouse_name)
+    use_equipment_units = uses_equipment_units(warehouse_name)
+    allowed_site_names = FACILITY_INSPECTION_SITE_NAMES if warehouse_name == DIY_FACILITY_SLUG else []
+
     search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '').strip()
     if status_filter not in {'completed', 'pending'}:
@@ -1921,6 +2270,9 @@ def electric_inventory(warehouse_name):
         
         base_where_conditions = ["i.warehouse = %s", "i.category = %s"]
         base_params = [db_warehouse_name, DIY_CHECKLIST_CATEGORY]
+        if allowed_site_names:
+            base_where_conditions.append("(i.part_name = %s OR i.part_name = %s)")
+            base_params.extend(allowed_site_names[:2])
         if search_query:
             base_where_conditions.append("(i.part_name ILIKE %s OR COALESCE(r.inspector_name, '') ILIKE %s)")
             base_params.append(f'%{search_query}%')
@@ -1993,14 +2345,19 @@ def electric_inventory(warehouse_name):
                 'inspected_at': inspected_at or '',
                 'status': '작업 완료' if inspected_at else '작업 미완료',
                 'is_completed': bool(inspected_at),
-                'latest_record_id': latest_record_id
+                'latest_record_id': latest_record_id,
+                'detail_url': (
+                    url_for('inspection_units', warehouse_name=warehouse_name, item_id=target_id)
+                    if use_equipment_units
+                    else url_for('inspection_detail', warehouse_name=warehouse_name, item_id=target_id)
+                )
             })
         
         print(f"✅ 점검 대상 조회 성공: {len(checklist_targets)}개 항목")
         
         return render_template('electric_inventory.html',
-                               warehouse_name=DIY_ACTIVE_LABEL,
-                               warehouse_slug=DIY_ACTIVE_SLUG,
+                               warehouse_name=warehouse_label,
+                               warehouse_slug=warehouse_name,
                                warehouse_db_name=db_warehouse_name,
                                checklist_targets=checklist_targets,
                                search_query=search_query,
@@ -2008,7 +2365,9 @@ def electric_inventory(warehouse_name):
                                completed_count=completed_count,
                                pending_count=pending_count,
                                inspection_items=INSPECTION_ITEMS,
-                               is_admin=session.get('is_admin', False))
+                               is_admin=session.get('is_admin', False),
+                               show_admin_sites_button=(session.get('is_admin', False) and use_equipment_units),
+                               show_excel_export=use_equipment_units)
                                
     except Exception as e:
         print(f"❌ electric_inventory 오류: {type(e).__name__}: {str(e)}")
@@ -2030,6 +2389,7 @@ def inspection_detail(warehouse_name, item_id):
     db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+    facility_mode = is_facility_suitability(warehouse_name)
 
     try:
         conn = get_db_connection()
@@ -2059,31 +2419,35 @@ def inspection_detail(warehouse_name, item_id):
 
         latest_checklist_by_no = {}
         latest_photos = {}
+        latest_facility_payload = build_default_facility_payload()
         if latest_record and latest_record[4]:
-            try:
-                checklist_raw = latest_record[4]
-                checklist_data = checklist_raw if isinstance(checklist_raw, list) else json.loads(checklist_raw)
-                for row in checklist_data:
-                    checkpoint_no = int(row.get('checkpoint_no', 0))
-                    latest_checklist_by_no[checkpoint_no] = row.get('result', 'ok')
-            except Exception:
-                latest_checklist_by_no = {}
+            if facility_mode:
+                latest_facility_payload = parse_facility_payload(latest_record[4])
+            else:
+                try:
+                    checklist_raw = latest_record[4]
+                    checklist_data = checklist_raw if isinstance(checklist_raw, list) else json.loads(checklist_raw)
+                    for row in checklist_data:
+                        checkpoint_no = int(row.get('checkpoint_no', 0))
+                        latest_checklist_by_no[checkpoint_no] = row.get('result', 'ok')
+                except Exception:
+                    latest_checklist_by_no = {}
 
-            cursor.execute(
-                '''SELECT checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url
-                   FROM inspection_photos
-                   WHERE record_id = %s''',
-                (latest_record[0],)
-            )
-            for checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url in cursor.fetchall():
-                if checkpoint_no not in latest_photos:
-                    latest_photos[checkpoint_no] = {}
-                latest_photos[checkpoint_no][phase] = {
-                    'checkpoint_name': checkpoint_name,
-                    'filename': filename,
-                    'file_size': file_size,
-                    'supabase_url': supabase_url
-                }
+                cursor.execute(
+                    '''SELECT checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url
+                       FROM inspection_photos
+                       WHERE record_id = %s''',
+                    (latest_record[0],)
+                )
+                for checkpoint_no, checkpoint_name, phase, filename, file_size, supabase_url in cursor.fetchall():
+                    if checkpoint_no not in latest_photos:
+                        latest_photos[checkpoint_no] = {}
+                    latest_photos[checkpoint_no][phase] = {
+                        'checkpoint_name': checkpoint_name,
+                        'filename': filename,
+                        'file_size': file_size,
+                        'supabase_url': supabase_url
+                    }
 
         if request.method == 'POST':
             korea_time = get_korea_time().strftime('%Y-%m-%d %H:%M:%S')
@@ -2093,7 +2457,7 @@ def inspection_detail(warehouse_name, item_id):
                 site_name = requested_site_name or (item[1] or '미입력')
             else:
                 site_name = (latest_record[1] if latest_record and latest_record[1] else item[1] or '미입력')
-            memo = request.form.get('memo', '').strip()
+            plain_memo = request.form.get('memo', '').strip()
             edit_mode = request.form.get('edit_mode') == '1'
             record_id = request.form.get('record_id', '').strip()
             update_existing = (
@@ -2102,6 +2466,47 @@ def inspection_detail(warehouse_name, item_id):
                 latest_record and
                 int(record_id) == latest_record[0]
             )
+            if facility_mode:
+                facility_payload = build_facility_payload_from_form(request.form)
+                checklist_json = json.dumps(facility_payload, ensure_ascii=False)
+
+                if update_existing:
+                    record_id_int = int(record_id)
+                    cursor.execute(
+                        '''UPDATE inspection_records
+                           SET site_name = %s,
+                               inspector_name = %s,
+                               inspected_at = %s,
+                               status = %s,
+                               checklist_data = %s,
+                               memo = %s
+                           WHERE id = %s AND inventory_id = %s''',
+                        (site_name, inspector_name, korea_time, '작업 완료', checklist_json, plain_memo, record_id_int, item_id)
+                    )
+                    cursor.execute('DELETE FROM inspection_photos WHERE record_id = %s', (record_id_int,))
+                else:
+                    cursor.execute(
+                        '''INSERT INTO inspection_records
+                           (inventory_id, warehouse, site_name, inspector_name, inspected_at, status, checklist_data, memo)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+                        (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료', checklist_json, plain_memo)
+                    )
+
+                cursor.execute(
+                    'UPDATE inventory SET part_name = %s, last_modifier = %s, last_modified = %s WHERE id = %s',
+                    (site_name, inspector_name, korea_time, item_id)
+                )
+                cursor.execute(
+                    '''INSERT INTO inventory_history
+                       (inventory_id, change_type, quantity_change, modifier_name, modified_at)
+                       VALUES (%s, %s, %s, %s, %s)''',
+                    (item_id, 'inspection', 0, inspector_name, korea_time)
+                )
+
+                conn.commit()
+                conn.close()
+                flash('점검 내용이 저장되었습니다.')
+                return redirect(f'/warehouse/{warehouse_name}/electric')
 
             checklist_data = []
             photo_rows = []
@@ -2158,7 +2563,7 @@ def inspection_detail(warehouse_name, item_id):
                            memo = %s
                        WHERE id = %s AND inventory_id = %s''',
                     (site_name, inspector_name, korea_time, '작업 완료',
-                     json.dumps(checklist_data, ensure_ascii=False), memo, record_id_int, item_id)
+                     json.dumps(checklist_data, ensure_ascii=False), plain_memo, record_id_int, item_id)
                 )
                 cursor.execute('DELETE FROM inspection_photos WHERE record_id = %s', (record_id_int,))
                 target_record_id = record_id_int
@@ -2169,7 +2574,7 @@ def inspection_detail(warehouse_name, item_id):
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                        RETURNING id''',
                     (item_id, db_warehouse_name, site_name, inspector_name, korea_time, '작업 완료',
-                     json.dumps(checklist_data, ensure_ascii=False), memo)
+                     json.dumps(checklist_data, ensure_ascii=False), plain_memo)
                 )
                 target_record_id = cursor.fetchone()[0]
 
@@ -2199,6 +2604,7 @@ def inspection_detail(warehouse_name, item_id):
 
         editable = (request.args.get('mode') == 'edit') or (latest_record is None)
         latest_record_dict = None
+        memo_plain_text = ''
         inspected_at_str = ''
         if latest_record:
             inspected_at_value = latest_record[3]
@@ -2206,29 +2612,42 @@ def inspection_detail(warehouse_name, item_id):
                 inspected_at_str = inspected_at_value.strftime('%Y-%m-%d %H:%M:%S')
             else:
                 inspected_at_str = inspected_at_value or ''
+            memo_plain_text = latest_record[5] or ''
 
             latest_record_dict = {
                 'id': latest_record[0],
                 'site_name': latest_record[1] or item[1] or '미입력',
                 'inspector_name': latest_record[2] or '',
                 'inspected_at': inspected_at_str,
-                'memo': latest_record[5] or ''
+                'memo': memo_plain_text
             }
+
+        if facility_mode and not latest_facility_payload.get('inspection_date'):
+            latest_facility_payload['inspection_date'] = get_korea_time().strftime('%Y-%m-%d')
 
         conn.close()
         return render_template(
             'inspection_detail.html',
-            warehouse_name=DIY_ACTIVE_LABEL,
+            warehouse_name=get_display_warehouse_from_slug(warehouse_name),
             warehouse_slug=warehouse_name,
             item_id=item[0],
             site_name=(latest_record_dict['site_name'] if latest_record_dict else (item[1] or '미입력')),
+            equipment_no='',
+            equipment_selector_url='',
+            back_url=url_for('electric_inventory', warehouse_name=warehouse_name),
+            back_button_label='목록으로',
+            show_management_actions=False,
+            edit_url=url_for('inspection_detail', warehouse_name=warehouse_name, item_id=item_id, mode='edit'),
             inspector_name=session.get('user_name', '미설정'),
             inspection_items=INSPECTION_ITEMS,
             editable=editable,
             latest_record=latest_record_dict,
             latest_checklist_by_no=latest_checklist_by_no,
             latest_photos=latest_photos,
-            is_admin=session.get('is_admin', False)
+            is_admin=session.get('is_admin', False),
+            facility_mode=facility_mode,
+            facility_sections=FACILITY_SURVEY_SECTIONS,
+            facility_payload=latest_facility_payload
         )
     except Exception as e:
         try:
@@ -2618,12 +3037,16 @@ def inspection_detail_by_equipment(warehouse_name, item_id, equipment_no):
         conn.close()
         return render_template(
             'inspection_detail.html',
-            warehouse_name=DIY_ACTIVE_LABEL,
+            warehouse_name=get_display_warehouse_from_slug(warehouse_name),
             warehouse_slug=warehouse_name,
             item_id=item[0],
             site_name=(latest_record_dict['site_name'] if latest_record_dict else (item[1] or '미입력')),
             equipment_no=equipment_no,
             equipment_selector_url=url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id),
+            back_url=url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id),
+            back_button_label='설비 목록으로',
+            show_management_actions=True,
+            edit_url=url_for('inspection_detail_by_equipment', warehouse_name=warehouse_name, item_id=item_id, equipment_no=equipment_no, mode='edit'),
             inspector_name=session.get('user_name', '미상'),
             inspection_items=INSPECTION_ITEMS,
             editable=editable,
@@ -3489,6 +3912,7 @@ def search_inventory():
             results=[],
             query='',
             warehouse='',
+            warehouse_display_name='',
             is_admin=session.get('is_admin', False)
         )
 
@@ -3521,6 +3945,7 @@ def search_inventory():
         query_sql = f'''
             SELECT i.id,
                    i.part_name AS site_name,
+                   i.warehouse AS warehouse_name,
                    r.inspector_name,
                    r.inspected_at
             FROM inventory i
@@ -3541,7 +3966,7 @@ def search_inventory():
         conn.close()
 
         results = []
-        for item_id, site_name, inspector_name, inspected_at in raw_results:
+        for item_id, site_name, item_warehouse_name, inspector_name, inspected_at in raw_results:
             inspected_at_str = ''
             if inspected_at:
                 if isinstance(inspected_at, str):
@@ -3550,6 +3975,11 @@ def search_inventory():
                     inspected_at_str = inspected_at.strftime('%Y-%m-%d %H:%M:%S')
 
             is_completed = bool(inspected_at_str)
+            warehouse_slug = get_slug_from_db_warehouse(item_warehouse_name)
+            if uses_equipment_units(warehouse_slug):
+                detail_url = url_for('inspection_units', warehouse_name=warehouse_slug, item_id=item_id)
+            else:
+                detail_url = url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=item_id)
             results.append({
                 'id': item_id,
                 'site_name': site_name or '미입력',
@@ -3557,7 +3987,7 @@ def search_inventory():
                 'inspected_at': inspected_at_str,
                 'is_completed': is_completed,
                 'action_label': '보기' if is_completed else '점검하기',
-                'detail_url': url_for('inspection_units', warehouse_name=DIY_ACTIVE_SLUG, item_id=item_id)
+                'detail_url': detail_url
             })
 
         print(f"✅ 검색 결과: {len(results)}개 항목")
@@ -3567,6 +3997,7 @@ def search_inventory():
             results=results,
             query=query,
             warehouse=warehouse or DIY_ACTIVE_SLUG,
+            warehouse_display_name=get_display_warehouse_from_slug(warehouse or DIY_ACTIVE_SLUG),
             is_admin=session.get('is_admin', False)
         )
 
@@ -3577,6 +4008,7 @@ def search_inventory():
             results=[],
             query=query,
             warehouse=warehouse or DIY_ACTIVE_SLUG,
+            warehouse_display_name=get_display_warehouse_from_slug(warehouse or DIY_ACTIVE_SLUG),
             is_admin=session.get('is_admin', False),
             error_message=f'검색 중 오류가 발생했습니다: {str(e)}'
         )

@@ -86,7 +86,7 @@
                     <div class="col-md-6 mb-2"><strong>검색어:</strong> "{{ query }}"</div>
                     {% endif %}
                     {% if warehouse %}
-                    <div class="col-md-6 mb-2"><strong>DIY 위치:</strong> 냉방기 예방점검</div>
+                    <div class="col-md-6 mb-2"><strong>DIY 위치:</strong> {{ warehouse_display_name }}</div>
                     {% endif %}
                     {% if not query and not warehouse %}
                     <div class="col-12"><span class="text-muted">전체 조회</span></div>
@@ -114,6 +114,7 @@
                             <select class="form-select" name="warehouse">
                                 <option value="">전체</option>
                                 <option value="cooling-maintenance" {% if warehouse == 'cooling-maintenance' %}selected{% endif %}>냉방기 예방점검</option>
+                                <option value="facility-suitability" {% if warehouse == 'facility-suitability' %}selected{% endif %}>시설물 적합조사</option>
                             </select>
                         </div>
                         <div class="col-md-2 mb-3">
