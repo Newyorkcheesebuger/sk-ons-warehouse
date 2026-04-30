@@ -56,7 +56,7 @@
                             <td>
                                 {% set result_value = latest_checklist_by_no.get(item_no, 'ok') %}
                                 <span class="badge {% if result_value == 'ok' %}bg-success{% elif result_value == 'need' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                    {% if result_value == 'ok' %}?뺤긽{% elif result_value == 'need' %}議곗튂?꾩슂{% else %}??곸븘??% endif %}
+                                    {% if result_value == 'ok' %}정상{% elif result_value == 'need' %}조치필요{% else %}대상아님{% endif %}
                                 </span>
                             </td>
                             <td>
@@ -84,7 +84,10 @@
                 <textarea class="form-control" rows="4" readonly>{{ latest_record.memo }}</textarea>
             </div>
         </div>
-        <div class="card-footer bg-white d-flex justify-content-end">
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{{ equipment_selector_url }}?mode=edit" class="btn btn-outline-secondary px-4">
+                냉방기 관리 수정
+            </a>
             <a href="{{ url_for('inspection_detail_by_equipment', warehouse_name=warehouse_slug, item_id=item_id, equipment_no=equipment_no) }}?mode=edit" class="btn btn-primary px-4">
                 ?섏젙?섍린
             </a>
@@ -136,7 +139,7 @@
                                 <select class="form-select" name="result_{{ item_no }}">
                                     <option value="ok" {% if latest_checklist_by_no.get(item_no, 'ok') == 'ok' %}selected{% endif %}>?뺤긽</option>
                                     <option value="need" {% if latest_checklist_by_no.get(item_no, 'ok') == 'need' %}selected{% endif %}>議곗튂?꾩슂</option>
-                                    <option value="na" {% if latest_checklist_by_no.get(item_no, 'ok') == 'na' %}selected{% endif %}>??곸븘??/option>
+                                    <option value="na" {% if latest_checklist_by_no.get(item_no, 'ok') == 'na' %}selected{% endif %}>대상아님</option>
                                 </select>
                             </td>
                             <td>

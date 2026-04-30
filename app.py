@@ -2242,6 +2242,8 @@ def inspection_units(warehouse_name, item_id):
     if not db_warehouse_name:
         return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
 
+    manage_mode = request.args.get('mode') == 'edit'
+
     conn = None
     try:
         conn = get_db_connection()
@@ -2261,25 +2263,68 @@ def inspection_units(warehouse_name, item_id):
 
         site_name = item[1] or '미입력'
 
-        if request.method == 'POST' and request.form.get('action') == 'add_equipment':
-            raw_equipment_no = request.form.get('equipment_no', '').strip().upper()
-            parsed = parse_equipment_no(raw_equipment_no)
-            if not parsed:
+        if request.method == 'POST':
+            if not manage_mode:
                 conn.close()
-                flash('설비번호 형식이 올바르지 않습니다. 예: A05-01')
+                flash('냉방기 추가/삭제는 수정 모드에서만 가능합니다.')
                 return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id))
 
-            equipment_no = format_equipment_no(parsed[1], parsed[0])
-            cursor.execute(
-                '''INSERT INTO inspection_units (inventory_id, equipment_no, created_by)
-                   VALUES (%s, %s, %s)
-                   ON CONFLICT (inventory_id, equipment_no) DO NOTHING''',
-                (item_id, equipment_no, session.get('user_name', '미상'))
-            )
-            conn.commit()
-            conn.close()
-            flash(f'설비번호 {equipment_no}가 추가되었습니다.')
-            return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id))
+            action = request.form.get('action', '').strip()
+            if action == 'add_equipment':
+                raw_equipment_no = request.form.get('equipment_no', '').strip().upper()
+                parsed = parse_equipment_no(raw_equipment_no)
+                if not parsed:
+                    conn.close()
+                    flash('설비번호 형식이 올바르지 않습니다. 예: A05-01')
+                    return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id, mode='edit'))
+
+                equipment_no = format_equipment_no(parsed[1], parsed[0])
+                cursor.execute(
+                    '''INSERT INTO inspection_units (inventory_id, equipment_no, created_by)
+                       VALUES (%s, %s, %s)
+                       ON CONFLICT (inventory_id, equipment_no) DO NOTHING''',
+                    (item_id, equipment_no, session.get('user_name', '미상'))
+                )
+                conn.commit()
+                conn.close()
+                flash(f'설비번호 {equipment_no}가 추가되었습니다.')
+                return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id, mode='edit'))
+
+            if action == 'delete_equipment':
+                raw_equipment_no = request.form.get('equipment_no', '').strip().upper()
+                parsed = parse_equipment_no(raw_equipment_no)
+                if not parsed:
+                    conn.close()
+                    flash('삭제할 설비번호 형식이 올바르지 않습니다.')
+                    return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id, mode='edit'))
+
+                equipment_no = format_equipment_no(parsed[1], parsed[0])
+                cursor.execute(
+                    '''DELETE FROM inspection_photos
+                       WHERE record_id IN (
+                           SELECT id
+                           FROM inspection_records
+                           WHERE inventory_id = %s
+                             AND equipment_no = %s
+                       )''',
+                    (item_id, equipment_no)
+                )
+                cursor.execute(
+                    '''DELETE FROM inspection_records
+                       WHERE inventory_id = %s
+                         AND equipment_no = %s''',
+                    (item_id, equipment_no)
+                )
+                cursor.execute(
+                    '''DELETE FROM inspection_units
+                       WHERE inventory_id = %s
+                         AND equipment_no = %s''',
+                    (item_id, equipment_no)
+                )
+                conn.commit()
+                conn.close()
+                flash(f'설비번호 {equipment_no}가 삭제되었습니다.')
+                return redirect(url_for('inspection_units', warehouse_name=warehouse_name, item_id=item_id, mode='edit'))
 
         cursor.execute(
             '''SELECT equipment_no
@@ -2334,7 +2379,8 @@ def inspection_units(warehouse_name, item_id):
             site_name=site_name,
             equipment_rows=equipment_rows,
             suggested_equipment_no=suggested_equipment_no,
-            suggested_equipment_index=suggested_index
+            suggested_equipment_index=suggested_index,
+            manage_mode=manage_mode
         )
     except Exception as e:
         try:

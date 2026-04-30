@@ -16,7 +16,17 @@
 
     <div class="card shadow-sm mb-3">
         <div class="card-body">
-            <div class="fw-semibold mb-2">냉방기 {{ suggested_equipment_index }}호기 설비 번호를 입력해주세요</div>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="fw-semibold mb-0">냉방기 {{ suggested_equipment_index }}호기 설비 번호를 입력해주세요</div>
+                {% if manage_mode %}
+                <a href="{{ url_for('inspection_units', warehouse_name=warehouse_slug, item_id=item_id) }}" class="btn btn-outline-secondary btn-sm">수정 완료</a>
+                {% else %}
+                <a href="{{ url_for('inspection_units', warehouse_name=warehouse_slug, item_id=item_id, mode='edit') }}" class="btn btn-primary btn-sm">수정하기</a>
+                {% endif %}
+            </div>
+            {% if not manage_mode %}
+            <div class="alert alert-info mb-0">점검 완료 보기 상태입니다. 냉방기 추가/삭제는 <strong>수정하기</strong>를 누른 뒤 가능합니다.</div>
+            {% else %}
             <form method="POST" class="row g-2 align-items-end">
                 <input type="hidden" name="action" value="add_equipment">
                 <div class="col-md-6">
@@ -29,6 +39,7 @@
                     </button>
                 </div>
             </form>
+            {% endif %}
         </div>
     </div>
 
@@ -42,7 +53,8 @@
                             <th style="width: 20%;">점검자</th>
                             <th style="width: 24%;">최종 점검일시</th>
                             <th style="width: 14%;">상태</th>
-                            <th style="width: 20%;">점검</th>
+                            <th style="width: 14%;">점검</th>
+                            <th style="width: 10%;">관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,10 +76,21 @@
                                     {{ '보기' if equipment.is_completed else '점검하기' }}
                                 </a>
                             </td>
+                            <td>
+                                {% if manage_mode %}
+                                <form method="POST" onsubmit="return confirm('설비번호 {{ equipment.equipment_no }}를 삭제하시겠습니까?')">
+                                    <input type="hidden" name="action" value="delete_equipment">
+                                    <input type="hidden" name="equipment_no" value="{{ equipment.equipment_no }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">삭제</button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-5">등록된 냉방기가 없습니다. 위의 추가 버튼으로 설비를 먼저 생성해주세요.</td>
+                            <td colspan="6" class="text-center text-muted py-5">등록된 냉방기가 없습니다. 위의 추가 버튼으로 설비를 먼저 생성해주세요.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -91,6 +114,13 @@
                         </div>
                         <a href="{{ url_for('inspection_detail_by_equipment', warehouse_name=warehouse_slug, item_id=item_id, equipment_no=equipment.equipment_no) }}"
                            class="btn btn-primary w-100">{{ '보기' if equipment.is_completed else '점검하기' }}</a>
+                        {% if manage_mode %}
+                        <form method="POST" class="mt-2" onsubmit="return confirm('설비번호 {{ equipment.equipment_no }}를 삭제하시겠습니까?')">
+                            <input type="hidden" name="action" value="delete_equipment">
+                            <input type="hidden" name="equipment_no" value="{{ equipment.equipment_no }}">
+                            <button type="submit" class="btn btn-outline-danger w-100">삭제</button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}
