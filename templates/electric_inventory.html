@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h2 class="mb-0">{{ warehouse_name }}</h2>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('export_inspection_report', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
+            <a href="{{ url_for('export_inspection_report_v2', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
                 <i class="fas fa-file-excel me-1"></i>엑셀다운
             </a>
             {% if is_admin %}
@@ -93,7 +93,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=target.id) }}"
+                                <a href="{{ url_for('inspection_units', warehouse_name=warehouse_slug, item_id=target.id) }}"
                                    class="btn btn-primary btn-sm">
                                     {{ '보기' if target.is_completed else '점검하기' }}
                                 </a>
@@ -123,7 +123,7 @@
                             <span class="badge bg-warning text-dark">{{ target.status }}</span>
                             {% endif %}
                         </div>
-                        <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=target.id) }}"
+                        <a href="{{ url_for('inspection_units', warehouse_name=warehouse_slug, item_id=target.id) }}"
                            class="btn btn-primary w-100">{{ '보기' if target.is_completed else '점검하기' }}</a>
                     </div>
                 </div>

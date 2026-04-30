@@ -1,0 +1,103 @@
+﻿{% extends "base.html" %}
+
+{% block title %}설비번호 선택 - {{ warehouse_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h3 class="mb-1">{{ warehouse_name }}</h3>
+            <div class="text-muted">국사명 {{ site_name }}</div>
+        </div>
+        <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>목록으로
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">냉방기 {{ suggested_equipment_index }}호기 설비 번호를 입력해주세요</div>
+            <form method="POST" class="row g-2 align-items-end">
+                <input type="hidden" name="action" value="add_equipment">
+                <div class="col-md-6">
+                    <label class="form-label">설비번호</label>
+                    <input type="text" class="form-control" name="equipment_no" value="{{ suggested_equipment_no }}" required>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-plus me-1"></i>냉방기 추가
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive d-none d-lg-block">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 22%;">설비번호</th>
+                            <th style="width: 20%;">점검자</th>
+                            <th style="width: 24%;">최종 점검일시</th>
+                            <th style="width: 14%;">상태</th>
+                            <th style="width: 20%;">점검</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for equipment in equipment_rows %}
+                        <tr>
+                            <td><strong>{{ equipment.equipment_no }}</strong></td>
+                            <td>{{ equipment.inspector_name or '-' }}</td>
+                            <td>{{ equipment.inspected_at or '-' }}</td>
+                            <td>
+                                {% if equipment.is_completed %}
+                                <span class="badge bg-success">작업 완료</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">작업 미완료</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('inspection_detail_by_equipment', warehouse_name=warehouse_slug, item_id=item_id, equipment_no=equipment.equipment_no) }}"
+                                   class="btn btn-primary btn-sm">
+                                    {{ '보기' if equipment.is_completed else '점검하기' }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">등록된 냉방기가 없습니다. 위의 추가 버튼으로 설비를 먼저 생성해주세요.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-block d-lg-none p-3">
+                {% for equipment in equipment_rows %}
+                <div class="card mb-3 border">
+                    <div class="card-body">
+                        <div class="mb-2"><strong>설비번호</strong> {{ equipment.equipment_no }}</div>
+                        <div class="mb-2"><strong>점검자</strong> {{ equipment.inspector_name or '-' }}</div>
+                        <div class="mb-2"><strong>최종 점검일시</strong> {{ equipment.inspected_at or '-' }}</div>
+                        <div class="mb-3">
+                            <strong>상태:</strong>
+                            {% if equipment.is_completed %}
+                            <span class="badge bg-success">작업 완료</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">작업 미완료</span>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('inspection_detail_by_equipment', warehouse_name=warehouse_slug, item_id=item_id, equipment_no=equipment.equipment_no) }}"
+                           class="btn btn-primary w-100">{{ '보기' if equipment.is_completed else '점검하기' }}</a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">등록된 냉방기가 없습니다. 먼저 설비를 추가해주세요.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

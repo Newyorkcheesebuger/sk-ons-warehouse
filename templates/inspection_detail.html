@@ -1,21 +1,21 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}점검 상세 - {{ warehouse_name }}{% endblock %}
+{% block title %}?먭? ?곸꽭 - {{ warehouse_name }}{% endblock %}
 
 {% block content %}
 <div class="container py-3">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
             <h3 class="mb-1">{{ warehouse_name }}</h3>
-            <div class="text-muted">국사명: {{ site_name }}</div>
+            <div class="text-muted">援?궗紐? {{ site_name }}</div>
+            <div class="text-muted">설비번호 {{ equipment_no }}</div>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ url_for('inspection_method') }}" class="btn btn-outline-primary">
-                <i class="fas fa-image me-1"></i>점검 방법
+                <i class="fas fa-image me-1"></i>?먭? 諛⑸쾿
             </a>
-            <a href="{{ url_for('electric_inventory', warehouse_name=warehouse_slug) }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-1"></i>뒤로가기
-            </a>
+            <a href="{{ equipment_selector_url }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>?ㅻ줈媛湲?            </a>
         </div>
     </div>
 
@@ -24,15 +24,15 @@
         <div class="card-body">
             <div class="row g-3 mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">국사명</label>
+                    <label class="form-label">援?궗紐?/label>
                     <input type="text" class="form-control" value="{{ latest_record.site_name }}" readonly>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">작업자</label>
+                    <label class="form-label">?묒뾽??/label>
                     <input type="text" class="form-control" value="{{ latest_record.inspector_name or '-' }}" readonly>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">작업일시</label>
+                    <label class="form-label">?묒뾽?쇱떆</label>
                     <input type="text" class="form-control" value="{{ latest_record.inspected_at or '-' }}" readonly>
                 </div>
             </div>
@@ -41,10 +41,10 @@
                 <table class="table align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="min-width: 210px;">점검 항목</th>
-                            <th style="min-width: 120px;">결과</th>
-                            <th style="min-width: 180px;">작업전 사진</th>
-                            <th style="min-width: 180px;">작업후 사진</th>
+                            <th style="min-width: 210px;">?먭? ??ぉ</th>
+                            <th style="min-width: 120px;">寃곌낵</th>
+                            <th style="min-width: 180px;">?묒뾽???ъ쭊</th>
+                            <th style="min-width: 180px;">?묒뾽???ъ쭊</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -56,21 +56,21 @@
                             <td>
                                 {% set result_value = latest_checklist_by_no.get(item_no, 'ok') %}
                                 <span class="badge {% if result_value == 'ok' %}bg-success{% elif result_value == 'need' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                    {% if result_value == 'ok' %}정상{% elif result_value == 'need' %}조치필요{% else %}대상아님{% endif %}
+                                    {% if result_value == 'ok' %}?뺤긽{% elif result_value == 'need' %}議곗튂?꾩슂{% else %}??곸븘??% endif %}
                                 </span>
                             </td>
                             <td>
                                 {% if before_photo %}
-                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">보기</a>
+                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">蹂닿린</a>
                                 {% else %}
-                                <span class="text-muted">없음</span>
+                                <span class="text-muted">?놁쓬</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if after_photo %}
-                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">보기</a>
+                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-primary">蹂닿린</a>
                                 {% else %}
-                                <span class="text-muted">없음</span>
+                                <span class="text-muted">?놁쓬</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -80,13 +80,13 @@
             </div>
 
             <div class="mt-3">
-                <label class="form-label">메모</label>
+                <label class="form-label">硫붾え</label>
                 <textarea class="form-control" rows="4" readonly>{{ latest_record.memo }}</textarea>
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end">
-            <a href="{{ url_for('inspection_detail', warehouse_name=warehouse_slug, item_id=item_id) }}?mode=edit" class="btn btn-primary px-4">
-                수정하기
+            <a href="{{ url_for('inspection_detail_by_equipment', warehouse_name=warehouse_slug, item_id=item_id, equipment_no=equipment_no) }}?mode=edit" class="btn btn-primary px-4">
+                ?섏젙?섍린
             </a>
         </div>
     </div>
@@ -100,30 +100,30 @@
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label">국사명</label>
+                    <label class="form-label">援?궗紐?/label>
                     <input type="text" class="form-control" name="site_name" value="{{ site_name }}" required {% if not is_admin %}readonly{% endif %}>
                     {% if not is_admin %}
-                    <small class="text-muted">국사명은 관리자만 수정할 수 있습니다.</small>
+                    <small class="text-muted">援?궗紐낆? 愿由ъ옄留??섏젙?????덉뒿?덈떎.</small>
                     {% endif %}
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">작업자</label>
+                    <label class="form-label">?묒뾽??/label>
                     <input type="text" class="form-control" value="{{ inspector_name }}" readonly>
                 </div>
             </div>
 
             <div class="alert alert-info">
-                필요한 항목만 작업전/작업후 사진을 선택해서 등록하세요. 업로드 시 1MB 이하로 자동 압축됩니다.
+                ?꾩슂????ぉ留??묒뾽???묒뾽???ъ쭊???좏깮?댁꽌 ?깅줉?섏꽭?? ?낅줈????1MB ?댄븯濡??먮룞 ?뺤텞?⑸땲??
             </div>
 
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="min-width: 210px;">점검 항목</th>
-                            <th style="min-width: 120px;">결과</th>
-                            <th style="min-width: 220px;">작업전 사진</th>
-                            <th style="min-width: 220px;">작업후 사진</th>
+                            <th style="min-width: 210px;">?먭? ??ぉ</th>
+                            <th style="min-width: 120px;">寃곌낵</th>
+                            <th style="min-width: 220px;">?묒뾽???ъ쭊</th>
+                            <th style="min-width: 220px;">?묒뾽???ъ쭊</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -134,9 +134,9 @@
                             <td><strong>{{ item_no }}. {{ item_name }}</strong></td>
                             <td>
                                 <select class="form-select" name="result_{{ item_no }}">
-                                    <option value="ok" {% if latest_checklist_by_no.get(item_no, 'ok') == 'ok' %}selected{% endif %}>정상</option>
-                                    <option value="need" {% if latest_checklist_by_no.get(item_no, 'ok') == 'need' %}selected{% endif %}>조치필요</option>
-                                    <option value="na" {% if latest_checklist_by_no.get(item_no, 'ok') == 'na' %}selected{% endif %}>대상아님</option>
+                                    <option value="ok" {% if latest_checklist_by_no.get(item_no, 'ok') == 'ok' %}selected{% endif %}>?뺤긽</option>
+                                    <option value="need" {% if latest_checklist_by_no.get(item_no, 'ok') == 'need' %}selected{% endif %}>議곗튂?꾩슂</option>
+                                    <option value="na" {% if latest_checklist_by_no.get(item_no, 'ok') == 'na' %}selected{% endif %}>??곸븘??/option>
                                 </select>
                             </td>
                             <td>
@@ -145,8 +145,8 @@
                                        name="before_{{ item_no }}"
                                        accept="image/*">
                                 {% if before_photo %}
-                                <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
-                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>
+                                <small class="text-muted d-block mt-1">湲곗〈 ?ъ쭊 ?좎? 媛??/small>
+                                <a href="{{ before_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">湲곗〈 蹂닿린</a>
                                 {% endif %}
                             </td>
                             <td>
@@ -155,8 +155,8 @@
                                        name="after_{{ item_no }}"
                                        accept="image/*">
                                 {% if after_photo %}
-                                <small class="text-muted d-block mt-1">기존 사진 유지 가능</small>
-                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">기존 보기</a>
+                                <small class="text-muted d-block mt-1">湲곗〈 ?ъ쭊 ?좎? 媛??/small>
+                                <a href="{{ after_photo.supabase_url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">湲곗〈 蹂닿린</a>
                                 {% endif %}
                             </td>
                         </tr>
@@ -166,12 +166,12 @@
             </div>
 
             <div class="mt-3">
-                <label class="form-label">메모</label>
-                <textarea class="form-control" name="memo" rows="4" placeholder="특이사항을 입력하세요">{{ latest_record.memo if latest_record else '' }}</textarea>
+                <label class="form-label">硫붾え</label>
+                <textarea class="form-control" name="memo" rows="4" placeholder="?뱀씠?ы빆???낅젰?섏꽭??>{{ latest_record.memo if latest_record else '' }}</textarea>
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end">
-            <button type="submit" class="btn btn-primary px-4" id="inspection-save-btn">저장</button>
+            <button type="submit" class="btn btn-primary px-4" id="inspection-save-btn">???/button>
         </div>
     </form>
     {% endif %}
@@ -179,7 +179,7 @@
     <div id="inspection-loading-overlay" class="inspection-loading-overlay d-none" aria-live="polite" aria-busy="true">
         <div class="inspection-loading-box">
             <div class="spinner-border text-primary mb-2" role="status" aria-hidden="true"></div>
-            <div>저장 중입니다. 잠시만 기다려주세요.</div>
+            <div>???以묒엯?덈떎. ?좎떆留?湲곕떎?ㅼ＜?몄슂.</div>
         </div>
     </div>
 </div>
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function() {
         if (saveButton) {
             saveButton.disabled = true;
-            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>저장 중...';
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>???以?..';
         }
         if (overlay) {
             overlay.classList.remove('d-none');
