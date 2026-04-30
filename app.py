@@ -2697,7 +2697,6 @@ def export_inspection_report_v2(warehouse_name):
 
                 if latest_record:
                     record_id = latest_record[0]
-                    site_display_name = latest_record[1] or site_display_name
                     raw_checklist = latest_record[2]
                     if raw_checklist:
                         try:
@@ -2734,12 +2733,26 @@ def export_inspection_report_v2(warehouse_name):
         thin_side = Side(border_style='thin', color='D0D0D0')
         thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
-        sheet.cell(row=1, column=1, value='?쒕쾲')
-        sheet.cell(row=1, column=2, value='援?궗紐?')
+        item_titles = {
+            1: '고무패킹 교체',
+            2: '실내기 Reset',
+            3: 'V벨트 교체',
+            4: '릴레이 점검',
+            5: '배수관 청소',
+            6: 'RMS 연동확인',
+            7: '자연공조 점검',
+            8: '정전 보상',
+            9: '실외기 팬/소음',
+            10: '송풍기 풍량',
+            11: '열화상 측정'
+        }
+
+        sheet.cell(row=1, column=1, value='순번')
+        sheet.cell(row=1, column=2, value='국사명')
         sheet.cell(row=1, column=3, value='설비번호')
         for checkpoint_no, _checkpoint_name in INSPECTION_ITEMS:
             col_no = 3 + checkpoint_no
-            sheet.cell(row=1, column=col_no, value=f'{checkpoint_no}踰?')
+            sheet.cell(row=1, column=col_no, value=item_titles.get(checkpoint_no, f'{checkpoint_no}번'))
 
         max_col = 3 + len(INSPECTION_ITEMS)
         for col_no in range(1, max_col + 1):
@@ -2781,14 +2794,14 @@ def export_inspection_report_v2(warehouse_name):
                 col_no = 3 + checkpoint_no
                 result_text = checklist_map.get(checkpoint_no, '')
                 if result_text == 'ok':
-                    result_text = '?뺤긽'
+                    result_text = '정상'
                 elif result_text == 'need':
-                    result_text = '議곗튂?꾩슂'
+                    result_text = '조치필요'
                 elif result_text == 'na':
-                    result_text = '??곸븘??'
+                    result_text = '대상아님'
 
                 method_cell = sheet.cell(row=method_row, column=col_no)
-                method_cell.value = f"{INSPECTION_METHOD_GUIDE.get(checkpoint_no, '-')}\n\n??: {result_text or '-'}"
+                method_cell.value = f"{INSPECTION_METHOD_GUIDE.get(checkpoint_no, '-')}\n\n결과: {result_text or '-'}"
                 method_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
                 before_url = photos_map.get(checkpoint_no, {}).get('before')

@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h2 class="mb-0">냉방기 예방점검</h2>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('export_inspection_report_v2', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info">
+            <a href="{{ url_for('export_inspection_report_v2', warehouse_name=warehouse_slug) }}" class="btn btn-outline-info" id="excel-export-btn">
                 <i class="fas fa-file-excel me-1"></i>엑셀 다운로드
             </a>
             {% if is_admin %}
@@ -135,6 +135,14 @@
     </div>
 </div>
 
+<div id="excel-download-overlay" class="excel-download-overlay d-none" aria-live="polite" aria-busy="true">
+    <div class="excel-download-box">
+        <div class="spinner-border text-primary mb-2" role="status" aria-hidden="true"></div>
+        <div class="fw-semibold">엑셀 파일을 준비 중입니다.</div>
+        <div class="small text-muted mt-1">무료 클라우드 사용으로  페이지가 작동하지 않을 수 있습니다. 새로고침을 누른뒤 기다려주세요</div>
+    </div>
+</div>
+
 <style>
 .status-filter-box {
     display: block;
@@ -182,5 +190,43 @@
     border-width: 2px;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
 }
+
+.excel-download-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.82);
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.excel-download-box {
+    width: min(520px, 92vw);
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+    padding: 1rem 1.2rem;
+    text-align: center;
+}
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const excelButton = document.getElementById('excel-export-btn');
+    const overlay = document.getElementById('excel-download-overlay');
+    if (!excelButton || !overlay) {
+        return;
+    }
+
+    excelButton.addEventListener('click', function() {
+        overlay.classList.remove('d-none');
+        setTimeout(function() {
+            overlay.classList.add('d-none');
+        }, 15000);
+    });
+});
+</script>
 {% endblock %}
