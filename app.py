@@ -609,11 +609,16 @@ def get_korea_time():
     korea_tz = pytz.timezone('Asia/Seoul')
     return datetime.now(korea_tz)
 
-def find_local_inspection_method_image_relpath():
+def find_local_inspection_method_image_relpath(diy_slug=DIY_ACTIVE_SLUG):
     inspection_dir = os.path.join(app.root_path, 'static', 'inspection')
     os.makedirs(inspection_dir, exist_ok=True)
 
+    slug_suffix = 'facility' if diy_slug == DIY_FACILITY_SLUG else 'cooling'
     candidate_files = [
+        f'inspection_method_{slug_suffix}.png',
+        f'inspection_method_{slug_suffix}.jpg',
+        f'inspection_method_{slug_suffix}.jpeg',
+        f'inspection_method_{slug_suffix}.webp',
         'inspection_method.png',
         'inspection_method.jpg',
         'inspection_method.jpeg',
@@ -636,18 +641,20 @@ def find_local_inspection_method_image_relpath():
 
     return None
 
-def get_latest_inspection_method_image():
+def get_latest_inspection_method_image(diy_slug=DIY_ACTIVE_SLUG):
     """점검방법 이미지(DB+Supabase) 최신 활성 데이터 조회"""
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            '''SELECT id, storage_path, public_url, uploaded_by, created_at
+            '''SELECT id, storage_path, public_url, uploaded_by, created_at, diy_slug
                FROM inspection_method_images
                WHERE is_active = 1
+                 AND diy_slug = %s
                ORDER BY created_at DESC, id DESC
-               LIMIT 1'''
+               LIMIT 1''',
+            (diy_slug,)
         )
         row = cursor.fetchone()
         conn.close()
@@ -658,7 +665,8 @@ def get_latest_inspection_method_image():
             'storage_path': row[1],
             'public_url': row[2],
             'uploaded_by': row[3],
-            'created_at': row[4]
+            'created_at': row[4],
+            'diy_slug': row[5]
         }
     except Exception:
         try:
@@ -1094,6 +1102,7 @@ def init_db():
                 storage_path TEXT NOT NULL,
                 public_url TEXT NOT NULL,
                 uploaded_by TEXT,
+                diy_slug TEXT NOT NULL DEFAULT 'cooling-maintenance',
                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul'),
                 is_active INTEGER DEFAULT 1
             )'''),
@@ -1136,6 +1145,28 @@ def init_db():
             print(f"?뱄툘 equipment_no 而щ읆 ?대? 議댁옱 ?먮뒗 異붽? 遺덊븘?? {e}")
             cursor.close()
             cursor = conn.cursor()
+
+        try:
+            cursor.execute("ALTER TABLE inspection_method_images ADD COLUMN diy_slug TEXT")
+            conn.commit()
+            print("✅ inspection_method_images diy_slug 컬럼 추가 완료")
+        except Exception as e:
+            conn.rollback()
+            print(f"ℹ️ inspection_method_images diy_slug 컬럼 이미 존재 또는 추가 불필요: {e}")
+            cursor.close()
+            cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                '''UPDATE inspection_method_images
+                   SET diy_slug = %s
+                   WHERE diy_slug IS NULL OR TRIM(diy_slug) = ''',
+                (DIY_ACTIVE_SLUG,)
+            )
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print(f"⚠️ inspection_method_images diy_slug 초기값 반영 중 오류: {e}")
 
         try:
             cursor.execute('SELECT id FROM users WHERE employee_id = %s', ('admin',))
@@ -3608,42 +3639,58 @@ def export_inspection_report(warehouse_name):
 
 
 @app.route('/inspection-method')
-def inspection_method():
+def inspection_method_default():
+    if 'user_id' not in session:
+        return redirect('/')
+    return redirect(url_for('inspection_method', warehouse_name=DIY_ACTIVE_SLUG))
+
+
+@app.route('/inspection-method/<warehouse_name>')
+def inspection_method(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
 
-    latest_image = get_latest_inspection_method_image()
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
+
+    latest_image = get_latest_inspection_method_image(warehouse_name)
     image_url = latest_image['public_url'] if latest_image else None
 
     # 하위 호환: DB가 비어있는 경우 로컬 파일 표시
     if not image_url:
-        local_relpath = find_local_inspection_method_image_relpath()
+        local_relpath = find_local_inspection_method_image_relpath(warehouse_name)
         if local_relpath:
             image_url = url_for('static', filename=local_relpath)
 
     return render_template(
         'inspection_method.html',
+        warehouse_name=warehouse_name,
+        warehouse_display_name=get_display_warehouse_from_slug(warehouse_name),
         has_image=bool(image_url),
         image_url=image_url,
         is_admin=session.get('is_admin', False),
         image_meta=latest_image
     )
 
-@app.route('/inspection-method/upload', methods=['POST'])
-def upload_inspection_method():
+@app.route('/inspection-method/<warehouse_name>/upload', methods=['POST'])
+def upload_inspection_method(warehouse_name):
     if 'user_id' not in session:
         return redirect('/')
+    db_warehouse_name = get_db_warehouse_from_slug(warehouse_name)
+    if not db_warehouse_name:
+        return render_template('preparing.html', warehouse_name=DIY_PREPARING_LABEL)
     if not session.get('is_admin'):
         flash('관리자만 점검 방법 이미지를 등록할 수 있습니다.')
-        return redirect(url_for('inspection_method'))
+        return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
 
     file_obj = request.files.get('inspection_method_image')
     if not file_obj or file_obj.filename == '':
         flash('업로드할 이미지 파일을 선택해주세요.')
-        return redirect(url_for('inspection_method'))
+        return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
     if not allowed_file(file_obj.filename):
         flash('png/jpg/jpeg/webp 형식만 등록할 수 있습니다.')
-        return redirect(url_for('inspection_method'))
+        return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
 
     conn = None
     try:
@@ -3656,10 +3703,10 @@ def upload_inspection_method():
         )
         if not compressed_bytes:
             flash('점검 방법 이미지 압축에 실패했습니다.')
-            return redirect(url_for('inspection_method'))
+            return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        file_key = f"{INSPECTION_METHOD_PREFIX}/inspection_method_{timestamp}_{uuid.uuid4().hex}.jpg"
+        file_key = f"{INSPECTION_METHOD_PREFIX}/{warehouse_name}/inspection_method_{timestamp}_{uuid.uuid4().hex}.jpg"
         public_url = upload_to_supabase_storage(
             compressed_bytes,
             file_key,
@@ -3668,22 +3715,25 @@ def upload_inspection_method():
         )
         if not public_url:
             flash('점검 방법 이미지 업로드에 실패했습니다.')
-            return redirect(url_for('inspection_method'))
+            return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('UPDATE inspection_method_images SET is_active = 0 WHERE is_active = 1')
+        cursor.execute(
+            'UPDATE inspection_method_images SET is_active = 0 WHERE is_active = 1 AND diy_slug = %s',
+            (warehouse_name,)
+        )
         cursor.execute(
             '''INSERT INTO inspection_method_images
-               (storage_path, public_url, uploaded_by, is_active)
-               VALUES (%s, %s, %s, %s)''',
-            (file_key, public_url, session.get('user_name', '관리자'), 1)
+               (storage_path, public_url, uploaded_by, diy_slug, is_active)
+               VALUES (%s, %s, %s, %s, %s)''',
+            (file_key, public_url, session.get('user_name', '관리자'), warehouse_name, 1)
         )
         conn.commit()
         conn.close()
 
         flash('점검 방법 이미지가 Supabase에 등록되었습니다.')
-        return redirect(url_for('inspection_method'))
+        return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
     except Exception as e:
         try:
             if conn:
@@ -3693,7 +3743,7 @@ def upload_inspection_method():
             pass
         print(f"❌ upload_inspection_method 오류: {type(e).__name__}: {str(e)}")
         flash(f'점검 방법 이미지 등록 중 오류가 발생했습니다: {str(e)}')
-        return redirect(url_for('inspection_method'))
+        return redirect(url_for('inspection_method', warehouse_name=warehouse_name))
 
 
 def facility_result_label(value):
