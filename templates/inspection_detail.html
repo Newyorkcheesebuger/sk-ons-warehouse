@@ -13,9 +13,14 @@
             {% endif %}
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('inspection_method', warehouse_name=warehouse_slug) }}" class="btn btn-outline-primary">
+            <button
+                type="button"
+                class="btn btn-outline-primary"
+                id="inspection-method-open-btn"
+                data-image-url="{{ inspection_method_image_url or '' }}"
+                data-warehouse-name="{{ warehouse_name }}">
                 <i class="fas fa-image me-1"></i>점검 방법
-            </a>
+            </button>
             <a href="{{ back_url }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i>{{ back_button_label }}
             </a>
@@ -442,6 +447,27 @@
         {% endif %}
     {% endif %}
 
+    <div class="modal fade" id="inspectionMethodModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">점검 방법 - {{ warehouse_name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+                </div>
+                <div class="modal-body text-center">
+                    {% if inspection_method_image_url %}
+                    <img
+                        src="{{ inspection_method_image_url }}"
+                        alt="{{ warehouse_name }} 점검 방법"
+                        class="img-fluid rounded border inspection-method-preview-image">
+                    {% else %}
+                    <div class="text-muted py-5">등록된 점검방법 이미지가 없습니다.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="inspection-loading-overlay" class="inspection-loading-overlay d-none" aria-live="polite" aria-busy="true">
         <div class="inspection-loading-box">
             <div class="spinner-border text-primary mb-2" role="status" aria-hidden="true"></div>
@@ -454,6 +480,15 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const inspectionMethodButton = document.getElementById('inspection-method-open-btn');
+    const inspectionMethodModalElement = document.getElementById('inspectionMethodModal');
+    if (inspectionMethodButton && inspectionMethodModalElement && window.bootstrap && window.bootstrap.Modal) {
+        inspectionMethodButton.addEventListener('click', function() {
+            const modalInstance = window.bootstrap.Modal.getOrCreateInstance(inspectionMethodModalElement);
+            modalInstance.show();
+        });
+    }
+
     const form = document.getElementById('inspection-form');
     if (!form) {
         return;
@@ -649,6 +684,12 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 1rem 1.2rem;
     text-align: center;
     font-weight: 500;
+}
+
+.inspection-method-preview-image {
+    max-height: 78vh;
+    width: auto;
+    object-fit: contain;
 }
 </style>
 {% endblock %}

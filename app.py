@@ -2810,6 +2810,13 @@ def inspection_detail(warehouse_name, item_id):
         if facility_mode and not latest_facility_payload.get('inspection_date'):
             latest_facility_payload['inspection_date'] = get_korea_time().strftime('%Y-%m-%d')
 
+        latest_method_image = get_latest_inspection_method_image(warehouse_name)
+        inspection_method_image_url = latest_method_image['public_url'] if latest_method_image else None
+        if not inspection_method_image_url:
+            local_relpath = find_local_inspection_method_image_relpath(warehouse_name)
+            if local_relpath:
+                inspection_method_image_url = url_for('static', filename=local_relpath)
+
         conn.close()
         return render_template(
             'inspection_detail.html',
@@ -2834,7 +2841,8 @@ def inspection_detail(warehouse_name, item_id):
             facility_sections=FACILITY_SURVEY_SECTIONS,
             facility_payload=latest_facility_payload,
             facility_capture_slots=FACILITY_CAPTURE_SLOTS,
-            facility_capture_photos=latest_facility_capture_photos
+            facility_capture_photos=latest_facility_capture_photos,
+            inspection_method_image_url=inspection_method_image_url
         )
     except Exception as e:
         try:
@@ -3221,6 +3229,13 @@ def inspection_detail_by_equipment(warehouse_name, item_id, equipment_no):
                 'memo': latest_record[5] or ''
             }
 
+        latest_method_image = get_latest_inspection_method_image(warehouse_name)
+        inspection_method_image_url = latest_method_image['public_url'] if latest_method_image else None
+        if not inspection_method_image_url:
+            local_relpath = find_local_inspection_method_image_relpath(warehouse_name)
+            if local_relpath:
+                inspection_method_image_url = url_for('static', filename=local_relpath)
+
         conn.close()
         return render_template(
             'inspection_detail.html',
@@ -3240,7 +3255,8 @@ def inspection_detail_by_equipment(warehouse_name, item_id, equipment_no):
             latest_record=latest_record_dict,
             latest_checklist_by_no=latest_checklist_by_no,
             latest_photos=latest_photos,
-            is_admin=session.get('is_admin', False)
+            is_admin=session.get('is_admin', False),
+            inspection_method_image_url=inspection_method_image_url
         )
     except Exception as e:
         try:
